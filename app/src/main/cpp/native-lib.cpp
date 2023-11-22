@@ -29,9 +29,11 @@ Java_com_example_myopencl_MainActivity_stringFromJNI(
 
     AAssetManager *assetManager = AAssetManager_fromJava(env, _assetManager);
     SimpleTokenizer tokenizer(assetManager);
-    auto a = tokenizer.encode("<start_of_text> wawd wdad w,. wwd qwd <end_of_text>");
-    for (auto i : a) {
-        __android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "encode: %d", i);
+    auto a = tokenizer.tokenize("<start_of_text> wawd wdad w,. wwd qwd <end_of_text>");
+    for (auto row : a) {
+        for (auto i : row) {
+            __android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "encode: %d", i);
+        }
     }
 
     return env->NewStringUTF(hello.c_str());
