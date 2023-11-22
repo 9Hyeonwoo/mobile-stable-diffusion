@@ -11,13 +11,13 @@
       __android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "BAD %d", err);\
     }
 
-extern "C" JNIEXPORT jstring JNICALL
-Java_com_example_myopencl_MainActivity_stringFromJNI(
+SimpleTokenizer *tokenizer;
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_example_myopencl_MainActivity_initTokenizer(
         JNIEnv* env,
         jobject /* this */,
         jobject _assetManager) {
-    std::string hello = "Hello from C++";
-
     cl_platform_id platform;
     cl_device_id device;
     cl_int err;
@@ -28,13 +28,26 @@ Java_com_example_myopencl_MainActivity_stringFromJNI(
     CHECK_ERROR(err);
 
     AAssetManager *assetManager = AAssetManager_fromJava(env, _assetManager);
-    SimpleTokenizer tokenizer(assetManager);
-    auto a = tokenizer.tokenize("<start_of_text> wawd wdad w,. wwd qwd <end_of_text>");
-    for (auto row : a) {
-        for (auto i : row) {
-            __android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "encode: %d", i);
-        }
+    tokenizer = new SimpleTokenizer(assetManager);
+}
+
+extern "C"
+JNIEXPORT jlongArray JNICALL
+Java_com_example_myopencl_MainActivity_tokenize(JNIEnv *env, jobject thiz, jstring _text) {
+    if (tokenizer == nullptr) {
+        __android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "tokenizer is null");
+        return nullptr;
     }
 
-    return env->NewStringUTF(hello.c_str());
+    const char *text = env->GetStringUTFChars(_text, nullptr);
+    auto result = tokenizer->tokenize(text);
+    for (const auto i : result) {
+        __android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "encode: %d", i);
+    }
+    env->ReleaseStringUTFChars(_text, text);
+
+    jlongArray resultArray = env->NewLongArray(result.size());
+    env->SetLongArrayRegion(resultArray, 0, result.size(), result.data());
+
+    return resultArray;
 }

@@ -14,18 +14,25 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        initTokenizer(assets)
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         // Example of a call to a native method
-        binding.sampleText.text = stringFromJNI(assets)
+        binding.sampleText.text = "good"
+
+        tokenize("hello world").forEach {
+            Log.d("__TEST__token", it.toString())
+        }
     }
 
     /**
      * A native method that is implemented by the 'myopencl' native library,
      * which is packaged with this application.
      */
-    external fun stringFromJNI(assetManager: AssetManager): String
+    external fun initTokenizer(assetManager: AssetManager)
+    external fun tokenize(text: String): LongArray
 
     companion object {
         // Used to load the 'myopencl' library on application startup.

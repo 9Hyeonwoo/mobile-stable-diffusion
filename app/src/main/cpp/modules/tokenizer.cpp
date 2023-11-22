@@ -225,13 +225,12 @@ std::vector<std::pair<int, std::string>> SimpleTokenizer::bytes_to_unicode() {
     return byteToUnicode;
 }
 
-std::vector<std::vector<int>> SimpleTokenizer::tokenize(const std::string& texts) {
-    return tokenize(std::vector<std::string>{texts});
+std::vector<long> SimpleTokenizer::tokenize(const std::string& text) {
+    return tokenize(std::vector<std::string>{text});
 }
 
-std::vector<std::vector<int>> SimpleTokenizer::tokenize(const std::vector<std::string>& texts) {
-    const int context_length = 77;
-    std::vector<std::vector<int>> result;
+std::vector<long> SimpleTokenizer::tokenize(const std::vector<std::string>& texts) {
+    std::vector<long> result;
     const auto sot_token = encoder["<start_of_text>"];
     const auto eot_token = encoder["<end_of_text>"];
 
@@ -239,11 +238,12 @@ std::vector<std::vector<int>> SimpleTokenizer::tokenize(const std::vector<std::s
         auto tokens = encode(text);
         tokens.insert(tokens.begin(), sot_token);
         tokens.push_back(eot_token);
-        if (tokens.size() > context_length) {
-            tokens[context_length-1] = eot_token;
+        if (tokens.size() > CONTEXT_LENGTH) {
+            tokens[CONTEXT_LENGTH-1] = eot_token;
         }
-        tokens.resize(context_length, 0);
-        result.push_back(tokens);
+        tokens.resize(CONTEXT_LENGTH, 0);
+
+        result.insert(result.end(), tokens.begin(), tokens.end());
     }
 
     return result;

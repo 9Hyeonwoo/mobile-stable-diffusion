@@ -22,14 +22,15 @@
 #include <codecvt>
 
 #define LOG_TAG "TOKENIZER"
+#define CONTEXT_LENGTH 77
 
 class SimpleTokenizer {
 public:
     SimpleTokenizer(AAssetManager *assetManager);
     ~SimpleTokenizer();
 
-    std::vector<std::vector<int>> tokenize(const std::vector<std::string>& texts);
-    std::vector<std::vector<int>> tokenize(const std::string& texts);
+    std::vector<long> tokenize(const std::vector<std::string>& texts);
+    std::vector<long> tokenize(const std::string& text);
 private:
     std::regex pat;
     std::unordered_map<int, std::string> byte_encoder;
