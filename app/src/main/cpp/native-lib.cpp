@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <string>
 #include <android/log.h>
+#include "modules/tokenizer.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 #include <CL/opencl.h>
@@ -13,7 +14,8 @@
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_myopencl_MainActivity_stringFromJNI(
         JNIEnv* env,
-        jobject /* this */) {
+        jobject /* this */,
+        jobject _assetManager) {
     std::string hello = "Hello from C++";
 
     cl_platform_id platform;
@@ -22,8 +24,15 @@ Java_com_example_myopencl_MainActivity_stringFromJNI(
 
     err = clGetPlatformIDs(1, &platform, nullptr);
     CHECK_ERROR(err);
-    err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, nullptr);
+    err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, &device, nullptr);
     CHECK_ERROR(err);
+
+    AAssetManager *assetManager = AAssetManager_fromJava(env, _assetManager);
+    SimpleTokenizer tokenizer(assetManager);
+    auto a = tokenizer.encode("<start_of_text> wawd wdad w,. wwd qwd <end_of_text>");
+    for (auto i : a) {
+        __android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "encode: %d", i);
+    }
 
     return env->NewStringUTF(hello.c_str());
 }
