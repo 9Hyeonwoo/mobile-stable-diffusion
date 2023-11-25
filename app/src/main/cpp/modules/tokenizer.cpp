@@ -3,6 +3,7 @@
 //
 
 #include "tokenizer.h"
+#define LOG_TAG "TOKENIZER"
 
 SimpleTokenizer::SimpleTokenizer(AAssetManager *assetManager) {
     pat = std::regex(R"(<start_of_text>|<end_of_text>|'s|'t|'re|'ve|'m|'ll|'d|[\w]+|[\d]|[^\s\w\d]+)", std::regex::icase);

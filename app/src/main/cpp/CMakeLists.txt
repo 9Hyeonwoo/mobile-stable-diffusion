@@ -27,10 +27,15 @@ project("myopencl")
 add_library(${CMAKE_PROJECT_NAME} SHARED
         # List C/C++ source files with relative paths to this CMakeLists.txt.
         native-lib.cpp
-        modules/tokenizer.cpp)
+        modules/tokenizer.cpp
+        modules/TextEncoder.cpp
+        modules/cnpy.cpp)
 
 # add libraries for OpenCL
 include_directories( ${CMAKE_SOURCE_DIR}/include )
+
+find_package(ZLIB REQUIRED)
+include_directories(${ZLIB_INCLUDE_DIRS})
 
 add_library( OpenCL
         SHARED
@@ -218,5 +223,6 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         dlAndroid
         ldA
         # List libraries link to the target library
+        ${ZLIB_LIBRARIES}
         android
         log)

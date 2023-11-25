@@ -21,7 +21,6 @@
 #include <locale>
 #include <codecvt>
 
-#define LOG_TAG "TOKENIZER"
 #define CONTEXT_LENGTH 77
 
 class SimpleTokenizer {

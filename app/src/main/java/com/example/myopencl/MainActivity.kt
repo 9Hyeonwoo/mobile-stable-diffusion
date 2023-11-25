@@ -30,9 +30,9 @@ class MainActivity : AppCompatActivity() {
         val module = Module.load(assetsFilePath(this, "text_encoder.ptl"))
 
         // output shape = (batch_size=1, context_length=77, 1024)
-        val output = module.forward(IValue.from(tensor)).toTensor().dataAsFloatArray
+//        val output = module.forward(IValue.from(tensor)).toTensor().dataAsFloatArray
 
-        val test1 = readFloatFromAssets(this, "encoder_test1.txt")
+//        val test1 = readFloatFromAssets(this, "encoder_test1.txt")
 
         module.destroy()
     }

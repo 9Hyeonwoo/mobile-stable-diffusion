@@ -2,6 +2,7 @@
 #include <string>
 #include <android/log.h>
 #include "modules/tokenizer.h"
+#include "modules/TextEncoder.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 #include <CL/opencl.h>
@@ -12,6 +13,7 @@
     }
 
 SimpleTokenizer *tokenizer;
+TextEncoder* encoder;
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_myopencl_MainActivity_initTokenizer(
@@ -29,6 +31,7 @@ Java_com_example_myopencl_MainActivity_initTokenizer(
 
     AAssetManager *assetManager = AAssetManager_fromJava(env, _assetManager);
     tokenizer = new SimpleTokenizer(assetManager);
+    encoder = new TextEncoder(assetManager);
 }
 
 extern "C"
@@ -42,12 +45,12 @@ Java_com_example_myopencl_MainActivity_tokenize(JNIEnv *env, jobject thiz, jstri
     const char *text = env->GetStringUTFChars(_text, nullptr);
     auto result = tokenizer->tokenize(text);
     for (const auto i : result) {
-        __android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "encode: %d", i);
+        __android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "encode: %ld", i);
     }
     env->ReleaseStringUTFChars(_text, text);
 
-    jlongArray resultArray = env->NewLongArray(result.size());
-    env->SetLongArrayRegion(resultArray, 0, result.size(), result.data());
+    jlongArray resultArray = env->NewLongArray(static_cast<int>(result.size()));
+    env->SetLongArrayRegion(resultArray, 0, static_cast<int>(result.size()), result.data());
 
     return resultArray;
 }
