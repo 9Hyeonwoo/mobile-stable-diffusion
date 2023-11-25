@@ -16,9 +16,10 @@ class TextEncoder {
     TextEncoder(AAssetManager *assetManager);
     ~TextEncoder();
 private:
-    std::vector<float> token_embedding(std::vector<long> token);
+    std::vector<float> token_embedding(const std::vector<long>& token);
 
     cnpy::NpyArray* embedding;
+    cnpy::NpyArray* positional_embedding;
 };
 
 
