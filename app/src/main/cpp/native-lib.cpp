@@ -7,31 +7,42 @@
 #define CL_TARGET_OPENCL_VERSION 200
 #include <CL/opencl.h>
 
+#define LOG_TAG "MAIN"
+
 #define CHECK_ERROR(err) \
-    if (err != CL_SUCCESS) {\
-      __android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "BAD %d", err);\
+    if (err != CL_SUCCESS) { \
+      __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "[%s:%d] OpenCL error %d\n", __FILE__, __LINE__, err); \
+      throw std::runtime_error("OpenCL error."); \
     }
+
+cl_context context;
+cl_command_queue cmdQueue;
 
 SimpleTokenizer *tokenizer;
 TextEncoder* encoder;
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_example_myopencl_MainActivity_initTokenizer(
+Java_com_example_myopencl_MainActivity_initOpenCL(
         JNIEnv* env,
         jobject /* this */,
         jobject _assetManager) {
-    cl_platform_id platform;
-    cl_device_id device;
+    cl_platform_id platformId;
+    cl_device_id deviceId;
     cl_int err;
 
-    err = clGetPlatformIDs(1, &platform, nullptr);
+    err = clGetPlatformIDs(1, &platformId, nullptr);
+    err |= clGetDeviceIDs(platformId, CL_DEVICE_TYPE_GPU, 1, &deviceId, nullptr);
     CHECK_ERROR(err);
-    err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, &device, nullptr);
+
+    context = clCreateContext(nullptr, 1, &deviceId, nullptr, nullptr, &err);
+    CHECK_ERROR(err);
+
+    cmdQueue = clCreateCommandQueueWithProperties(context, deviceId, nullptr, &err);
     CHECK_ERROR(err);
 
     AAssetManager *assetManager = AAssetManager_fromJava(env, _assetManager);
     tokenizer = new SimpleTokenizer(assetManager);
-    encoder = new TextEncoder(assetManager);
+    encoder = new TextEncoder(assetManager, context, cmdQueue, deviceId);
 }
 
 extern "C"
@@ -53,4 +64,27 @@ Java_com_example_myopencl_MainActivity_tokenize(JNIEnv *env, jobject thiz, jstri
     env->SetLongArrayRegion(resultArray, 0, static_cast<int>(result.size()), result.data());
 
     return resultArray;
+}
+
+extern "C"
+JNIEXPORT jfloatArray JNICALL
+Java_com_example_myopencl_MainActivity_encode(JNIEnv *env, jobject thiz, jlongArray _token) {
+    long* longArray = env->GetLongArrayElements(_token, nullptr);
+    auto token = std::vector<long>(longArray, longArray + env->GetArrayLength(_token));
+
+    auto encodedToken = encoder->encode(token);
+
+    jfloatArray result = env->NewFloatArray(static_cast<int>(encodedToken.size()));
+    env->SetFloatArrayRegion(result, 0, static_cast<int>(encodedToken.size()), encodedToken.data());
+    return result;
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_myopencl_MainActivity_destroyOpenCL(JNIEnv *env, jobject thiz) {
+    delete tokenizer;
+    delete encoder;
+
+    clReleaseCommandQueue(cmdQueue);
+    clReleaseContext(context);
 }

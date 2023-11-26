@@ -3,6 +3,7 @@ package com.example.myopencl
 import android.content.Context
 import android.content.res.AssetManager
 import android.os.Bundle
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myopencl.databinding.ActivityMainBinding
 import org.pytorch.IValue
@@ -13,36 +14,57 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
 
+    private lateinit var module: Module
+
+    private val token: LongArray by lazy {
+        tokenize("a professional photograph of an astronaut riding a horse")
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        initTokenizer(assets)
+        initOpenCL(assets)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Example of a call to a native method
-        binding.sampleText.text = "good"
+        binding.encodeButton.setOnClickListener {
+            encode(token)
+            Log.d(
+                "__TEST__",
+                "encode[${token[0]}, ${token[1]}, ${token[2]}, ${token[3]}, ${token[4]}]"
+            )
+        }
 
-        val token = tokenize("a professional photograph of an astronaut riding a horse")
-        val tensor = Tensor.fromBlob(token, longArrayOf(1, token.size.toLong()))
+        binding.encodePytorchButton.setOnClickListener {
 
-        val module = Module.load(assetsFilePath(this, "encoder/text_encoder.ptl"))
+            val tensor = Tensor.fromBlob(token, longArrayOf(1, token.size.toLong()))
+            // output shape = (batch_size=1, context_length=77, 1024)
+            val output = module.forward(IValue.from(tensor)).toTensor().dataAsFloatArray
+            Log.d(
+                "__TEST__",
+                "output[${output[0]}, ${output[1]}, ${output[2]}, ${output[3]}, ${output[4]}]"
+            )
+        }
 
-        // output shape = (batch_size=1, context_length=77, 1024)
-//        val output = module.forward(IValue.from(tensor)).toTensor().dataAsFloatArray
 
-//        val test1 = readFloatFromAssets(this, "encoder/encoder_test1.txt")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
 
         module.destroy()
+        destroyOpenCL()
     }
 
     /**
      * A native method that is implemented by the 'myopencl' native library,
      * which is packaged with this application.
      */
-    external fun initTokenizer(assetManager: AssetManager)
+    external fun initOpenCL(assetManager: AssetManager)
     external fun tokenize(text: String): LongArray
+    external fun encode(token: LongArray): FloatArray
+    external fun destroyOpenCL()
 
     companion object {
         // Used to load the 'myopencl' library on application startup.

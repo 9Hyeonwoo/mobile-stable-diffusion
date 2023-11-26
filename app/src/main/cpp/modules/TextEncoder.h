@@ -11,19 +11,29 @@
 #include <vector>
 #include <stdio.h>
 
+#define CL_TARGET_OPENCL_VERSION 200
+#include <CL/opencl.h>
+
 class TextEncoder {
-    public:
-    TextEncoder(AAssetManager *assetManager);
+public:
+    TextEncoder(AAssetManager *assetManager, cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId);
+
     ~TextEncoder();
 
-    std::vector<float> encode(const std::vector<long>& token);
-private:
-    std::vector<float> token_embedding(const std::vector<long>& token);
+    std::vector<float> encode(const std::vector<long> &token);
 
-    cnpy::NpyArray* embedding;
+private:
+    std::vector<float> token_embedding(const std::vector<long> &token);
+
+    cl_context context;
+    cl_command_queue cmdQueue;
+    cl_device_id deviceId;
+    AAssetManager *assetManager;
+
+    cnpy::NpyArray *embedding;
 
     // positional_embedding.shape = (CONTEXT_LENGTH, EMBEDDING_SIZE)
-    cnpy::NpyArray* positional_embedding;
+    cnpy::NpyArray *positional_embedding;
 };
 
 
