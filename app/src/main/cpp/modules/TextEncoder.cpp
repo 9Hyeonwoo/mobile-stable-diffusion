@@ -4,6 +4,8 @@
 
 #include "TextEncoder.h"
 
+#include "util.h"
+
 #define LOG_TAG "TEXT_ENCODER"
 #define EMBEDDING_SIZE 1024
 
@@ -51,5 +53,24 @@ std::vector<float> TextEncoder::token_embedding(const std::vector<long>& token) 
         auto data = embedding->data<float>() + (i * EMBEDDING_SIZE);
         result.insert(result.end(), data, data + EMBEDDING_SIZE);
     }
+    return result;
+}
+
+std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
+    std::vector<float> result;
+    auto token_embedding_result = token_embedding(token);
+
+    for (int i=0; i < token_embedding_result.size(); i++) {
+        token_embedding_result[i] += positional_embedding->data<float>()[i];
+    }
+
+    auto permute_result = util::permute<float>(positional_embedding->as_vec<float>(), positional_embedding->shape, {1, 0, 2});
+
+    // TODO : text_transformer_forward(x)
+
+    // TODO : x.permute(1, 0, 2)
+
+    // TODO : ln_final(x)
+
     return result;
 }

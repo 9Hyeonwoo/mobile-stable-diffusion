@@ -29,7 +29,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         native-lib.cpp
         modules/tokenizer.cpp
         modules/TextEncoder.cpp
-        modules/cnpy.cpp)
+        modules/cnpy.cpp
+        modules/util.cpp)
 
 # add libraries for OpenCL
 include_directories( ${CMAKE_SOURCE_DIR}/include )
