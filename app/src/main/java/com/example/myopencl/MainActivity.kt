@@ -27,12 +27,12 @@ class MainActivity : AppCompatActivity() {
         val token = tokenize("a professional photograph of an astronaut riding a horse")
         val tensor = Tensor.fromBlob(token, longArrayOf(1, token.size.toLong()))
 
-        val module = Module.load(assetsFilePath(this, "text_encoder.ptl"))
+        val module = Module.load(assetsFilePath(this, "encoder/text_encoder.ptl"))
 
         // output shape = (batch_size=1, context_length=77, 1024)
 //        val output = module.forward(IValue.from(tensor)).toTensor().dataAsFloatArray
 
-//        val test1 = readFloatFromAssets(this, "encoder_test1.txt")
+//        val test1 = readFloatFromAssets(this, "encoder/encoder_test1.txt")
 
         module.destroy()
     }

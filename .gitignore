@@ -33,3 +33,6 @@ google-services.json
 *.hprof
 
 .DS_Store
+
+# weight and pickle file
+app/src/main/assets/encoder
