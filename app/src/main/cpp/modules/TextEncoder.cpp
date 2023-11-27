@@ -3,7 +3,6 @@
 //
 
 #include "TextEncoder.h"
-
 #include "util.h"
 
 #include <chrono>
@@ -17,11 +16,13 @@
       throw std::runtime_error("OpenCL error."); \
     }
 
-#define PRINT_TIME(index, expr) \
-    auto start##index = std::chrono::steady_clock::now(); \
-    expr; \
-    auto end##index = std::chrono::steady_clock::now(); \
-    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "PRINT_TIME[%s]: %lld", #index, std::chrono::duration_cast<std::chrono::milliseconds>(end##index - start##index).count());
+#define PRINT_TIME(index, ...) \
+    do { \
+        auto start##index = std::chrono::steady_clock::now(); \
+        { __VA_ARGS__; } \
+        auto end##index = std::chrono::steady_clock::now(); \
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "PRINT_TIME[%s]: %lld", #index, std::chrono::duration_cast<std::chrono::milliseconds>(end##index - start##index).count()); \
+    } while(0)
 
 cnpy::NpyArray *load_npy_file(AAssetManager *assetManager, const char *filename) {
     AAsset *asset = AAssetManager_open(assetManager, filename, AASSET_MODE_BUFFER);
@@ -73,21 +74,22 @@ std::vector<float> TextEncoder::token_embedding(const std::vector<long> &token) 
 
 std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     cl_int err;
-    PRINT_TIME(0,
-    auto token_embedding_result = token_embedding(token);
+//    PRINT_TIME(0,
+    std::vector<float> token_embedding_result = token_embedding(token);
 
+    // elemwise_add
     cl_mem bufferEmbedding = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                             sizeof(float) * token_embedding_result.size(),
                                             nullptr, nullptr);
-    cl_mem bufferPositionalEmbedding = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                                                      positional_embedding->num_bytes(),
-                                                      nullptr, nullptr);
+    cl_mem bufferTemp = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                       positional_embedding->num_bytes(),
+                                       nullptr, nullptr);
 
     clEnqueueWriteBuffer(cmdQueue, bufferEmbedding, CL_FALSE, 0,
                          sizeof(float) * token_embedding_result.size(),
                          token_embedding_result.data(), 0, nullptr, nullptr);
 
-    clEnqueueWriteBuffer(cmdQueue, bufferPositionalEmbedding, CL_FALSE, 0,
+    clEnqueueWriteBuffer(cmdQueue, bufferTemp, CL_FALSE, 0,
                          positional_embedding->num_bytes(),
                          positional_embedding->data<float>(), 0, nullptr, nullptr);
 
@@ -98,7 +100,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     CHECK_ERROR(err);
 
     err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &bufferEmbedding);
-    err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &bufferPositionalEmbedding);
+    err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &bufferTemp);
     err |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &bufferEmbedding);
     CHECK_ERROR(err);
 
@@ -107,9 +109,10 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
                                  nullptr);
 
     CHECK_ERROR(err);
-    )
+//    );
 
-    clReleaseMemObject(bufferPositionalEmbedding);
+    clReleaseKernel(kernel);
+
 
     std::vector<float> result(token_embedding_result.size());
     clEnqueueReadBuffer(cmdQueue, bufferEmbedding, CL_TRUE, 0,
@@ -117,13 +120,50 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
                         result.data(), 0, nullptr, nullptr);
 
 
-    PRINT_TIME(1,
+//    PRINT_TIME(1,
     for (int i = 0; i < token_embedding_result.size(); i++) {
         token_embedding_result[i] += positional_embedding->data<float>()[i];
+        if (result[i] != token_embedding_result[i]) {
+            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "elemwise_add error: %f, %f",
+                                result[i], token_embedding_result[i]);
+            throw std::runtime_error("elemwise_add error.");
+        }
     }
-    )
+//    );
 
-//    std::vector<float> permute_result = util::permute<float>(positional_embedding->as_vec<float>(), positional_embedding->shape, {1, 0, 2});
+    // permute
+//    PRINT_TIME(2,
+    kernel = clCreateKernel(program, "permute3D__1_0_2", &err);
+    CHECK_ERROR(err);
+
+    err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &bufferEmbedding);
+    err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &bufferTemp);
+    CHECK_ERROR(err);
+
+    size_t globalSizePermute[3] = {1, 77, 1024};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel, 3, nullptr, globalSizePermute, nullptr, 0,
+                                 nullptr,
+                                 nullptr);
+    CHECK_ERROR(err);
+//    );
+
+
+    clEnqueueReadBuffer(cmdQueue, bufferTemp, CL_TRUE, 0,
+                        sizeof(float) * token_embedding_result.size(),
+                        result.data(), 0, nullptr, nullptr);
+//    PRINT_TIME(3,
+    int shape[3] = {1, 77, 1024};
+    int dimensions[3] = {1, 0, 2};
+    auto permute_result = util::permute3D(token_embedding_result, shape, dimensions);
+    for (int i = 0; i < permute_result->size(); i++) {
+        if (result[i] != permute_result->at(i)) {
+            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "permute error: %f != %f",
+                                result[i], permute_result->at(i));
+            throw std::runtime_error("permute error.");
+        }
+    }
+    delete permute_result;
+//    );
 
     // TODO : text_transformer_forward(x)
 
@@ -133,6 +173,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
 
     clReleaseKernel(kernel);
     clReleaseProgram(program);
+    clReleaseMemObject(bufferTemp);
     clReleaseMemObject(bufferEmbedding);
     return result;
 }
