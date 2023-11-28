@@ -43,6 +43,36 @@ Java_com_example_myopencl_MainActivity_initOpenCL(
     AAssetManager *assetManager = AAssetManager_fromJava(env, _assetManager);
     tokenizer = new SimpleTokenizer(assetManager);
     encoder = new TextEncoder(assetManager, context, cmdQueue, deviceId);
+
+    size_t maxWorkGroupSize;
+    err = clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &maxWorkGroupSize, nullptr);
+    CHECK_ERROR(err);
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "CL_DEVICE_MAX_WORK_GROUP_SIZE: %ld", maxWorkGroupSize);
+
+    cl_uint maxDims;
+    err = clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(cl_uint), &maxDims, nullptr);
+    CHECK_ERROR(err);
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS: %d", maxDims);
+
+    size_t maxWorkItemSizes[maxDims];
+    err = clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t) * maxDims, &maxWorkItemSizes, nullptr);
+    CHECK_ERROR(err);
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "CL_DEVICE_MAX_WORK_ITEM_SIZES: %ld, %ld, %ld", maxWorkItemSizes[0], maxWorkItemSizes[1], maxWorkItemSizes[2]);
+
+    char openclVersion[100];
+    err = clGetDeviceInfo(deviceId, CL_DEVICE_OPENCL_C_VERSION, sizeof(openclVersion), &openclVersion, nullptr);
+    CHECK_ERROR(err);
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "CL_DEVICE_OPENCL_C_VERSION: %s", openclVersion);
+
+    cl_ulong localMemSize;
+    err = clGetDeviceInfo(deviceId, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &localMemSize, nullptr);
+    CHECK_ERROR(err);
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "CL_DEVICE_LOCAL_MEM_SIZE(32KB): %ld", localMemSize);
+
+    cl_ulong globalMemSize;
+    err = clGetDeviceInfo(deviceId, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(cl_ulong), &globalMemSize, nullptr);
+    CHECK_ERROR(err);
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "CL_DEVICE_GLOBAL_MEM_SIZE(5.6GB): %ld", globalMemSize);
 }
 
 extern "C"

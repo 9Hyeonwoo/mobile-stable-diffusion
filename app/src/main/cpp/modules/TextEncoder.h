@@ -10,6 +10,7 @@
 #include "cnpy.h"
 #include <vector>
 #include <stdio.h>
+#include "nn/LayerNorm.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 #include <CL/opencl.h>
@@ -32,8 +33,11 @@ private:
 
     cnpy::NpyArray *embedding;
 
+    LayerNorm *layerNorm0;
+
     // positional_embedding.shape = (CONTEXT_LENGTH, EMBEDDING_SIZE)
     cnpy::NpyArray *positional_embedding;
+    cl_mem bufferPositionalEmbedding;
 };
 
 

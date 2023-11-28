@@ -24,39 +24,33 @@
         __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "PRINT_TIME[%s]: %lld", #index, std::chrono::duration_cast<std::chrono::milliseconds>(end##index - start##index).count()); \
     } while(0)
 
-cnpy::NpyArray *load_npy_file(AAssetManager *assetManager, const char *filename) {
-    AAsset *asset = AAssetManager_open(assetManager, filename, AASSET_MODE_BUFFER);
-    if (asset == nullptr) {
-        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to open the asset.");
-        throw std::runtime_error("Failed to open the asset.");
-    }
-
-    auto buffer = static_cast<const unsigned char *>(AAsset_getBuffer(asset));
-    auto length = AAsset_getLength(asset);
-
-    std::vector<size_t> shape;
-    size_t word_size;
-    bool fortran_order;
-    cnpy::parse_npy_header(buffer, word_size, shape, fortran_order);
-
-    auto arr = new cnpy::NpyArray(shape, word_size, fortran_order);
-    size_t offset = length - arr->num_bytes();
-    memcpy(arr->data<char>(), buffer + offset, arr->num_bytes());
-
-    AAsset_close(asset);
-    return arr;
-}
-
 TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_command_queue cmdQueue,
                          cl_device_id deviceId) : context(context), cmdQueue(cmdQueue),
                                                   deviceId(deviceId), assetManager(assetManager) {
-    embedding = load_npy_file(assetManager, "encoder/embedding_fp32.npy");
-    positional_embedding = load_npy_file(assetManager, "encoder/positional_embedding_fp32.npy");
+    cl_int err;
+    embedding = util::load_npy_file(assetManager, "encoder/embedding_fp32.npy");
+    positional_embedding = util::load_npy_file(assetManager, "encoder/positional_embedding_fp32.npy");
+
+    bufferPositionalEmbedding = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                       positional_embedding->num_bytes(),
+                                       nullptr, &err);
+    CHECK_ERROR(err);
+
+    err = clEnqueueWriteBuffer(cmdQueue, bufferPositionalEmbedding, CL_FALSE, 0,
+                         positional_embedding->num_bytes(),
+                         positional_embedding->data<float>(), 0, nullptr, nullptr);
+    CHECK_ERROR(err);
+
+    layerNorm0 = new LayerNorm(context, cmdQueue, deviceId, assetManager,
+                               "encoder/layer_norm_0_weight_fp32.npy",
+                               "encoder/layer_norm_0_bias_fp32.npy");
 }
 
 TextEncoder::~TextEncoder() {
     delete embedding;
     delete positional_embedding;
+    delete layerNorm0;
+    clReleaseMemObject(bufferPositionalEmbedding);
 }
 
 /*
@@ -74,24 +68,24 @@ std::vector<float> TextEncoder::token_embedding(const std::vector<long> &token) 
 
 std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     cl_int err;
+    cl_event event1, event2;
 //    PRINT_TIME(0,
     std::vector<float> token_embedding_result = token_embedding(token);
 
     // elemwise_add
     cl_mem bufferEmbedding = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                             sizeof(float) * token_embedding_result.size(),
-                                            nullptr, nullptr);
+                                            nullptr, &err);
+    CHECK_ERROR(err);
     cl_mem bufferTemp = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                       positional_embedding->num_bytes(),
-                                       nullptr, nullptr);
+                                       sizeof(float) * token_embedding_result.size(),
+                                       nullptr, &err);
+    CHECK_ERROR(err);
 
-    clEnqueueWriteBuffer(cmdQueue, bufferEmbedding, CL_FALSE, 0,
+    err = clEnqueueWriteBuffer(cmdQueue, bufferEmbedding, CL_FALSE, 0,
                          sizeof(float) * token_embedding_result.size(),
                          token_embedding_result.data(), 0, nullptr, nullptr);
-
-    clEnqueueWriteBuffer(cmdQueue, bufferTemp, CL_FALSE, 0,
-                         positional_embedding->num_bytes(),
-                         positional_embedding->data<float>(), 0, nullptr, nullptr);
+    CHECK_ERROR(err);
 
     cl_program program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                                     "kernel/elemwise_add.cl");
@@ -100,13 +94,13 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     CHECK_ERROR(err);
 
     err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &bufferEmbedding);
-    err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &bufferTemp);
+    err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &bufferPositionalEmbedding);
     err |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &bufferEmbedding);
     CHECK_ERROR(err);
 
     size_t globalSize[] = {token_embedding_result.size()};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel, 1, nullptr, globalSize, nullptr, 0, nullptr,
-                                 nullptr);
+                                 &event1);
 
     CHECK_ERROR(err);
 //    );
@@ -115,9 +109,10 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
 
 
     std::vector<float> result(token_embedding_result.size());
-    clEnqueueReadBuffer(cmdQueue, bufferEmbedding, CL_TRUE, 0,
+    err = clEnqueueReadBuffer(cmdQueue, bufferEmbedding, CL_TRUE, 0,
                         sizeof(float) * token_embedding_result.size(),
-                        result.data(), 0, nullptr, nullptr);
+                        result.data(), 1, &event1, nullptr);
+    CHECK_ERROR(err);
 
 
 //    PRINT_TIME(1,
@@ -141,16 +136,17 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     CHECK_ERROR(err);
 
     size_t globalSizePermute[3] = {1, 77, 1024};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel, 3, nullptr, globalSizePermute, nullptr, 0,
-                                 nullptr,
-                                 nullptr);
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel, 3, nullptr, globalSizePermute, nullptr, 1,
+                                 &event1,
+                                 &event2);
     CHECK_ERROR(err);
 //    );
 
 
-    clEnqueueReadBuffer(cmdQueue, bufferTemp, CL_TRUE, 0,
+    err = clEnqueueReadBuffer(cmdQueue, bufferTemp, CL_TRUE, 0,
                         sizeof(float) * token_embedding_result.size(),
-                        result.data(), 0, nullptr, nullptr);
+                        result.data(), 1, &event2, nullptr);
+    CHECK_ERROR(err);
 //    PRINT_TIME(3,
     int shape[3] = {1, 77, 1024};
     int dimensions[3] = {1, 0, 2};
@@ -164,16 +160,23 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     }
     delete permute_result;
 //    );
-
     // TODO : text_transformer_forward(x)
+    PRINT_TIME(4,
+    err = layerNorm0->forward(bufferTemp, bufferTemp);
+    CHECK_ERROR(err);
+    clFinish(cmdQueue);
+    );
 
     // TODO : x.permute(1, 0, 2)
 
     // TODO : ln_final(x)
 
+
     clReleaseKernel(kernel);
     clReleaseProgram(program);
     clReleaseMemObject(bufferTemp);
     clReleaseMemObject(bufferEmbedding);
+    clReleaseEvent(event1);
+    clReleaseEvent(event2);
     return result;
 }

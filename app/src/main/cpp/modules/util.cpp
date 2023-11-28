@@ -90,3 +90,26 @@ cl_program util::create_and_build_program_with_source(cl_context context,
     CHECK_ERROR(err);
     return program;
 }
+
+cnpy::NpyArray *util::load_npy_file(AAssetManager *assetManager, const char *filename) {
+    AAsset *asset = AAssetManager_open(assetManager, filename, AASSET_MODE_BUFFER);
+    if (asset == nullptr) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to open the asset.");
+        throw std::runtime_error("Failed to open the asset.");
+    }
+
+    auto buffer = static_cast<const unsigned char *>(AAsset_getBuffer(asset));
+    auto length = AAsset_getLength(asset);
+
+    std::vector<size_t> shape;
+    size_t word_size;
+    bool fortran_order;
+    cnpy::parse_npy_header(buffer, word_size, shape, fortran_order);
+
+    auto arr = new cnpy::NpyArray(shape, word_size, fortran_order);
+    size_t offset = length - arr->num_bytes();
+    memcpy(arr->data<char>(), buffer + offset, arr->num_bytes());
+
+    AAsset_close(asset);
+    return arr;
+}
