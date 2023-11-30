@@ -26,6 +26,7 @@ private:
     static std::shared_ptr<_cl_program> program;
     cl_command_queue cmdQueue;
     cl_context context;
+    AAssetManager *assetManager;
 };
 
 

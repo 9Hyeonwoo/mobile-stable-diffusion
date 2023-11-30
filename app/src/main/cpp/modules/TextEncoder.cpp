@@ -29,7 +29,7 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
                                                   deviceId(deviceId), assetManager(assetManager) {
     cl_int err;
     embedding = util::load_npy_file(assetManager, "encoder/embedding_fp32.npy");
-    positional_embedding = util::load_npy_file(assetManager, "encoder/positional_embedding_fp32.npy");
+    auto positional_embedding = util::load_npy_file(assetManager, "encoder/positional_embedding_fp32.npy");
 
     bufferPositionalEmbedding = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                        positional_embedding->num_bytes(),
@@ -48,7 +48,6 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
 
 TextEncoder::~TextEncoder() {
     delete embedding;
-    delete positional_embedding;
     delete layerNorm0;
     clReleaseMemObject(bufferPositionalEmbedding);
 }
@@ -69,6 +68,7 @@ std::vector<float> TextEncoder::token_embedding(const std::vector<long> &token) 
 std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     cl_int err;
     cl_event event1, event2;
+//    testEmbedding(token);
 //    PRINT_TIME(0,
     std::vector<float> token_embedding_result = token_embedding(token);
 
@@ -107,24 +107,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
 
     clReleaseKernel(kernel);
 
-
-    std::vector<float> result(token_embedding_result.size());
-    err = clEnqueueReadBuffer(cmdQueue, bufferEmbedding, CL_TRUE, 0,
-                        sizeof(float) * token_embedding_result.size(),
-                        result.data(), 1, &event1, nullptr);
-    CHECK_ERROR(err);
-
-
-//    PRINT_TIME(1,
-    for (int i = 0; i < token_embedding_result.size(); i++) {
-        token_embedding_result[i] += positional_embedding->data<float>()[i];
-        if (result[i] != token_embedding_result[i]) {
-            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "elemwise_add error: %f, %f",
-                                result[i], token_embedding_result[i]);
-            throw std::runtime_error("elemwise_add error.");
-        }
-    }
-//    );
+//    util::testBuffer(assetManager, cmdQueue, bufferEmbedding, "encoder/test/positional_embedding_test_fp32.npy");
 
     // permute
 //    PRINT_TIME(2,
@@ -140,32 +123,19 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
                                  &event1,
                                  &event2);
     CHECK_ERROR(err);
+
+//    util::testBuffer(assetManager, cmdQueue, bufferTemp, "encoder/test/permute_test_fp32.npy");
 //    );
 
 
-    err = clEnqueueReadBuffer(cmdQueue, bufferTemp, CL_TRUE, 0,
-                        sizeof(float) * token_embedding_result.size(),
-                        result.data(), 1, &event2, nullptr);
-    CHECK_ERROR(err);
-//    PRINT_TIME(3,
-    int shape[3] = {1, 77, 1024};
-    int dimensions[3] = {1, 0, 2};
-    auto permute_result = util::permute3D(token_embedding_result, shape, dimensions);
-    for (int i = 0; i < permute_result->size(); i++) {
-        if (result[i] != permute_result->at(i)) {
-            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "permute error: %f != %f",
-                                result[i], permute_result->at(i));
-            throw std::runtime_error("permute error.");
-        }
-    }
-    delete permute_result;
-//    );
     // TODO : text_transformer_forward(x)
-    PRINT_TIME(4,
-    err = layerNorm0->forward(bufferTemp, bufferTemp);
-    CHECK_ERROR(err);
-    clFinish(cmdQueue);
-    );
+//    PRINT_TIME(4,
+//    err = layerNorm0->forward(bufferTemp, bufferTemp);
+//    CHECK_ERROR(err);
+//    clFinish(cmdQueue);
+//    );
+
+    testLayerNorm(bufferTemp, token_embedding_result.size());
 
     // TODO : x.permute(1, 0, 2)
 
@@ -178,5 +148,57 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     clReleaseMemObject(bufferEmbedding);
     clReleaseEvent(event1);
     clReleaseEvent(event2);
+
+    auto result = std::vector<float>(token_embedding_result.size());
     return result;
+}
+
+void TextEncoder::testEmbedding(const std::vector<long> &token) {
+    // test with "a professional photograph of an astronaut riding a horse"
+    std::vector<float> token_embedding_result = token_embedding(token);
+    auto test = util::load_npy_file(assetManager, "encoder/test/embedding_test_fp32.npy");
+    int num = 0;
+    float maxDiff = 0;
+    for (int i = 0; i < token_embedding_result.size(); i++) {
+        if (token_embedding_result[i] != test->data<float>()[i]) {
+            num++;
+            auto diff = std::abs(token_embedding_result[i] - test->data<float>()[i]);
+            if (diff > maxDiff) {
+                maxDiff = diff;
+            }
+        }
+    }
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "embedding max diff: %f / num : %d ",
+                        maxDiff, num);
+}
+
+void TextEncoder::testLayerNorm(cl_mem bufferTemp, size_t size) {
+    cl_int err;
+    auto test1 = util::load_npy_file(assetManager, "encoder/test/layer_norm_0_test_fp32.npy");
+
+    err = layerNorm0->forward(bufferTemp, bufferTemp);
+    clFinish(cmdQueue);
+    CHECK_ERROR(err);
+
+    float result[test1->num_vals];
+    err = clEnqueueReadBuffer(cmdQueue, bufferTemp, CL_TRUE, 0,
+                              sizeof(float) * size,
+                              result, 0, nullptr, nullptr);
+    CHECK_ERROR(err);
+
+    int num = 0;
+    float maxDiff = 0;
+    for (int i = 0; i < size; i++) {
+        if (result[i] != test1->data<float>()[i]) {
+            num++;
+            auto diff = std::abs(result[i] - test1->data<float>()[i]);
+            if (diff > maxDiff) {
+                maxDiff = diff;
+            }
+
+        }
+    }
+
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "layer_norm_0 max diff: %f / num : %d ",
+                        maxDiff, num);
 }

@@ -13,11 +13,18 @@
 #include "nn/LayerNorm.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
+
 #include <CL/opencl.h>
 
+/*
+ * kernel verification
+ * elemwise_add : Checked! (2023/11/29)
+ * permute3D__1_0_2 : Checked! (2023/11/29)
+ */
 class TextEncoder {
 public:
-    TextEncoder(AAssetManager *assetManager, cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId);
+    TextEncoder(AAssetManager *assetManager, cl_context context, cl_command_queue cmdQueue,
+                cl_device_id deviceId);
 
     ~TextEncoder();
 
@@ -25,6 +32,11 @@ public:
 
 private:
     std::vector<float> token_embedding(const std::vector<long> &token);
+
+    // Checked! (2023/11/29)
+    void testEmbedding(const std::vector<long> &token);
+
+    void testLayerNorm(cl_mem buffer, size_t size);
 
     cl_context context;
     cl_command_queue cmdQueue;
@@ -35,8 +47,8 @@ private:
 
     LayerNorm *layerNorm0;
 
+    // Checked! (2023/11/29)
     // positional_embedding.shape = (CONTEXT_LENGTH, EMBEDDING_SIZE)
-    cnpy::NpyArray *positional_embedding;
     cl_mem bufferPositionalEmbedding;
 };
 

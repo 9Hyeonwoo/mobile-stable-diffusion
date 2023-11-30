@@ -28,6 +28,7 @@ public:
     SimpleTokenizer(AAssetManager *assetManager);
     ~SimpleTokenizer();
 
+    // Checked! (2023/11/29)
     std::vector<long> tokenize(const std::vector<std::string>& texts);
     std::vector<long> tokenize(const std::string& text);
 private:

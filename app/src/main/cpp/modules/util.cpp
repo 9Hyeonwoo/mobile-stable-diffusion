@@ -113,3 +113,30 @@ cnpy::NpyArray *util::load_npy_file(AAssetManager *assetManager, const char *fil
     AAsset_close(asset);
     return arr;
 }
+
+void util::testBuffer(AAssetManager *assetManager, cl_command_queue cmdQueue, cl_mem buffer, const char *filename) {
+    cl_int err;
+    auto test  = util::load_npy_file(assetManager, filename);
+
+    float result[test->num_vals];
+    err = clEnqueueReadBuffer(cmdQueue, buffer, CL_TRUE, 0,
+                              sizeof(float) * test->num_vals,
+                              result, 0, nullptr, nullptr);
+    CHECK_ERROR(err);
+
+    int num = 0;
+    float maxDiff = 0;
+    for (int i = 0; i < test->num_vals; i++) {
+        if (result[i] != test->data<float>()[i]) {
+            num++;
+            auto diff = std::abs(result[i] - test->data<float>()[i]);
+            if (diff > maxDiff) {
+                maxDiff = diff;
+            }
+
+        }
+    }
+
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s max diff: %f / num : %d ",
+                        filename, maxDiff, num);
+}
