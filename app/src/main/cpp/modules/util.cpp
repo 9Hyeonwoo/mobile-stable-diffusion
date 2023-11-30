@@ -91,7 +91,7 @@ cl_program util::create_and_build_program_with_source(cl_context context,
     return program;
 }
 
-cnpy::NpyArray *util::load_npy_file(AAssetManager *assetManager, const char *filename) {
+cnpy::NpyArray util::load_npy_file(AAssetManager *assetManager, const char *filename) {
     AAsset *asset = AAssetManager_open(assetManager, filename, AASSET_MODE_BUFFER);
     if (asset == nullptr) {
         __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to open the asset.");
@@ -106,9 +106,9 @@ cnpy::NpyArray *util::load_npy_file(AAssetManager *assetManager, const char *fil
     bool fortran_order;
     cnpy::parse_npy_header(buffer, word_size, shape, fortran_order);
 
-    auto arr = new cnpy::NpyArray(shape, word_size, fortran_order);
-    size_t offset = length - arr->num_bytes();
-    memcpy(arr->data<char>(), buffer + offset, arr->num_bytes());
+    auto arr = cnpy::NpyArray(shape, word_size, fortran_order);
+    size_t offset = length - arr.num_bytes();
+    memcpy(arr.data<char>(), buffer + offset, arr.num_bytes());
 
     AAsset_close(asset);
     return arr;
@@ -116,29 +116,32 @@ cnpy::NpyArray *util::load_npy_file(AAssetManager *assetManager, const char *fil
 
 void util::testBuffer(AAssetManager *assetManager, cl_command_queue cmdQueue, cl_mem buffer, const char *filename) {
     cl_int err;
+    cl_event event;
     auto test  = util::load_npy_file(assetManager, filename);
 
-    float result[test->num_vals];
-    err = clEnqueueReadBuffer(cmdQueue, buffer, CL_TRUE, 0,
-                              sizeof(float) * test->num_vals,
-                              result, 0, nullptr, nullptr);
+    float result[test.num_vals];
+    err = clEnqueueReadBuffer(cmdQueue, buffer, CL_FALSE, 0,
+                              sizeof(float) * test.num_vals,
+                              result, 0, nullptr, &event);
     CHECK_ERROR(err);
+    clWaitForEvents(1, &event);
 
     int num = 0;
     float maxDiff = 0;
-    for (int i = 0; i < test->num_vals; i++) {
-        if (result[i] != test->data<float>()[i]) {
+    int maxId = 0;
+    for (int i = 0; i < test.num_vals; i++) {
+        if (result[i] != test.data<float>()[i]) {
             num++;
-            auto diff = std::abs(result[i] - test->data<float>()[i]);
+            auto diff = std::abs(result[i] - test.data<float>()[i]);
             if (diff > maxDiff) {
                 maxDiff = diff;
+                maxId = i;
             }
 
         }
     }
 
-    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s max diff: %f / num : %d ",
-                        filename, maxDiff, num);
-
-    delete test;
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s max diff: %.20f / num : %d / result[%f] / test[%f]",
+                        filename, maxDiff, num, result[maxId], test.data<float>()[maxId]);
+    clReleaseEvent(event);
 }

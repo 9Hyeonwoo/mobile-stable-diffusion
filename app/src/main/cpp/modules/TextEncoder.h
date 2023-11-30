@@ -41,7 +41,7 @@ private:
     cl_device_id deviceId;
     AAssetManager *assetManager;
 
-    cnpy::NpyArray *embedding;
+    cnpy::NpyArray embedding;
 
     LayerNorm *layerNorm0;
 

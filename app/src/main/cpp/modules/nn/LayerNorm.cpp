@@ -29,8 +29,8 @@ LayerNorm::LayerNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id
     cl_int err;
     auto weight = util::load_npy_file(assetManager, weight_name);
     auto bias = util::load_npy_file(assetManager, bias_name);
-    weightSize = weight->num_vals;
-    biasSize = bias->num_vals;
+    weightSize = weight.num_vals;
+    biasSize = bias.num_vals;
     if (weightSize != biasSize) {
         throw std::runtime_error("weightSize != biasSize");
     }
@@ -45,10 +45,12 @@ LayerNorm::LayerNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id
                                 nullptr, &err);
     CHECK_ERROR_THROW(err);
 
-    err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_FALSE, 0, sizeof(float) * weightSize,
-                               weight->data<float>(), 0, nullptr, nullptr);
-    err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_FALSE, 0, sizeof(float) * biasSize,
-                                bias->data<float>(), 0, nullptr, nullptr);
+    err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_TRUE, 0,
+                               sizeof(float) * weightSize,
+                               weight.data<float>(), 0, nullptr, nullptr);
+    err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_TRUE, 0,
+                                sizeof(float) * biasSize,
+                                bias.data<float>(), 0, nullptr, nullptr);
     CHECK_ERROR_THROW(err);
 
     if (!program || program.use_count() == 0) {
@@ -66,7 +68,8 @@ LayerNorm::~LayerNorm() {
     clReleaseMemObject(bufferBias);
 }
 
-cl_int LayerNorm::forward(cl_mem input, cl_mem output) {
+cl_int LayerNorm::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list, const cl_event *event_wait_list,
+                          cl_event *event) {
     cl_int err;
     size_t input_bytes;
     cl_event event1, event2;
@@ -91,44 +94,38 @@ cl_int LayerNorm::forward(cl_mem input, cl_mem output) {
                                            nullptr, &err);
     CHECK_ERROR(err);
 
-    cl_mem bufferTemp = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                       sizeof(float) * input_size / MAX_WORK_GROUP_SIZE,
-                                       nullptr, &err);
-
-    cl_kernel kernel_mean = clCreateKernel(program.get(), "local_mean", &err);
+    cl_kernel kernel_mean = clCreateKernel(program.get(), "local_reduction_mean", &err);
     CHECK_ERROR(err);
 
     err = clSetKernelArg(kernel_mean, 0, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel_mean, 1, sizeof(cl_mem), &bufferMean);
-    err |= clSetKernelArg(kernel_mean, 2, sizeof(size_t), &weightSize);
-    err |= clSetKernelArg(kernel_mean, 3, sizeof(cl_mem), &bufferTemp);
-    err |= clSetKernelArg(kernel_mean, 4, sizeof(float) * MAX_WORK_GROUP_SIZE, nullptr);
+    err |= clSetKernelArg(kernel_mean, 2, sizeof(float) * weightSize / 4, nullptr);
     CHECK_ERROR(err);
 
-    size_t globalWorkSize[1] = {input_size};
-    size_t localWorkSize[1] = {MAX_WORK_GROUP_SIZE};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_mean, 1, nullptr, globalWorkSize, localWorkSize,
-                                 0, nullptr, &event1);
+    size_t globalReductionSize[1] = {input_size / 4 };
+    size_t localReductionSize[1] = {weightSize / 4};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_mean, 1, nullptr, globalReductionSize, localReductionSize,
+                                 num_events_in_list, event_wait_list, &event1);
     CHECK_ERROR(err);
 
-    clFinish(cmdQueue);
-    util::testBuffer(assetManager, cmdQueue, bufferMean, "encoder/test/local_mean_test_fp32.npy");
-    clFinish(cmdQueue);
+//    clWaitForEvents(1, &event1);
+//    util::testBuffer(assetManager, cmdQueue, bufferMean, "encoder/test/local_mean_test_fp32.npy");
 
-    cl_kernel kernel_var = clCreateKernel(program.get(), "local_variance", &err);
+    cl_kernel kernel_var = clCreateKernel(program.get(), "local_reduction_variance", &err);
     CHECK_ERROR(err);
 
     err = clSetKernelArg(kernel_var, 0, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel_var, 1, sizeof(cl_mem), &bufferMean);
     err |= clSetKernelArg(kernel_var, 2, sizeof(cl_mem), &bufferVariance);
-    err |= clSetKernelArg(kernel_var, 3, sizeof(size_t), &weightSize);
-    err |= clSetKernelArg(kernel_var, 4, sizeof(cl_mem), &bufferTemp);
-    err |= clSetKernelArg(kernel_var, 5, sizeof(float) * weightSize, nullptr);
+    err |= clSetKernelArg(kernel_var, 3, sizeof(float) * weightSize / 4, nullptr);
     CHECK_ERROR(err);
 
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_var, 1, nullptr, globalWorkSize, localWorkSize, 1,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_var, 1, nullptr, globalReductionSize, localReductionSize, 1,
                                  &event1, &event2);
     CHECK_ERROR(err);
+
+//    clWaitForEvents(1, &event2);
+//    util::testBuffer(assetManager, cmdQueue, bufferVariance, "encoder/test/local_var_test_fp32.npy");
 
     cl_kernel kernel_norm = clCreateKernel(program.get(), "layer_norm", &err);
     CHECK_ERROR(err);
@@ -142,16 +139,19 @@ cl_int LayerNorm::forward(cl_mem input, cl_mem output) {
     err |= clSetKernelArg(kernel_norm, 6, sizeof(cl_mem), &output);
     CHECK_ERROR(err);
 
+    size_t globalWorkSize[1] = {input_size};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_norm, 1, nullptr, globalWorkSize, nullptr, 1,
-                                 &event2, nullptr);
+                                 &event2, event);
     CHECK_ERROR(err);
+
+//    clWaitForEvents(1, event);
+//    util::testBuffer(assetManager, cmdQueue, output, "encoder/test/layer_norm_0_test_fp32.npy");
 
     clReleaseKernel(kernel_mean);
     clReleaseKernel(kernel_var);
     clReleaseKernel(kernel_norm);
     clReleaseMemObject(bufferMean);
     clReleaseMemObject(bufferVariance);
-    clReleaseMemObject(bufferTemp);
     clReleaseEvent(event1);
     clReleaseEvent(event2);
 

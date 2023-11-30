@@ -32,24 +32,22 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
     auto positional_embedding = util::load_npy_file(assetManager, "encoder/positional_embedding_fp32.npy");
 
     bufferPositionalEmbedding = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                       positional_embedding->num_bytes(),
+                                       positional_embedding.num_bytes(),
                                        nullptr, &err);
     CHECK_ERROR(err);
 
     err = clEnqueueWriteBuffer(cmdQueue, bufferPositionalEmbedding, CL_FALSE, 0,
-                         positional_embedding->num_bytes(),
-                         positional_embedding->data<float>(), 0, nullptr, nullptr);
+                         positional_embedding.num_bytes(),
+                         positional_embedding.data<float>(), 0, nullptr, nullptr);
     CHECK_ERROR(err);
 
     layerNorm0 = new LayerNorm(context, cmdQueue, deviceId, assetManager,
                                "encoder/layer_norm_0_weight_fp32.npy",
                                "encoder/layer_norm_0_bias_fp32.npy");
 
-    delete positional_embedding;
 }
 
 TextEncoder::~TextEncoder() {
-    delete embedding;
     delete layerNorm0;
     clReleaseMemObject(bufferPositionalEmbedding);
 }
@@ -61,7 +59,7 @@ TextEncoder::~TextEncoder() {
 std::vector<float> TextEncoder::token_embedding(const std::vector<long> &token) {
     std::vector<float> result;
     for (auto i: token) {
-        auto data = embedding->data<float>() + (i * EMBEDDING_SIZE);
+        auto data = embedding.data<float>() + (i * EMBEDDING_SIZE);
         result.insert(result.end(), data, data + EMBEDDING_SIZE);
     }
     return result;
@@ -69,7 +67,7 @@ std::vector<float> TextEncoder::token_embedding(const std::vector<long> &token) 
 
 std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     cl_int err;
-    cl_event event1, event2;
+    cl_event event1, event2, event3;
 //    testEmbedding(token);
 //    PRINT_TIME(0,
     std::vector<float> token_embedding_result = token_embedding(token);
@@ -132,16 +130,16 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
 
     // TODO : text_transformer_forward(x)
 //    PRINT_TIME(4,
-    err = layerNorm0->forward(bufferTemp, bufferTemp);
+    clWaitForEvents(1, &event2);
+    err = layerNorm0->forward(bufferTemp, bufferEmbedding, 1, &event2, &event3);
     CHECK_ERROR(err);
-    clFinish(cmdQueue);
 //    );
-    util::testBuffer(assetManager, cmdQueue, bufferTemp, "encoder/test/layer_norm_0_test_fp32.npy");
 
     // TODO : x.permute(1, 0, 2)
 
     // TODO : ln_final(x)
 
+    clWaitForEvents(1, &event3);
 
     clReleaseKernel(kernel);
     clReleaseProgram(program);
@@ -161,9 +159,9 @@ void TextEncoder::testEmbedding(const std::vector<long> &token) {
     int num = 0;
     float maxDiff = 0;
     for (int i = 0; i < token_embedding_result.size(); i++) {
-        if (token_embedding_result[i] != test->data<float>()[i]) {
+        if (token_embedding_result[i] != test.data<float>()[i]) {
             num++;
-            auto diff = std::abs(token_embedding_result[i] - test->data<float>()[i]);
+            auto diff = std::abs(token_embedding_result[i] - test.data<float>()[i]);
             if (diff > maxDiff) {
                 maxDiff = diff;
             }
@@ -171,6 +169,4 @@ void TextEncoder::testEmbedding(const std::vector<long> &token) {
     }
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "embedding max diff: %f / num : %d ",
                         maxDiff, num);
-
-    delete test;
 }

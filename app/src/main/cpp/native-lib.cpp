@@ -73,6 +73,11 @@ Java_com_example_myopencl_MainActivity_initOpenCL(
     err = clGetDeviceInfo(deviceId, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(cl_ulong), &globalMemSize, nullptr);
     CHECK_ERROR(err);
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "CL_DEVICE_GLOBAL_MEM_SIZE(5.6GB): %ld", globalMemSize);
+
+    cl_device_fp_config fpConfig;
+    err = clGetDeviceInfo(deviceId, CL_DEVICE_SINGLE_FP_CONFIG, sizeof(cl_device_fp_config), &fpConfig, nullptr);
+    CHECK_ERROR(err);
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "CL_DEVICE_SINGLE_FP_CONFIG: %ld", fpConfig);
 }
 
 extern "C"

@@ -21,7 +21,7 @@ namespace util {
                                                     AAssetManager *assetManager,
                                                     const char *file_name);
 
-    cnpy::NpyArray *load_npy_file(AAssetManager *assetManager, const char *filename);
+    cnpy::NpyArray load_npy_file(AAssetManager *assetManager, const char *filename);
 
     void testBuffer(AAssetManager *assetManager, cl_command_queue cmdQueue, cl_mem buffer, const char *filename);
 }
