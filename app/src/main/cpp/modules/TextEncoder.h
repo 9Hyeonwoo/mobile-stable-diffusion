@@ -36,8 +36,6 @@ private:
     // Checked! (2023/11/29)
     void testEmbedding(const std::vector<long> &token);
 
-    void testLayerNorm(cl_mem buffer, size_t size);
-
     cl_context context;
     cl_command_queue cmdQueue;
     cl_device_id deviceId;

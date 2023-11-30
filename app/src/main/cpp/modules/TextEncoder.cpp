@@ -44,6 +44,8 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
     layerNorm0 = new LayerNorm(context, cmdQueue, deviceId, assetManager,
                                "encoder/layer_norm_0_weight_fp32.npy",
                                "encoder/layer_norm_0_bias_fp32.npy");
+
+    delete positional_embedding;
 }
 
 TextEncoder::~TextEncoder() {
@@ -130,12 +132,11 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
 
     // TODO : text_transformer_forward(x)
 //    PRINT_TIME(4,
-//    err = layerNorm0->forward(bufferTemp, bufferTemp);
-//    CHECK_ERROR(err);
-//    clFinish(cmdQueue);
+    err = layerNorm0->forward(bufferTemp, bufferTemp);
+    CHECK_ERROR(err);
+    clFinish(cmdQueue);
 //    );
-
-    testLayerNorm(bufferTemp, token_embedding_result.size());
+    util::testBuffer(assetManager, cmdQueue, bufferTemp, "encoder/test/layer_norm_0_test_fp32.npy");
 
     // TODO : x.permute(1, 0, 2)
 
@@ -170,35 +171,6 @@ void TextEncoder::testEmbedding(const std::vector<long> &token) {
     }
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "embedding max diff: %f / num : %d ",
                         maxDiff, num);
-}
 
-void TextEncoder::testLayerNorm(cl_mem bufferTemp, size_t size) {
-    cl_int err;
-    auto test1 = util::load_npy_file(assetManager, "encoder/test/layer_norm_0_test_fp32.npy");
-
-    err = layerNorm0->forward(bufferTemp, bufferTemp);
-    clFinish(cmdQueue);
-    CHECK_ERROR(err);
-
-    float result[test1->num_vals];
-    err = clEnqueueReadBuffer(cmdQueue, bufferTemp, CL_TRUE, 0,
-                              sizeof(float) * size,
-                              result, 0, nullptr, nullptr);
-    CHECK_ERROR(err);
-
-    int num = 0;
-    float maxDiff = 0;
-    for (int i = 0; i < size; i++) {
-        if (result[i] != test1->data<float>()[i]) {
-            num++;
-            auto diff = std::abs(result[i] - test1->data<float>()[i]);
-            if (diff > maxDiff) {
-                maxDiff = diff;
-            }
-
-        }
-    }
-
-    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "layer_norm_0 max diff: %f / num : %d ",
-                        maxDiff, num);
+    delete test;
 }

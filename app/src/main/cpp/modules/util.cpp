@@ -139,4 +139,6 @@ void util::testBuffer(AAssetManager *assetManager, cl_command_queue cmdQueue, cl
 
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s max diff: %f / num : %d ",
                         filename, maxDiff, num);
+
+    delete test;
 }
