@@ -45,10 +45,14 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
                                "encoder/layer_norm_0_weight_fp32.npy",
                                "encoder/layer_norm_0_bias_fp32.npy");
 
+    attnInProj0 = new Linear(context, cmdQueue, deviceId, assetManager,
+                             "encoder/resblock_0_attn_in_proj_weight_fp32.npy",
+                             "encoder/resblock_0_attn_in_proj_bias_fp32.npy");
 }
 
 TextEncoder::~TextEncoder() {
     delete layerNorm0;
+    delete attnInProj0;
     clReleaseMemObject(bufferPositionalEmbedding);
 }
 
@@ -67,7 +71,7 @@ std::vector<float> TextEncoder::token_embedding(const std::vector<long> &token) 
 
 std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     cl_int err;
-    cl_event event1, event2, event3;
+    cl_event event1, event2, event3, event4;
 //    testEmbedding(token);
 //    PRINT_TIME(0,
     std::vector<float> token_embedding_result = token_embedding(token);
@@ -130,16 +134,26 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
 
     // TODO : text_transformer_forward(x)
 //    PRINT_TIME(4,
-    clWaitForEvents(1, &event2);
     err = layerNorm0->forward(bufferTemp, bufferEmbedding, 1, &event2, &event3);
     CHECK_ERROR(err);
 //    );
+
+
+    cl_mem bufferAttnInProj0 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                             sizeof(float) * token_embedding_result.size() * 3,
+                                             nullptr, &err);
+    CHECK_ERROR(err);
+
+    err = attnInProj0->forward(bufferEmbedding, bufferAttnInProj0, 1, &event3, &event4);
+    CHECK_ERROR(err);
+
+    util::testBuffer(assetManager, cmdQueue, bufferAttnInProj0, "encoder/test/resblock_0_attn_in_proj_test_fp32.npy");
 
     // TODO : x.permute(1, 0, 2)
 
     // TODO : ln_final(x)
 
-    clWaitForEvents(1, &event3);
+    clWaitForEvents(1, &event4);
 
     clReleaseKernel(kernel);
     clReleaseProgram(program);
@@ -147,6 +161,8 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     clReleaseMemObject(bufferEmbedding);
     clReleaseEvent(event1);
     clReleaseEvent(event2);
+    clReleaseEvent(event3);
+    clReleaseEvent(event4);
 
     auto result = std::vector<float>(token_embedding_result.size());
     return result;

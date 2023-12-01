@@ -31,7 +31,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         modules/TextEncoder.cpp
         modules/cnpy.cpp
         modules/util.cpp
-        modules/nn/LayerNorm.cpp)
+        modules/nn/LayerNorm.cpp
+        modules/nn/Linear.cpp)
 
 # add libraries for OpenCL
 include_directories( ${CMAKE_SOURCE_DIR}/include )

@@ -11,6 +11,7 @@
 #include <vector>
 #include <stdio.h>
 #include "nn/LayerNorm.h"
+#include "nn/Linear.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -44,6 +45,7 @@ private:
     cnpy::NpyArray embedding;
 
     LayerNorm *layerNorm0;
+    Linear *attnInProj0;
 
     // Checked! (2023/11/29)
     // positional_embedding.shape = (CONTEXT_LENGTH, EMBEDDING_SIZE)

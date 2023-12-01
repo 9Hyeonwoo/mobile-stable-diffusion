@@ -10,8 +10,7 @@
 #define CL_TARGET_OPENCL_VERSION 200
 
 #include <CL/opencl.h>
-#include <vector>
-#include "../cnpy.h"
+#include <memory>
 
 class LayerNorm {
 public:
