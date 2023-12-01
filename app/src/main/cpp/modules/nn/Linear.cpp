@@ -88,9 +88,7 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &bufferWeight);
     err |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &bufferBias);
     err |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &output);
-    err |= clSetKernelArg(kernel, 4, sizeof(int), &M);
-    err |= clSetKernelArg(kernel, 5, sizeof(int), &N);
-    err |= clSetKernelArg(kernel, 6, sizeof(int), &K);
+    err |= clSetKernelArg(kernel, 4, sizeof(int), &K);
     CHECK_ERROR(err);
 
     size_t globalWorkSize[2] = {M, N};
