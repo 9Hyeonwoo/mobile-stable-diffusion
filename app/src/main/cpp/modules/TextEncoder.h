@@ -10,8 +10,7 @@
 #include "cnpy.h"
 #include <vector>
 #include <stdio.h>
-#include "nn/LayerNorm.h"
-#include "nn/Linear.h"
+#include "nn/ResidualAttentionBlock.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -44,15 +43,11 @@ private:
 
     cnpy::NpyArray embedding;
 
-    LayerNorm *layerNorm0;
-    Linear *attnInProj0;
-    Linear *attnOutProj0;
+    ResidualAttentionBlock *block0;
 
     // Checked! (2023/11/29)
     // positional_embedding.shape = (CONTEXT_LENGTH, EMBEDDING_SIZE)
     cl_mem bufferPositionalEmbedding;
-
-    cl_mem bufferAttentionMask;
 };
 
 
