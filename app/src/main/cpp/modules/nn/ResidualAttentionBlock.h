@@ -34,6 +34,7 @@ private:
     AAssetManager *assetManager;
 
     cl_kernel kernel_elemwise_add;
+    cl_kernel kernel_gelu;
 };
 
 

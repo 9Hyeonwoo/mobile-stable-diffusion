@@ -29,3 +29,23 @@ __kernel void permute3D__1_0_2(__global float *src,
     int dst_idx = j * iSize * kSize + i * kSize + k + offset;
     dst[dst_idx] = src[src_idx];
 }
+
+__kernel void gelu(__global float *src,
+                   __global float *dst)
+{
+    int idx = get_global_id(0);
+
+    // GELU(x) = x * 0.5 * (1.0 + erf( x / \sqrt{2}))
+    // tanh version
+    // const float x = src[idx];
+    // float temp = pown(x, 3);
+    // temp = fma(temp, 0.044715f, x);
+    // temp *= sqrt(M_2_PI_F);
+    // temp = tanh(temp) + 1.0f;
+    // dst[idx] = 0.5f * x * temp;
+
+    const float x = src[idx];
+    float temp = x * M_SQRT1_2_F;
+    temp = 1.0f + erf(temp);
+    dst[idx] = x * 0.5f * temp;
+}

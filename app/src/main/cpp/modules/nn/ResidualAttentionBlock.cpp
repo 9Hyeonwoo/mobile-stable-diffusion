@@ -52,6 +52,9 @@ ResidualAttentionBlock::ResidualAttentionBlock(
     kernel_elemwise_add = clCreateKernel(program, "elemwise_add", &err);
     CHECK_ERROR_THROW(err);
 
+    kernel_gelu = clCreateKernel(program, "gelu", &err);
+    CHECK_ERROR_THROW(err);
+
     clReleaseProgram(program);
 }
 
@@ -61,13 +64,14 @@ ResidualAttentionBlock::~ResidualAttentionBlock() {
     delete attn;
     delete mlp_c_fc;
     clReleaseKernel(kernel_elemwise_add);
+    clReleaseKernel(kernel_gelu);
 }
 
 cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                        const cl_event *event_wait_list, cl_event *event) {
     cl_int err;
     size_t inputBytes, inputSize;
-    cl_event event1, event2, event3, event4, event5;
+    cl_event event1, event2, event3, event4, event5, event6;
     cl_mem bufferEmbedding, bufferTemp, bufferMLP;
 
     err = clGetMemObjectInfo(input, CL_MEM_SIZE, sizeof(size_t), &inputBytes, nullptr);
@@ -81,13 +85,13 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     CHECK_ERROR(err);
 
     bufferTemp = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                     inputBytes,
-                                     nullptr, &err);
+                                inputBytes,
+                                nullptr, &err);
     CHECK_ERROR(err);
 
     bufferMLP = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                     inputBytes * 4,
-                                     nullptr, &err);
+                               inputBytes * 4,
+                               nullptr, &err);
     CHECK_ERROR(err);
 
     err = ln_1->forward(input, bufferEmbedding, num_events_in_list, event_wait_list, &event1);
@@ -101,8 +105,9 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     err |= clSetKernelArg(kernel_elemwise_add, 2, sizeof(cl_mem), &bufferEmbedding);
     CHECK_ERROR(err);
 
-    size_t globalSize[] = {inputSize };
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elemwise_add, 1, nullptr, globalSize, nullptr, 1, &event2, &event3);
+    size_t globalSize[] = {inputSize};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elemwise_add, 1, nullptr, globalSize, nullptr, 1,
+                                 &event2, &event3);
     CHECK_ERROR(err);
 
     // max diff: 0.00000362098217010498
@@ -118,11 +123,24 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     // max diff: 0.00002098083496093750
     // util::testBuffer(assetManager, cmdQueue, bufferMLP, "encoder/test/resblock_0_mlp_c_fc_test_fp32.npy");
 
+    err = clSetKernelArg(kernel_gelu, 0, sizeof(cl_mem), &bufferMLP);
+    err |= clSetKernelArg(kernel_gelu, 1, sizeof(cl_mem), &bufferMLP);
+    CHECK_ERROR(err);
+
+    size_t globalSizeGELU[] = {inputSize * 4};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_gelu, 1, nullptr, globalSizeGELU, nullptr, 1,
+                                 &event5, &event6);
+    CHECK_ERROR(err);
+
+    // max diff: 0.00002098083496093750
+    // util::testBuffer(assetManager, cmdQueue, bufferMLP, "encoder/test/resblock_0_mlp_gelu_test_fp32.npy");
+
     clReleaseEvent(event1);
     clReleaseEvent(event2);
     clReleaseEvent(event3);
     clReleaseEvent(event4);
     clReleaseEvent(event5);
+    clReleaseEvent(event6);
     clReleaseMemObject(bufferEmbedding);
     clReleaseMemObject(bufferTemp);
     clReleaseMemObject(bufferMLP);
