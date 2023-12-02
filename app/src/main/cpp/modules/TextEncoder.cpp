@@ -89,7 +89,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     CHECK_ERROR(err);
 
     cl_program program = util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                                    "kernel/elemwise_add.cl");
+                                                                    "kernel/util.cl");
 
     kernel_elemwise_add = clCreateKernel(program, "elemwise_add", &err);
     CHECK_ERROR(err);

@@ -55,7 +55,7 @@ MultiHeadAttention::MultiHeadAttention(
     CHECK_ERROR_THROW(err);
 
     cl_program program = util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                                    "kernel/elemwise_add.cl");
+                                                                    "kernel/multi_head_attention.cl");
 
     kernel_add_matmul_attention = clCreateKernel(program, "add_matmul_attention", &err);
     CHECK_ERROR_THROW(err);
@@ -65,6 +65,12 @@ MultiHeadAttention::MultiHeadAttention(
 
     kernel_matmul_attention = clCreateKernel(program, "batch_matmul_attention", &err);
     CHECK_ERROR_THROW(err);
+
+
+    clReleaseProgram(program);
+
+    program = util::create_and_build_program_with_source(context, deviceId, assetManager,
+                                                         "kernel/util.cl");
 
     kernel_permute3D_1_0_2 = clCreateKernel(program, "permute3D__1_0_2", &err);
     CHECK_ERROR_THROW(err);
@@ -86,7 +92,7 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
                                    const cl_event *event_wait_list, cl_event *event) {
     cl_int err;
     size_t inputBytes;
-    cl_event event1, event2, event3, event4, event5, event6, event7, event8;
+    cl_event event1, event2, event3, event4, event5, event6, event7;
     cl_mem bufferEmbedding, bufferTemp, bufferAttnInProj0, bufferAttnInProj0_QKV, bufferAttentionQK;
 
     err = clGetMemObjectInfo(input, CL_MEM_SIZE, sizeof(size_t), &inputBytes, nullptr);
@@ -238,6 +244,19 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
 
     // max diff: 0.00000362098217010498
     // util::testBuffer(assetManager, cmdQueue, output, "encoder/test/resblock_0_attn_test_fp32.npy");
+
+    clReleaseEvent(event1);
+    clReleaseEvent(event2);
+    clReleaseEvent(event3);
+    clReleaseEvent(event4);
+    clReleaseEvent(event5);
+    clReleaseEvent(event6);
+    clReleaseEvent(event7);
+    clReleaseMemObject(bufferEmbedding);
+    clReleaseMemObject(bufferTemp);
+    clReleaseMemObject(bufferAttnInProj0);
+    clReleaseMemObject(bufferAttnInProj0_QKV);
+    clReleaseMemObject(bufferAttentionQK);
 
     return CL_SUCCESS;
 }
