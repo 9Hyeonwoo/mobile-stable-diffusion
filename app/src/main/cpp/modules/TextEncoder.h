@@ -43,7 +43,7 @@ private:
 
     cnpy::NpyArray embedding;
 
-    ResidualAttentionBlock *block0;
+    std::vector<ResidualAttentionBlock *> resBlocks;
 
     // Checked! (2023/11/29)
     // positional_embedding.shape = (CONTEXT_LENGTH, EMBEDDING_SIZE)

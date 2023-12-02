@@ -11,6 +11,7 @@
 #define EMBEDDING_SIZE 1024
 #define NUM_HEADS 16
 #define CONTEXT_LENGTH 77
+#define LAYERS (24-1)
 
 #define CHECK_ERROR(err) \
     if (err != CL_SUCCESS) { \
@@ -31,24 +32,52 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
                                                   deviceId(deviceId), assetManager(assetManager) {
     cl_int err;
     embedding = util::load_npy_file(assetManager, "encoder/embedding_fp32.npy");
-    auto positional_embedding = util::load_npy_file(assetManager, "encoder/positional_embedding_fp32.npy");
+    auto positional_embedding = util::load_npy_file(assetManager,
+                                                    "encoder/positional_embedding_fp32.npy");
 
     bufferPositionalEmbedding = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                                       positional_embedding.num_bytes(),
-                                       nullptr, &err);
+                                               positional_embedding.num_bytes(),
+                                               nullptr, &err);
     CHECK_ERROR(err);
 
     err = clEnqueueWriteBuffer(cmdQueue, bufferPositionalEmbedding, CL_TRUE, 0,
-                         positional_embedding.num_bytes(),
-                         positional_embedding.data<float>(), 0, nullptr, nullptr);
+                               positional_embedding.num_bytes(),
+                               positional_embedding.data<float>(), 0, nullptr, nullptr);
 
     CHECK_ERROR(err);
 
-    block0 = new ResidualAttentionBlock(context, cmdQueue, deviceId, assetManager, NUM_HEADS);
+    for (int i = 0; i < LAYERS; i++) {
+        auto folder_prefix =
+                "encoder/resblock/" + std::to_string(i) + "/resblock_" + std::to_string(i);
+        auto ln_1_weight_name = folder_prefix + "_ln_1_weight_fp32.npy";
+        auto ln_1_bias_name = folder_prefix + "_ln_1_bias_fp32.npy";
+        auto ln_2_weight_name = folder_prefix + "_ln_2_weight_fp32.npy";
+        auto ln_2_bias_name = folder_prefix + "_ln_2_bias_fp32.npy";
+        auto attn_in_proj_weight_name = folder_prefix + "_attn_in_proj_weight_fp32.npy";
+        auto attn_in_proj_bias_name = folder_prefix + "_attn_in_proj_bias_fp32.npy";
+        auto attn_out_proj_weight_name = folder_prefix + "_attn_out_proj_weight_fp32.npy";
+        auto attn_out_proj_bias_name = folder_prefix + "_attn_out_proj_bias_fp32.npy";
+        auto mlp_c_fc_weight_name = folder_prefix + "_mlp_c_fc_weight_fp32.npy";
+        auto mlp_c_fc_bias_name = folder_prefix + "_mlp_c_fc_bias_fp32.npy";
+        auto mlp_c_proj_weight_name = folder_prefix + "_mlp_c_proj_weight_fp32.npy";
+        auto mlp_c_proj_bias_name = folder_prefix + "_mlp_c_proj_bias_fp32.npy";
+        resBlocks.push_back(
+                new ResidualAttentionBlock(context, cmdQueue, deviceId, assetManager, NUM_HEADS,
+                                           ln_1_weight_name.c_str(), ln_1_bias_name.c_str(),
+                                           ln_2_weight_name.c_str(), ln_2_bias_name.c_str(),
+                                           attn_in_proj_weight_name.c_str(),
+                                           attn_in_proj_bias_name.c_str(),
+                                           attn_out_proj_weight_name.c_str(),
+                                           attn_out_proj_bias_name.c_str(),
+                                           mlp_c_fc_weight_name.c_str(), mlp_c_fc_bias_name.c_str(),
+                                           mlp_c_proj_weight_name.c_str(),
+                                           mlp_c_proj_bias_name.c_str())
+        );
+    }
 }
 
 TextEncoder::~TextEncoder() {
-    delete block0;
+    delete[] resBlocks.data();
     clReleaseMemObject(bufferPositionalEmbedding);
 }
 
@@ -84,8 +113,8 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     CHECK_ERROR(err);
 
     err = clEnqueueWriteBuffer(cmdQueue, bufferEmbedding, CL_FALSE, 0,
-                         sizeof(float) * token_embedding_result.size(),
-                         token_embedding_result.data(), 0, nullptr, nullptr);
+                               sizeof(float) * token_embedding_result.size(),
+                               token_embedding_result.data(), 0, nullptr, nullptr);
     CHECK_ERROR(err);
 
     cl_program program = util::create_and_build_program_with_source(context, deviceId, assetManager,
@@ -100,7 +129,8 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     CHECK_ERROR(err);
 
     size_t globalSize[] = {token_embedding_result.size()};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elemwise_add, 1, nullptr, globalSize, nullptr, 0, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elemwise_add, 1, nullptr, globalSize, nullptr, 0,
+                                 nullptr,
                                  &event1);
 
     CHECK_ERROR(err);
@@ -119,7 +149,8 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     CHECK_ERROR(err);
 
     size_t globalSizePermute[3] = {1, CONTEXT_LENGTH, EMBEDDING_SIZE};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_1_0_2, 3, nullptr, globalSizePermute, nullptr, 1,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_1_0_2, 3, nullptr, globalSizePermute,
+                                 nullptr, 1,
                                  &event1,
                                  &event2);
     CHECK_ERROR(err);
@@ -129,11 +160,23 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
 
 
     // TODO : text_transformer_forward(x)
-    err = block0->forward(bufferTemp, bufferEmbedding, 1, &event2, &event3);
-    CHECK_ERROR(err);
+    // init swapped state
+    auto &inBuffer = bufferEmbedding;
+    auto &outBuffer = bufferTemp;
+    auto &inEvent = event3;
+    auto &outEvent = event2;
+    for (auto block: resBlocks) {
+        // swap buffer and event
+        std::swap(inBuffer, outBuffer);
+        std::swap(inEvent, outEvent);
+
+        err = block->forward(inBuffer, outBuffer, 1, &inEvent, &outEvent);
+        CHECK_ERROR(err);
+    }
 
     // max diff: 0.00003051757812500000
-    // util::testBuffer(assetManager, cmdQueue, bufferEmbedding, "encoder/test/resblock_0_test_fp32.npy");
+    // util::testBuffer(assetManager, cmdQueue, outBuffer, "encoder/test/resblock_22_test_fp32.npy");
+
     // TODO : x.permute(1, 0, 2)
 
     // TODO : ln_final(x)

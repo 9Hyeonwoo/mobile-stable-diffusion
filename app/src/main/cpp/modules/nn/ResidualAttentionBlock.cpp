@@ -27,28 +27,37 @@ ResidualAttentionBlock::ResidualAttentionBlock(
         cl_command_queue cmdQueue,
         cl_device_id deviceId,
         AAssetManager *assetManager,
-        size_t numHeads
+        size_t numHeads,
+        const char *ln_1_weight_name,
+        const char *ln_1_bias_name,
+        const char *ln_2_weight_name,
+        const char *ln_2_bias_name,
+        const char *attn_in_proj_weight_name,
+        const char *attn_in_proj_bias_name,
+        const char *attn_out_proj_weight_name,
+        const char *attn_out_proj_bias_name,
+        const char *mlp_c_fc_weight_name,
+        const char *mlp_c_fc_bias_name,
+        const char *mlp_c_proj_weight_name,
+        const char *mlp_c_proj_bias_name
 ) : context(context),
     cmdQueue(cmdQueue),
     assetManager(assetManager) {
     cl_int err;
     ln_1 = new LayerNorm(context, cmdQueue, deviceId, assetManager,
-                         "encoder/resblock_0_ln_1_weight_fp32.npy",
-                         "encoder/resblock_0_ln_1_bias_fp32.npy");
-
+                         ln_1_weight_name, ln_1_bias_name);
     ln_2 = new LayerNorm(context, cmdQueue, deviceId, assetManager,
-                         "encoder/resblock_0_ln_2_weight_fp32.npy",
-                         "encoder/resblock_0_ln_2_bias_fp32.npy");
+                         ln_2_weight_name, ln_2_bias_name);
 
-    attn = new MultiHeadAttention(context, cmdQueue, deviceId, assetManager, numHeads);
+    attn = new MultiHeadAttention(context, cmdQueue, deviceId, assetManager, numHeads,
+                                  attn_in_proj_weight_name, attn_in_proj_bias_name,
+                                  attn_out_proj_weight_name, attn_out_proj_bias_name);
 
     mlp_c_fc = new Linear(context, cmdQueue, deviceId, assetManager,
-                          "encoder/resblock_0_mlp_c_fc_weight_fp32.npy",
-                          "encoder/resblock_0_mlp_c_fc_bias_fp32.npy");
+                          mlp_c_fc_weight_name, mlp_c_fc_bias_name);
 
     mlp_c_proj = new Linear(context, cmdQueue, deviceId, assetManager,
-                          "encoder/resblock_0_mlp_c_proj_weight_fp32.npy",
-                          "encoder/resblock_0_mlp_c_proj_bias_fp32.npy");
+                            mlp_c_proj_weight_name, mlp_c_proj_bias_name);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
@@ -154,6 +163,9 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_elemwise_add, 1, nullptr, globalSize, nullptr, 1,
                                  &event7, event);
     CHECK_ERROR(err);
+
+    // max diff: 0.00003051757812500000
+    // util::testBuffer(assetManager, cmdQueue, output, "encoder/test/resblock_0_test_fp32.npy");
 
     clReleaseEvent(event1);
     clReleaseEvent(event2);
