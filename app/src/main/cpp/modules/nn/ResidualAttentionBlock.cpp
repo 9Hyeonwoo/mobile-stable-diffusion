@@ -31,38 +31,62 @@ ResidualAttentionBlock::ResidualAttentionBlock(
 ) : context(context),
     cmdQueue(cmdQueue),
     assetManager(assetManager) {
-    layerNorm0 = new LayerNorm(context, cmdQueue, deviceId, assetManager,
-                               "encoder/resblock_0_layer_norm_weight_fp32.npy",
-                               "encoder/resblock_0_layer_norm_bias_fp32.npy");
+    cl_int err;
+    ln_1 = new LayerNorm(context, cmdQueue, deviceId, assetManager,
+                         "encoder/resblock_0_layer_norm_weight_fp32.npy",
+                         "encoder/resblock_0_layer_norm_bias_fp32.npy");
 
     attn = new MultiHeadAttention(context, cmdQueue, deviceId, assetManager, numHeads);
+
+    auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
+                                                              "kernel/util.cl");
+
+    kernel_elemwise_add = clCreateKernel(program, "elemwise_add", &err);
+    CHECK_ERROR_THROW(err);
+
+    clReleaseProgram(program);
 }
 
 ResidualAttentionBlock::~ResidualAttentionBlock() {
-    delete layerNorm0;
+    delete ln_1;
     delete attn;
+    clReleaseKernel(kernel_elemwise_add);
 }
 
 cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                        const cl_event *event_wait_list, cl_event *event) {
     cl_int err;
-    size_t inputBytes;
-    cl_event event1;
+    size_t inputBytes, inputSize;
+    cl_event event1, event2, event3;
     cl_mem bufferEmbedding;
 
     err = clGetMemObjectInfo(input, CL_MEM_SIZE, sizeof(size_t), &inputBytes, nullptr);
     CHECK_ERROR(err);
+
+    inputSize = inputBytes / sizeof(float);
 
     bufferEmbedding = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                      inputBytes,
                                      nullptr, &err);
     CHECK_ERROR(err);
 
-    err = layerNorm0->forward(input, bufferEmbedding, num_events_in_list, event_wait_list, &event1);
+    err = ln_1->forward(input, bufferEmbedding, num_events_in_list, event_wait_list, &event1);
     CHECK_ERROR(err);
 
-    err = attn->forward(bufferEmbedding, bufferEmbedding, 1, &event1, event);
+    err = attn->forward(bufferEmbedding, bufferEmbedding, 1, &event1, &event2);
     CHECK_ERROR(err);
+
+    err = clSetKernelArg(kernel_elemwise_add, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel_elemwise_add, 1, sizeof(cl_mem), &bufferEmbedding);
+    err |= clSetKernelArg(kernel_elemwise_add, 2, sizeof(cl_mem), &bufferEmbedding);
+    CHECK_ERROR(err);
+
+    size_t globalSize[] = {inputSize };
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elemwise_add, 1, nullptr, globalSize, nullptr, 1, &event2, &event3);
+    CHECK_ERROR(err);
+
+    // max diff: 0.00000362098217010498
+    // util::testBuffer(assetManager, cmdQueue, bufferEmbedding, "encoder/test/resblock_0_add_attn_test_fp32.npy");
 
     clReleaseEvent(event1);
     clReleaseMemObject(bufferEmbedding);

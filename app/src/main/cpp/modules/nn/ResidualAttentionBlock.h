@@ -24,13 +24,14 @@ public:
                    const cl_event *event_wait_list, cl_event *event);
 
 private:
-    LayerNorm *layerNorm0;
+    LayerNorm *ln_1;
     MultiHeadAttention *attn;
 
     cl_context context;
     cl_command_queue cmdQueue;
     AAssetManager *assetManager;
 
+    cl_kernel kernel_elemwise_add;
 };
 
 
