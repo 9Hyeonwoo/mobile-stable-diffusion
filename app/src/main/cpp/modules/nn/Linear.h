@@ -8,6 +8,7 @@
 #include "android/asset_manager_jni.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
+
 #include "CL/opencl.h"
 
 #include <vector>
@@ -21,14 +22,15 @@ public:
 
     cl_int forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                    const cl_event *event_wait_list, cl_event *event);
+
 private:
     cl_mem bufferWeight;
     cl_mem bufferBias;
     std::vector<size_t> weightShape;
     std::vector<size_t> biasShape;
-    static std::shared_ptr<_cl_program> program;
     cl_command_queue cmdQueue;
-    cl_context context;
+
+    cl_kernel kernel;
 };
 
 

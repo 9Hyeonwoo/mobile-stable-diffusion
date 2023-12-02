@@ -10,7 +10,6 @@
 #define CL_TARGET_OPENCL_VERSION 200
 
 #include <CL/opencl.h>
-#include <memory>
 
 class LayerNorm {
 public:
@@ -27,10 +26,13 @@ private:
     cl_mem bufferBias;
     size_t weightSize;
     size_t biasSize;
-    static std::shared_ptr<_cl_program> program;
     cl_command_queue cmdQueue;
     cl_context context;
     AAssetManager *assetManager;
+
+    cl_kernel kernel_mean;
+    cl_kernel kernel_var;
+    cl_kernel kernel_norm;
 };
 
 

@@ -21,8 +21,6 @@
       throw std::runtime_error("OpenCL error."); \
     }
 
-std::shared_ptr<_cl_program> LayerNorm::program = nullptr;
-
 LayerNorm::LayerNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
                      AAssetManager *assetManager, const char *weight_name, const char *bias_name)
         : context(context), cmdQueue(cmdQueue), assetManager(assetManager) {
@@ -53,22 +51,30 @@ LayerNorm::LayerNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id
                                 bias.data<float>(), 0, nullptr, nullptr);
     CHECK_ERROR_THROW(err);
 
-    if (!program || program.use_count() == 0) {
-        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "create program");
-        program = std::shared_ptr<_cl_program>(
-                util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                           "kernel/layer_norm.cl"),
-                [](_cl_program *p) { clReleaseProgram(p); }
-        );
-    }
+    auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
+                                                              "kernel/layer_norm.cl");
+    kernel_mean = clCreateKernel(program, "local_reduction_mean", &err);
+    CHECK_ERROR_THROW(err);
+
+    kernel_var = clCreateKernel(program, "local_reduction_variance", &err);
+    CHECK_ERROR_THROW(err);
+
+    kernel_norm = clCreateKernel(program, "layer_norm", &err);
+    CHECK_ERROR_THROW(err);
+
+    clReleaseProgram(program);
 }
 
 LayerNorm::~LayerNorm() {
     clReleaseMemObject(bufferWeight);
     clReleaseMemObject(bufferBias);
+    clReleaseKernel(kernel_mean);
+    clReleaseKernel(kernel_var);
+    clReleaseKernel(kernel_norm);
 }
 
-cl_int LayerNorm::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list, const cl_event *event_wait_list,
+cl_int LayerNorm::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
+                          const cl_event *event_wait_list,
                           cl_event *event) {
     cl_int err;
     size_t input_bytes;
@@ -94,25 +100,20 @@ cl_int LayerNorm::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
                                            nullptr, &err);
     CHECK_ERROR(err);
 
-    cl_kernel kernel_mean = clCreateKernel(program.get(), "local_reduction_mean", &err);
-    CHECK_ERROR(err);
-
     err = clSetKernelArg(kernel_mean, 0, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel_mean, 1, sizeof(cl_mem), &bufferMean);
     err |= clSetKernelArg(kernel_mean, 2, sizeof(float) * weightSize / 4, nullptr);
     CHECK_ERROR(err);
 
-    size_t globalReductionSize[1] = {input_size / 4 };
+    size_t globalReductionSize[1] = {input_size / 4};
     size_t localReductionSize[1] = {weightSize / 4};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_mean, 1, nullptr, globalReductionSize, localReductionSize,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_mean, 1, nullptr, globalReductionSize,
+                                 localReductionSize,
                                  num_events_in_list, event_wait_list, &event1);
     CHECK_ERROR(err);
 
 //    clWaitForEvents(1, &event1);
 //    util::testBuffer(assetManager, cmdQueue, bufferMean, "encoder/test/local_mean_test_fp32.npy");
-
-    cl_kernel kernel_var = clCreateKernel(program.get(), "local_reduction_variance", &err);
-    CHECK_ERROR(err);
 
     err = clSetKernelArg(kernel_var, 0, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel_var, 1, sizeof(cl_mem), &bufferMean);
@@ -120,15 +121,13 @@ cl_int LayerNorm::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
     err |= clSetKernelArg(kernel_var, 3, sizeof(float) * weightSize / 4, nullptr);
     CHECK_ERROR(err);
 
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_var, 1, nullptr, globalReductionSize, localReductionSize, 1,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_var, 1, nullptr, globalReductionSize,
+                                 localReductionSize, 1,
                                  &event1, &event2);
     CHECK_ERROR(err);
 
 //    clWaitForEvents(1, &event2);
 //    util::testBuffer(assetManager, cmdQueue, bufferVariance, "encoder/test/local_var_test_fp32.npy");
-
-    cl_kernel kernel_norm = clCreateKernel(program.get(), "layer_norm", &err);
-    CHECK_ERROR(err);
 
     err = clSetKernelArg(kernel_norm, 0, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel_norm, 1, sizeof(cl_mem), &bufferMean);
@@ -147,9 +146,6 @@ cl_int LayerNorm::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
 //    clWaitForEvents(1, event);
 //    util::testBuffer(assetManager, cmdQueue, output, "encoder/test/layer_norm_0_test_fp32.npy");
 
-    clReleaseKernel(kernel_mean);
-    clReleaseKernel(kernel_var);
-    clReleaseKernel(kernel_norm);
     clReleaseMemObject(bufferMean);
     clReleaseMemObject(bufferVariance);
     clReleaseEvent(event1);
