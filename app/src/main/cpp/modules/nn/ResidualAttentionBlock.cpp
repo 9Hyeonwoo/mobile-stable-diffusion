@@ -33,8 +33,12 @@ ResidualAttentionBlock::ResidualAttentionBlock(
     assetManager(assetManager) {
     cl_int err;
     ln_1 = new LayerNorm(context, cmdQueue, deviceId, assetManager,
-                         "encoder/resblock_0_layer_norm_weight_fp32.npy",
-                         "encoder/resblock_0_layer_norm_bias_fp32.npy");
+                         "encoder/resblock_0_ln_1_weight_fp32.npy",
+                         "encoder/resblock_0_ln_1_bias_fp32.npy");
+
+    ln_2 = new LayerNorm(context, cmdQueue, deviceId, assetManager,
+                         "encoder/resblock_0_ln_2_weight_fp32.npy",
+                         "encoder/resblock_0_ln_2_bias_fp32.npy");
 
     attn = new MultiHeadAttention(context, cmdQueue, deviceId, assetManager, numHeads);
 
@@ -49,6 +53,7 @@ ResidualAttentionBlock::ResidualAttentionBlock(
 
 ResidualAttentionBlock::~ResidualAttentionBlock() {
     delete ln_1;
+    delete ln_2;
     delete attn;
     clReleaseKernel(kernel_elemwise_add);
 }
@@ -57,8 +62,8 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
                                        const cl_event *event_wait_list, cl_event *event) {
     cl_int err;
     size_t inputBytes, inputSize;
-    cl_event event1, event2, event3;
-    cl_mem bufferEmbedding;
+    cl_event event1, event2, event3, event4;
+    cl_mem bufferEmbedding, bufferTemp;
 
     err = clGetMemObjectInfo(input, CL_MEM_SIZE, sizeof(size_t), &inputBytes, nullptr);
     CHECK_ERROR(err);
@@ -66,6 +71,11 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     inputSize = inputBytes / sizeof(float);
 
     bufferEmbedding = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                     inputBytes,
+                                     nullptr, &err);
+    CHECK_ERROR(err);
+
+    bufferTemp = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                      inputBytes,
                                      nullptr, &err);
     CHECK_ERROR(err);
@@ -88,8 +98,17 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     // max diff: 0.00000362098217010498
     // util::testBuffer(assetManager, cmdQueue, bufferEmbedding, "encoder/test/resblock_0_add_attn_test_fp32.npy");
 
+    err = ln_2->forward(bufferEmbedding, bufferTemp, 1, &event3, &event4);
+
+    // max diff: 0.00003504753112792969
+    // util::testBuffer(assetManager, cmdQueue, bufferTemp, "encoder/test/resblock_0_ln2_test_fp32.npy");
+
     clReleaseEvent(event1);
+    clReleaseEvent(event2);
+    clReleaseEvent(event3);
+    clReleaseEvent(event4);
     clReleaseMemObject(bufferEmbedding);
+    clReleaseMemObject(bufferTemp);
 
     return CL_SUCCESS;
 }

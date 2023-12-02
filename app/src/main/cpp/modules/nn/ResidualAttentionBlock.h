@@ -25,6 +25,7 @@ public:
 
 private:
     LayerNorm *ln_1;
+    LayerNorm *ln_2;
     MultiHeadAttention *attn;
 
     cl_context context;
