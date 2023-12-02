@@ -10,6 +10,7 @@
 #include "CL/opencl.h"
 #include "LayerNorm.h"
 #include "Linear.h"
+#include "MultiHeadAttention.h"
 #include <android/asset_manager_jni.h>
 
 class ResidualAttentionBlock {
@@ -24,19 +25,12 @@ public:
 
 private:
     LayerNorm *layerNorm0;
-    Linear *attnInProj0;
-    Linear *attnOutProj0;
+    MultiHeadAttention *attn;
 
     cl_context context;
     cl_command_queue cmdQueue;
     AAssetManager *assetManager;
-    size_t numHeads;
 
-    cl_mem bufferAttentionMask;
-    cl_kernel kernel_permute3D_1_0_2;
-    cl_kernel kernel_add_matmul_attention;
-    cl_kernel kernel_softmax;
-    cl_kernel kernel_matmul_attention;
 };
 
 

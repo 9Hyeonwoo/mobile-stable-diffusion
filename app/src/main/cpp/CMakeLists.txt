@@ -33,7 +33,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         modules/util.cpp
         modules/nn/LayerNorm.cpp
         modules/nn/Linear.cpp
-        modules/nn/ResidualAttentionBlock.cpp)
+        modules/nn/ResidualAttentionBlock.cpp
+        modules/nn/MultiHeadAttention.cpp)
 
 # add libraries for OpenCL
 include_directories( ${CMAKE_SOURCE_DIR}/include )
