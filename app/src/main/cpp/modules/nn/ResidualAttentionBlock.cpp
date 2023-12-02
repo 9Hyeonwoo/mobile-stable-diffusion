@@ -146,6 +146,15 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     // max diff: 0.00003051757812500000
     // util::testBuffer(assetManager, cmdQueue, bufferTemp, "encoder/test/resblock_0_mlp_c_proj_test_fp32.npy");
 
+    err = clSetKernelArg(kernel_elemwise_add, 0, sizeof(cl_mem), &bufferEmbedding);
+    err |= clSetKernelArg(kernel_elemwise_add, 1, sizeof(cl_mem), &bufferTemp);
+    err |= clSetKernelArg(kernel_elemwise_add, 2, sizeof(cl_mem), &output);
+    CHECK_ERROR(err);
+
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elemwise_add, 1, nullptr, globalSize, nullptr, 1,
+                                 &event7, event);
+    CHECK_ERROR(err);
+
     clReleaseEvent(event1);
     clReleaseEvent(event2);
     clReleaseEvent(event3);

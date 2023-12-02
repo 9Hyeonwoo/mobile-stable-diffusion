@@ -131,6 +131,9 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     // TODO : text_transformer_forward(x)
     err = block0->forward(bufferTemp, bufferEmbedding, 1, &event2, &event3);
     CHECK_ERROR(err);
+
+    // max diff: 0.00003051757812500000
+    // util::testBuffer(assetManager, cmdQueue, bufferEmbedding, "encoder/test/resblock_0_test_fp32.npy");
     // TODO : x.permute(1, 0, 2)
 
     // TODO : ln_final(x)
