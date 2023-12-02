@@ -46,6 +46,10 @@ ResidualAttentionBlock::ResidualAttentionBlock(
                           "encoder/resblock_0_mlp_c_fc_weight_fp32.npy",
                           "encoder/resblock_0_mlp_c_fc_bias_fp32.npy");
 
+    mlp_c_proj = new Linear(context, cmdQueue, deviceId, assetManager,
+                          "encoder/resblock_0_mlp_c_proj_weight_fp32.npy",
+                          "encoder/resblock_0_mlp_c_proj_bias_fp32.npy");
+
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
 
@@ -63,6 +67,7 @@ ResidualAttentionBlock::~ResidualAttentionBlock() {
     delete ln_2;
     delete attn;
     delete mlp_c_fc;
+    delete mlp_c_proj;
     clReleaseKernel(kernel_elemwise_add);
     clReleaseKernel(kernel_gelu);
 }
@@ -71,7 +76,7 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
                                        const cl_event *event_wait_list, cl_event *event) {
     cl_int err;
     size_t inputBytes, inputSize;
-    cl_event event1, event2, event3, event4, event5, event6;
+    cl_event event1, event2, event3, event4, event5, event6, event7;
     cl_mem bufferEmbedding, bufferTemp, bufferMLP;
 
     err = clGetMemObjectInfo(input, CL_MEM_SIZE, sizeof(size_t), &inputBytes, nullptr);
@@ -135,12 +140,19 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     // max diff: 0.00002098083496093750
     // util::testBuffer(assetManager, cmdQueue, bufferMLP, "encoder/test/resblock_0_mlp_gelu_test_fp32.npy");
 
+    err = mlp_c_proj->forward(bufferMLP, bufferTemp, 1, &event6, &event7);
+    CHECK_ERROR(err);
+
+    // max diff: 0.00003051757812500000
+    // util::testBuffer(assetManager, cmdQueue, bufferTemp, "encoder/test/resblock_0_mlp_c_proj_test_fp32.npy");
+
     clReleaseEvent(event1);
     clReleaseEvent(event2);
     clReleaseEvent(event3);
     clReleaseEvent(event4);
     clReleaseEvent(event5);
     clReleaseEvent(event6);
+    clReleaseEvent(event7);
     clReleaseMemObject(bufferEmbedding);
     clReleaseMemObject(bufferTemp);
     clReleaseMemObject(bufferMLP);
