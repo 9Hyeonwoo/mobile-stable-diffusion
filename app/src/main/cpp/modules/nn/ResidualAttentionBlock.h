@@ -27,6 +27,7 @@ private:
     LayerNorm *ln_1;
     LayerNorm *ln_2;
     MultiHeadAttention *attn;
+    Linear *mlp_c_fc;
 
     cl_context context;
     cl_command_queue cmdQueue;

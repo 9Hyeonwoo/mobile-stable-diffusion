@@ -42,6 +42,10 @@ ResidualAttentionBlock::ResidualAttentionBlock(
 
     attn = new MultiHeadAttention(context, cmdQueue, deviceId, assetManager, numHeads);
 
+    mlp_c_fc = new Linear(context, cmdQueue, deviceId, assetManager,
+                          "encoder/resblock_0_mlp_c_fc_weight_fp32.npy",
+                          "encoder/resblock_0_mlp_c_fc_bias_fp32.npy");
+
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
 
@@ -55,6 +59,7 @@ ResidualAttentionBlock::~ResidualAttentionBlock() {
     delete ln_1;
     delete ln_2;
     delete attn;
+    delete mlp_c_fc;
     clReleaseKernel(kernel_elemwise_add);
 }
 
@@ -62,8 +67,8 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
                                        const cl_event *event_wait_list, cl_event *event) {
     cl_int err;
     size_t inputBytes, inputSize;
-    cl_event event1, event2, event3, event4;
-    cl_mem bufferEmbedding, bufferTemp;
+    cl_event event1, event2, event3, event4, event5;
+    cl_mem bufferEmbedding, bufferTemp, bufferMLP;
 
     err = clGetMemObjectInfo(input, CL_MEM_SIZE, sizeof(size_t), &inputBytes, nullptr);
     CHECK_ERROR(err);
@@ -77,6 +82,11 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
 
     bufferTemp = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                      inputBytes,
+                                     nullptr, &err);
+    CHECK_ERROR(err);
+
+    bufferMLP = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                     inputBytes * 4,
                                      nullptr, &err);
     CHECK_ERROR(err);
 
@@ -103,12 +113,19 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     // max diff: 0.00003504753112792969
     // util::testBuffer(assetManager, cmdQueue, bufferTemp, "encoder/test/resblock_0_ln2_test_fp32.npy");
 
+    err = mlp_c_fc->forward(bufferTemp, bufferMLP, 1, &event4, &event5);
+
+    // max diff: 0.00002098083496093750
+    // util::testBuffer(assetManager, cmdQueue, bufferMLP, "encoder/test/resblock_0_mlp_c_fc_test_fp32.npy");
+
     clReleaseEvent(event1);
     clReleaseEvent(event2);
     clReleaseEvent(event3);
     clReleaseEvent(event4);
+    clReleaseEvent(event5);
     clReleaseMemObject(bufferEmbedding);
     clReleaseMemObject(bufferTemp);
+    clReleaseMemObject(bufferMLP);
 
     return CL_SUCCESS;
 }
