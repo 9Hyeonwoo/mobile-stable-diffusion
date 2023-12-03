@@ -8,8 +8,11 @@
 #include <android/log.h>
 #include <numeric>
 #include <cstdio>
+#include <fstream>
 
 #define LOG_TAG "UTIL"
+
+#define MEDIA_PATH "/sdcard/Android/media/com.example.myopencl/"
 
 #define CHECK_ERROR(err) \
     if (err != CL_SUCCESS) { \
@@ -114,10 +117,78 @@ cnpy::NpyArray util::load_npy_file(AAssetManager *assetManager, const char *file
     return arr;
 }
 
+cnpy::NpyArray util::load_npy_file(const char *_filename) {
+    auto filename = MEDIA_PATH + std::string(_filename);
+    std::ifstream file(filename, std::ios::binary);
+
+    if (!file.is_open()) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to open the file. %s", filename.data());
+        throw std::runtime_error("Failed to open the file.");
+    }
+
+    file.seekg(0, std::ios::end);
+    std::streampos fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    // Create a vector to hold the file content
+    std::vector<unsigned char> _buffer(fileSize);
+
+    // Read the file into the buffer
+    file.read(reinterpret_cast<char*>(_buffer.data()), fileSize);
+
+    // Close the file
+    file.close();
+
+    auto buffer = static_cast<const unsigned char *>(_buffer.data());
+
+    std::vector<size_t> shape;
+    size_t word_size;
+    bool fortran_order;
+    cnpy::parse_npy_header(buffer, word_size, shape, fortran_order);
+
+    auto arr = cnpy::NpyArray(shape, word_size, fortran_order);
+    size_t offset = _buffer.size() - arr.num_bytes();
+    memcpy(arr.data<char>(), buffer + offset, arr.num_bytes());
+
+    return arr;
+}
+
 void util::testBuffer(AAssetManager *assetManager, cl_command_queue cmdQueue, cl_mem buffer, const char *filename) {
     cl_int err;
     cl_event event;
     auto test  = util::load_npy_file(assetManager, filename);
+
+    float result[test.num_vals];
+    err = clEnqueueReadBuffer(cmdQueue, buffer, CL_FALSE, 0,
+                              sizeof(float) * test.num_vals,
+                              result, 0, nullptr, &event);
+    CHECK_ERROR(err);
+    clWaitForEvents(1, &event);
+
+    int num = 0;
+    float maxDiff = 0;
+    int maxId = 0;
+    for (int i = 0; i < test.num_vals; i++) {
+        if (result[i] != test.data<float>()[i]) {
+            num++;
+            auto diff = std::abs(result[i] - test.data<float>()[i]);
+            if (diff > maxDiff) {
+                maxDiff = diff;
+                maxId = i;
+            }
+
+        }
+    }
+
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s max diff: %.20f / num : %d / result[%f] / test[%f]",
+                        filename, maxDiff, num, result[maxId], test.data<float>()[maxId]);
+    clReleaseEvent(event);
+}
+
+void util::testBuffer(cl_command_queue cmdQueue, cl_mem buffer, const char *filename) {
+    cl_int err;
+    cl_event event;
+    auto test  = util::load_npy_file(filename);
 
     float result[test.num_vals];
     err = clEnqueueReadBuffer(cmdQueue, buffer, CL_FALSE, 0,

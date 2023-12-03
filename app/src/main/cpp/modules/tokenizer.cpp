@@ -35,7 +35,7 @@ SimpleTokenizer::SimpleTokenizer() {
     std::ifstream file(MEDIA_PATH(bpe_simple_vocab_16e6.txt));
     if (!file.is_open()) {
         __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
-                            "Failed to open the %s", MEDIA_PATH("bpe_simple_vocab_16e6.txt"));
+                            "Failed to open the %s", MEDIA_PATH(bpe_simple_vocab_16e6.txt));
         throw std::runtime_error("Failed to open the file.");
     }
 

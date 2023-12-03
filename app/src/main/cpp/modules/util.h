@@ -23,6 +23,10 @@ namespace util {
 
     cnpy::NpyArray load_npy_file(AAssetManager *assetManager, const char *filename);
 
+    cnpy::NpyArray load_npy_file(const char *filename);
+
     void testBuffer(AAssetManager *assetManager, cl_command_queue cmdQueue, cl_mem buffer, const char *filename);
+
+    void testBuffer(cl_command_queue cmdQueue, cl_mem buffer, const char *filename);
 }
 #endif //MY_OPENCL_UTIL_H

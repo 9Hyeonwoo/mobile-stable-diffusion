@@ -31,9 +31,8 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
                          cl_device_id deviceId) : context(context), cmdQueue(cmdQueue),
                                                   deviceId(deviceId), assetManager(assetManager) {
     cl_int err;
-    embedding = util::load_npy_file(assetManager, "encoder/embedding_fp32.npy");
-    auto positional_embedding = util::load_npy_file(assetManager,
-                                                    "encoder/positional_embedding_fp32.npy");
+    embedding = util::load_npy_file("encoder/embedding_fp32.npy");
+    auto positional_embedding = util::load_npy_file("encoder/positional_embedding_fp32.npy");
 
     bufferPositionalEmbedding = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                                positional_embedding.num_bytes(),
@@ -142,7 +141,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
 //    );
 
 
-//    util::testBuffer(assetManager, cmdQueue, bufferEmbedding, "encoder/test/positional_embedding_test_fp32.npy");
+//    util::testBuffer(cmdQueue, bufferEmbedding, "encoder/test/positional_embedding_test_fp32.npy");
 
     // permute
 //    PRINT_TIME(2,
@@ -160,7 +159,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
                                  &event2);
     CHECK_ERROR(err);
 
-//    util::testBuffer(assetManager, cmdQueue, bufferTemp, "encoder/test/permute_test_fp32.npy");
+//    util::testBuffer(cmdQueue, bufferTemp, "encoder/test/permute_test_fp32.npy");
 //    );
 
     /* text_transformer_forward(x) */
@@ -179,7 +178,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     }
 
     // max diff: 0.00003051757812500000
-    // util::testBuffer(assetManager, cmdQueue, outBuffer, "encoder/test/resblock_22_test_fp32.npy");
+    // util::testBuffer(cmdQueue, outBuffer, "encoder/test/resblock_22_test_fp32.npy");
 
     /* x.permute(1, 0, 2) */
     err = clSetKernelArg(kernel_permute3D_1_0_2, 0, sizeof(cl_mem), &outBuffer);
@@ -198,7 +197,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     CHECK_ERROR(err);
 
     // max diff: 0.00002861022949218750
-    // util::testBuffer(assetManager, cmdQueue, outBuffer, "encoder/test/ln_final_test_fp32.npy");
+    // util::testBuffer(cmdQueue, outBuffer, "encoder/test/ln_final_test_fp32.npy");
     auto result = std::vector<float>(token_embedding_result.size());
     err = clEnqueueReadBuffer(cmdQueue, outBuffer, CL_FALSE, 0,
                               sizeof(float) * token_embedding_result.size(),
@@ -224,7 +223,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
 void TextEncoder::testEmbedding(const std::vector<long> &token) {
     // test with "a professional photograph of an astronaut riding a horse"
     std::vector<float> token_embedding_result = token_embedding(token);
-    auto test = util::load_npy_file(assetManager, "encoder/test/embedding_test_fp32.npy");
+    auto test = util::load_npy_file("encoder/test/embedding_test_fp32.npy");
     int num = 0;
     float maxDiff = 0;
     for (int i = 0; i < token_embedding_result.size(); i++) {

@@ -125,17 +125,17 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     CHECK_ERROR(err);
 
     // max diff: 0.00000362098217010498
-    // util::testBuffer(assetManager, cmdQueue, bufferEmbedding, "encoder/test/resblock_0_add_attn_test_fp32.npy");
+    // util::testBuffer(cmdQueue, bufferEmbedding, "encoder/test/resblock_0_add_attn_test_fp32.npy");
 
     err = ln_2->forward(bufferEmbedding, bufferTemp, 1, &event3, &event4);
 
     // max diff: 0.00003504753112792969
-    // util::testBuffer(assetManager, cmdQueue, bufferTemp, "encoder/test/resblock_0_ln2_test_fp32.npy");
+    // util::testBuffer(cmdQueue, bufferTemp, "encoder/test/resblock_0_ln2_test_fp32.npy");
 
     err = mlp_c_fc->forward(bufferTemp, bufferMLP, 1, &event4, &event5);
 
     // max diff: 0.00002098083496093750
-    // util::testBuffer(assetManager, cmdQueue, bufferMLP, "encoder/test/resblock_0_mlp_c_fc_test_fp32.npy");
+    // util::testBuffer(cmdQueue, bufferMLP, "encoder/test/resblock_0_mlp_c_fc_test_fp32.npy");
 
     err = clSetKernelArg(kernel_gelu, 0, sizeof(cl_mem), &bufferMLP);
     err |= clSetKernelArg(kernel_gelu, 1, sizeof(cl_mem), &bufferMLP);
@@ -147,13 +147,13 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     CHECK_ERROR(err);
 
     // max diff: 0.00002098083496093750
-    // util::testBuffer(assetManager, cmdQueue, bufferMLP, "encoder/test/resblock_0_mlp_gelu_test_fp32.npy");
+    // util::testBuffer(cmdQueue, bufferMLP, "encoder/test/resblock_0_mlp_gelu_test_fp32.npy");
 
     err = mlp_c_proj->forward(bufferMLP, bufferTemp, 1, &event6, &event7);
     CHECK_ERROR(err);
 
     // max diff: 0.00003051757812500000
-    // util::testBuffer(assetManager, cmdQueue, bufferTemp, "encoder/test/resblock_0_mlp_c_proj_test_fp32.npy");
+    // util::testBuffer(cmdQueue, bufferTemp, "encoder/test/resblock_0_mlp_c_proj_test_fp32.npy");
 
     err = clSetKernelArg(kernel_elemwise_add, 0, sizeof(cl_mem), &bufferEmbedding);
     err |= clSetKernelArg(kernel_elemwise_add, 1, sizeof(cl_mem), &bufferTemp);
@@ -165,7 +165,7 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     CHECK_ERROR(err);
 
     // max diff: 0.00003051757812500000
-    // util::testBuffer(assetManager, cmdQueue, output, "encoder/test/resblock_0_test_fp32.npy");
+    // util::testBuffer(cmdQueue, output, "encoder/test/resblock_0_test_fp32.npy");
 
     clReleaseEvent(event1);
     clReleaseEvent(event2);

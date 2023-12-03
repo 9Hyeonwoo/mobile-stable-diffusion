@@ -44,7 +44,7 @@ MultiHeadAttention::MultiHeadAttention(
     attnOutProj0 = new Linear(context, cmdQueue, deviceId, assetManager,
                               out_proj_weight_name, out_proj_bias_name);
 
-    auto attention_mask = util::load_npy_file(assetManager, "encoder/attn_mask_fp32.npy");
+    auto attention_mask = util::load_npy_file("encoder/attn_mask_fp32.npy");
 
     bufferAttentionMask = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                          attention_mask.num_bytes(),
@@ -131,7 +131,7 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
     CHECK_ERROR(err);
 
     // error=0.00001144409179687500
-    // util::testBuffer(assetManager, cmdQueue, bufferAttnInProj0, "encoder/test/resblock_0_attn_in_proj_test_fp32.npy");
+    // util::testBuffer(cmdQueue, bufferAttnInProj0, "encoder/test/resblock_0_attn_in_proj_test_fp32.npy");
 
     /* permute in_proj result to Q,K,V */
     err = clSetKernelArg(kernel_permute3D_1_0_2, 0, sizeof(cl_mem), &bufferAttnInProj0);
@@ -146,7 +146,7 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
     CHECK_ERROR(err);
 
     // error=0.00001144409179687500
-    // util::testBuffer(assetManager, cmdQueue, bufferAttnInProj0_QKV, "encoder/test/resblock_0_attn_in_proj_qkv_test_fp32.npy");
+    // util::testBuffer(cmdQueue, bufferAttnInProj0_QKV, "encoder/test/resblock_0_attn_in_proj_qkv_test_fp32.npy");
 
     /* permute Q,K,V from (CONTEXT_LENGTH(77), BATCH(1)*NUM_HEADS(16), 1024/NUM_HEADS)
      * to (BATCH(1)*NUM_HEADS(16), CONTEXT_LENGTH(77), 1024/NUM_HEADS) */
@@ -175,7 +175,7 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
     CHECK_ERROR(err);
 
     // error=0.00001144409179687500
-    // util::testBuffer(assetManager, cmdQueue, bufferAttnInProj0, "encoder/test/resblock_0_attn_in_proj_head_test_fp32.npy");
+    // util::testBuffer(cmdQueue, bufferAttnInProj0, "encoder/test/resblock_0_attn_in_proj_head_test_fp32.npy");
 
     /* scale dot attention - matmul QxK */
 
@@ -191,7 +191,7 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
                                  &event3,
                                  &event4);
 
-    // util::testBuffer(assetManager, cmdQueue, bufferAttentionQK, "encoder/test/resblock_0_attn_qk_test_fp32.npy");
+    // util::testBuffer(cmdQueue, bufferAttentionQK, "encoder/test/resblock_0_attn_qk_test_fp32.npy");
 
     /* scale dot attention - softmax */
 
@@ -208,7 +208,7 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
                                  &event5);
     CHECK_ERROR(err);
 
-    // util::testBuffer(assetManager, cmdQueue, bufferAttentionQK, "encoder/test/resblock_0_attn_softmax_test_fp32.npy");
+    // util::testBuffer(cmdQueue, bufferAttentionQK, "encoder/test/resblock_0_attn_softmax_test_fp32.npy");
 
     /* scale dot attention - attention */
 
@@ -227,7 +227,7 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
     CHECK_ERROR(err);
 
     // max diff: 0.00000409036874771118
-    // util::testBuffer(assetManager, cmdQueue, bufferTemp, "encoder/test/resblock_0_attn_attention_test_fp32.npy");
+    // util::testBuffer(cmdQueue, bufferTemp, "encoder/test/resblock_0_attn_attention_test_fp32.npy");
 
     /* permute for input of out_proj */
     err = clSetKernelArg(kernel_permute3D_1_0_2, 0, sizeof(cl_mem), &bufferTemp);
@@ -245,7 +245,7 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
     CHECK_ERROR(err)
 
     // max diff: 0.00000362098217010498
-    // util::testBuffer(assetManager, cmdQueue, output, "encoder/test/resblock_0_attn_test_fp32.npy");
+    // util::testBuffer(cmdQueue, output, "encoder/test/resblock_0_attn_test_fp32.npy");
 
     clReleaseEvent(event1);
     clReleaseEvent(event2);

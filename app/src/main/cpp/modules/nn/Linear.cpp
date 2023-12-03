@@ -24,8 +24,8 @@ Linear::Linear(cl_context context, cl_command_queue cmdQueue, cl_device_id devic
                AAssetManager *assetManager, const char *weight_name, const char *bias_name)
         : cmdQueue(cmdQueue) {
     cl_int err;
-    auto weight = util::load_npy_file(assetManager, weight_name);
-    auto bias = util::load_npy_file(assetManager, bias_name);
+    auto weight = util::load_npy_file(weight_name);
+    auto bias = util::load_npy_file(bias_name);
     weightShape = weight.shape;
     biasShape = bias.shape;
     if (weight.shape[0] != bias.shape[0]) {

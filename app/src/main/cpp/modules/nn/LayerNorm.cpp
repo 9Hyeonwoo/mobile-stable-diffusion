@@ -25,8 +25,8 @@ LayerNorm::LayerNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id
                      AAssetManager *assetManager, const char *weight_name, const char *bias_name)
         : context(context), cmdQueue(cmdQueue), assetManager(assetManager) {
     cl_int err;
-    auto weight = util::load_npy_file(assetManager, weight_name);
-    auto bias = util::load_npy_file(assetManager, bias_name);
+    auto weight = util::load_npy_file(weight_name);
+    auto bias = util::load_npy_file(bias_name);
     weightSize = weight.num_vals;
     biasSize = bias.num_vals;
     if (weightSize != biasSize) {
@@ -113,7 +113,7 @@ cl_int LayerNorm::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
     CHECK_ERROR(err);
 
 //    clWaitForEvents(1, &event1);
-//    util::testBuffer(assetManager, cmdQueue, bufferMean, "encoder/test/local_mean_test_fp32.npy");
+//    util::testBuffer(cmdQueue, bufferMean, "encoder/test/local_mean_test_fp32.npy");
 
     err = clSetKernelArg(kernel_var, 0, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel_var, 1, sizeof(cl_mem), &bufferMean);
@@ -127,7 +127,7 @@ cl_int LayerNorm::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
     CHECK_ERROR(err);
 
 //    clWaitForEvents(1, &event2);
-//    util::testBuffer(assetManager, cmdQueue, bufferVariance, "encoder/test/local_var_test_fp32.npy");
+//    util::testBuffer(cmdQueue, bufferVariance, "encoder/test/local_var_test_fp32.npy");
 
     err = clSetKernelArg(kernel_norm, 0, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel_norm, 1, sizeof(cl_mem), &bufferMean);
@@ -144,7 +144,7 @@ cl_int LayerNorm::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
     CHECK_ERROR(err);
 
 //    clWaitForEvents(1, event);
-//    util::testBuffer(assetManager, cmdQueue, output, "encoder/test/layer_norm_0_test_fp32.npy");
+//    util::testBuffer(cmdQueue, output, "encoder/test/layer_norm_0_test_fp32.npy");
 
     clReleaseMemObject(bufferMean);
     clReleaseMemObject(bufferVariance);
