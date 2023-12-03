@@ -41,7 +41,7 @@ Java_com_example_myopencl_MainActivity_initOpenCL(
     CHECK_ERROR(err);
 
     AAssetManager *assetManager = AAssetManager_fromJava(env, _assetManager);
-    tokenizer = new SimpleTokenizer(assetManager);
+    tokenizer = new SimpleTokenizer();
     encoder = new TextEncoder(assetManager, context, cmdQueue, deviceId);
 
     size_t maxWorkGroupSize;

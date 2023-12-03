@@ -3,49 +3,50 @@
 //
 
 #include "tokenizer.h"
+#include <fstream>
+
 #define LOG_TAG "TOKENIZER"
 
-SimpleTokenizer::SimpleTokenizer(AAssetManager *assetManager) {
-    pat = std::regex(R"(<start_of_text>|<end_of_text>|'s|'t|'re|'ve|'m|'ll|'d|[\w]+|[\d]|[^\s\w\d]+)", std::regex::icase);
+#define MEDIA_PATH(filename) "/sdcard/Android/media/com.example.myopencl/" #filename
+
+SimpleTokenizer::SimpleTokenizer() {
+    pat = std::regex(
+            R"(<start_of_text>|<end_of_text>|'s|'t|'re|'ve|'m|'ll|'d|[\w]+|[\d]|[^\s\w\d]+)",
+            std::regex::icase);
     // below is the original for wstring.
     // pat = std::wregex(L"<start_of_text>|<end_of_text>|'s|'t|'re|'ve|'m|'ll|'d|[\\p{L}]+|[\\p{N}]|[^\\s\\p{L}\\p{N}]+", std::wregex::icase);
     cache.insert(std::make_pair("<start_of_text>", "<start_of_text>"));
     cache.insert(std::make_pair("<end_of_text>", "<end_of_text>"));
 
     auto byteToUnicode = bytes_to_unicode();
-    for (auto pair : byteToUnicode) {
+    for (auto pair: byteToUnicode) {
         byte_encoder.insert(pair);
     }
 
     std::vector<std::string> vocab;
-    for (auto& pair : byteToUnicode) {
+    for (auto &pair: byteToUnicode) {
         vocab.push_back(pair.second);
     }
-    for (auto& pair : byteToUnicode) {
+    for (auto &pair: byteToUnicode) {
         vocab.push_back(pair.second + "</w>");
     }
 
     // read vocab file
-    AAsset *asset = AAssetManager_open(assetManager, "bpe_simple_vocab_16e6.txt", AASSET_MODE_BUFFER);
-    if (asset == nullptr) {
+    std::ifstream file(MEDIA_PATH(bpe_simple_vocab_16e6.txt));
+    if (!file.is_open()) {
         __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
-                            "Failed to open the asset.");
-        throw std::runtime_error("Failed to open the asset.");
+                            "Failed to open the %s", MEDIA_PATH("bpe_simple_vocab_16e6.txt"));
+        throw std::runtime_error("Failed to open the file.");
     }
 
-    std::ostringstream os;
-    std::istringstream is;
-    const char* fileBuffer = static_cast<const char*>(AAsset_getBuffer(asset));
-
-    std::istringstream ss(fileBuffer);
     std::string line;
     int i = 0;
-    while (std::getline(ss, line)) {
+    while (std::getline(file, line)) {
         if (i == 0) {
             i++;
             continue;
         }
-        if (i == 49152-256-2+1) {
+        if (i == 49152 - 256 - 2 + 1) {
             break;
         }
 
@@ -56,10 +57,10 @@ SimpleTokenizer::SimpleTokenizer(AAssetManager *assetManager) {
         std::getline(ss2, second, ' ');
 
         vocab.push_back(first + second);
-        bpe_ranks.insert(std::make_pair(std::make_pair(first, second), i-1));
+        bpe_ranks.insert(std::make_pair(std::make_pair(first, second), i - 1));
         i++;
     }
-    AAsset_close(asset);
+    file.close();
 
     vocab.emplace_back("<start_of_text>");
     vocab.emplace_back("<end_of_text>");
@@ -90,7 +91,7 @@ std::vector<int> SimpleTokenizer::encode(std::string text) {
         // __android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "match: %s", match.str().c_str());
 
         // transform token to byte encoding.
-        for (unsigned char b : match.str()) {
+        for (unsigned char b: match.str()) {
             token += byte_encoder[static_cast<int>(b)];
         }
 
@@ -128,9 +129,11 @@ std::string SimpleTokenizer::bpe(std::string token) {
     }
 
     while (true) {
-        auto bigram = *std::min_element(pairs.begin(), pairs.end(),[this](auto a, auto b) {
-            auto aValue = (bpe_ranks.find(a) != bpe_ranks.end()) ? bpe_ranks[a] : std::numeric_limits<int>::max();
-            auto bValue = (bpe_ranks.find(b) != bpe_ranks.end()) ? bpe_ranks[b] : std::numeric_limits<int>::max();
+        auto bigram = *std::min_element(pairs.begin(), pairs.end(), [this](auto a, auto b) {
+            auto aValue = (bpe_ranks.find(a) != bpe_ranks.end()) ? bpe_ranks[a]
+                                                                 : std::numeric_limits<int>::max();
+            auto bValue = (bpe_ranks.find(b) != bpe_ranks.end()) ? bpe_ranks[b]
+                                                                 : std::numeric_limits<int>::max();
             return aValue < bValue;
         });
 
@@ -139,21 +142,21 @@ std::string SimpleTokenizer::bpe(std::string token) {
         }
 
         std::vector<std::string> new_word;
-        for (int i=0; i < word.size(); ) {
-            auto j = std::find(word.begin()+i, word.end(), bigram.first);
+        for (int i = 0; i < word.size();) {
+            auto j = std::find(word.begin() + i, word.end(), bigram.first);
             if (j != word.end()) {
-                for (auto w = word.begin()+i; w != j; w++) {
+                for (auto w = word.begin() + i; w != j; w++) {
                     new_word.push_back(*w);
                 }
                 i = j - word.begin();
             } else {
-                for (auto w = word.begin()+i; w != word.end(); w++) {
+                for (auto w = word.begin() + i; w != word.end(); w++) {
                     new_word.push_back(*w);
                 }
                 break;
             }
 
-            if (word[i] == bigram.first && i < word.size()-1 && word[i+1] == bigram.second) {
+            if (word[i] == bigram.first && i < word.size() - 1 && word[i + 1] == bigram.second) {
                 new_word.push_back(bigram.first + bigram.second);
                 i += 2;
             } else {
@@ -172,7 +175,7 @@ std::string SimpleTokenizer::bpe(std::string token) {
 
     auto joined_word = std::accumulate(
             word.begin(), word.end(), std::string(),
-            [](const std::string& a, const std::string& b) {
+            [](const std::string &a, const std::string &b) {
                 return a.empty() ? b : a + " " + b;
             }
     );
@@ -199,26 +202,28 @@ std::vector<std::pair<int, std::string>> SimpleTokenizer::bytes_to_unicode() {
     // Range from '!' to '~'
     for (int b = static_cast<int>(L'!'); b <= static_cast<int>(L'~'); ++b) {
         wstr = b;
-        byteToUnicode.emplace_back(b, converter.to_bytes(wstr)) ;
+        byteToUnicode.emplace_back(b, converter.to_bytes(wstr));
     }
 
     // Range from '¡' to '¬'
     for (int b = static_cast<int>(L'¡'); b <= static_cast<int>(L'¬'); ++b) {
         wstr = b;
-        byteToUnicode.emplace_back(b, converter.to_bytes(wstr)) ;
+        byteToUnicode.emplace_back(b, converter.to_bytes(wstr));
     }
 
     // Range from '®' to 'ÿ'
     for (int b = static_cast<int>(L'®'); b <= static_cast<int>(L'ÿ'); ++b) {
         wstr = b;
-        byteToUnicode.emplace_back(b, converter.to_bytes(wstr)) ;
+        byteToUnicode.emplace_back(b, converter.to_bytes(wstr));
     }
 
     int n = 0;
     for (int b = 0; b < 256; ++b) {
-        if (std::find_if(byteToUnicode.begin(), byteToUnicode.end(), [b](const auto& pair) {return pair.first == b;}) == byteToUnicode.end()) {
+        if (std::find_if(byteToUnicode.begin(), byteToUnicode.end(),
+                         [b](const auto &pair) { return pair.first == b; }) ==
+            byteToUnicode.end()) {
             wstr = 256 + n;
-            byteToUnicode.emplace_back(b, converter.to_bytes(wstr)) ;
+            byteToUnicode.emplace_back(b, converter.to_bytes(wstr));
             ++n;
         }
     }
@@ -226,21 +231,21 @@ std::vector<std::pair<int, std::string>> SimpleTokenizer::bytes_to_unicode() {
     return byteToUnicode;
 }
 
-std::vector<long> SimpleTokenizer::tokenize(const std::string& text) {
+std::vector<long> SimpleTokenizer::tokenize(const std::string &text) {
     return tokenize(std::vector<std::string>{text});
 }
 
-std::vector<long> SimpleTokenizer::tokenize(const std::vector<std::string>& texts) {
+std::vector<long> SimpleTokenizer::tokenize(const std::vector<std::string> &texts) {
     std::vector<long> result;
     const auto sot_token = encoder["<start_of_text>"];
     const auto eot_token = encoder["<end_of_text>"];
 
-    for (auto& text : texts) {
+    for (auto &text: texts) {
         auto tokens = encode(text);
         tokens.insert(tokens.begin(), sot_token);
         tokens.push_back(eot_token);
         if (tokens.size() > CONTEXT_LENGTH) {
-            tokens[CONTEXT_LENGTH-1] = eot_token;
+            tokens[CONTEXT_LENGTH - 1] = eot_token;
         }
         tokens.resize(CONTEXT_LENGTH, 0);
 

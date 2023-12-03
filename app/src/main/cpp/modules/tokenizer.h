@@ -5,7 +5,6 @@
 #ifndef MY_OPENCL_TOKENIZER_H
 #define MY_OPENCL_TOKENIZER_H
 
-#include <android/asset_manager_jni.h>
 #include <android/log.h>
 
 #include <string>
@@ -25,12 +24,15 @@
 
 class SimpleTokenizer {
 public:
-    SimpleTokenizer(AAssetManager *assetManager);
+    SimpleTokenizer();
+
     ~SimpleTokenizer();
 
     // Checked! (2023/11/29)
-    std::vector<long> tokenize(const std::vector<std::string>& texts);
-    std::vector<long> tokenize(const std::string& text);
+    std::vector<long> tokenize(const std::vector<std::string> &texts);
+
+    std::vector<long> tokenize(const std::string &text);
+
 private:
     std::regex pat;
     std::unordered_map<int, std::string> byte_encoder;
@@ -38,9 +40,13 @@ private:
     std::map<std::pair<std::string, std::string>, int> bpe_ranks;
     std::unordered_map<std::string, std::string> cache;
 
-    static std::vector<std::pair<std::string, std::string>> get_pairs(std::vector<std::string> word);
+    static std::vector<std::pair<std::string, std::string>>
+    get_pairs(std::vector<std::string> word);
+
     static std::vector<std::pair<int, std::string>> bytes_to_unicode();
+
     std::string bpe(std::string token);
+
     std::vector<int> encode(std::string text);
 };
 
