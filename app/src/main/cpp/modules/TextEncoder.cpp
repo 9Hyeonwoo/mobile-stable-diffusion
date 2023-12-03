@@ -74,10 +74,15 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
                                            mlp_c_proj_bias_name.c_str())
         );
     }
+
+    ln_final = new LayerNorm(context, cmdQueue, deviceId, assetManager,
+                             "encoder/ln_final_weight_fp32.npy",
+                             "encoder/ln_final_bias_fp32.npy");
 }
 
 TextEncoder::~TextEncoder() {
     delete[] resBlocks.data();
+    delete ln_final;
     clReleaseMemObject(bufferPositionalEmbedding);
 }
 
@@ -96,7 +101,7 @@ std::vector<float> TextEncoder::token_embedding(const std::vector<long> &token) 
 
 std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     cl_int err;
-    cl_event event1, event2, event3;
+    cl_event event1, event2, event3, event4, event5, event6;
     cl_kernel kernel_elemwise_add, kernel_permute3D_1_0_2;
 //    testEmbedding(token);
 //    PRINT_TIME(0,
@@ -158,8 +163,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
 //    util::testBuffer(assetManager, cmdQueue, bufferTemp, "encoder/test/permute_test_fp32.npy");
 //    );
 
-
-    // TODO : text_transformer_forward(x)
+    /* text_transformer_forward(x) */
     // init swapped state
     auto &inBuffer = bufferEmbedding;
     auto &outBuffer = bufferTemp;
@@ -177,11 +181,30 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     // max diff: 0.00003051757812500000
     // util::testBuffer(assetManager, cmdQueue, outBuffer, "encoder/test/resblock_22_test_fp32.npy");
 
-    // TODO : x.permute(1, 0, 2)
+    /* x.permute(1, 0, 2) */
+    err = clSetKernelArg(kernel_permute3D_1_0_2, 0, sizeof(cl_mem), &outBuffer);
+    err |= clSetKernelArg(kernel_permute3D_1_0_2, 1, sizeof(cl_mem), &inBuffer);
+    CHECK_ERROR(err);
 
-    // TODO : ln_final(x)
+    size_t globalSizePermuteReverse[3] = {CONTEXT_LENGTH, 1, EMBEDDING_SIZE};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_1_0_2, 3, nullptr, globalSizePermuteReverse,
+                                 nullptr, 1,
+                                 &outEvent,
+                                 &event4);
+    CHECK_ERROR(err);
 
-    clWaitForEvents(1, &event3);
+    /* ln_final(x) */
+    err = ln_final->forward(inBuffer, outBuffer, 1, &event4, &event5);
+    CHECK_ERROR(err);
+
+    // max diff: 0.00002861022949218750
+    // util::testBuffer(assetManager, cmdQueue, outBuffer, "encoder/test/ln_final_test_fp32.npy");
+    auto result = std::vector<float>(token_embedding_result.size());
+    err = clEnqueueReadBuffer(cmdQueue, outBuffer, CL_FALSE, 0,
+                              sizeof(float) * token_embedding_result.size(),
+                              result.data(), 1, &event5, &event6);
+
+    clWaitForEvents(1, &event6);
 
     clReleaseProgram(program);
     clReleaseMemObject(bufferTemp);
@@ -189,10 +212,12 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     clReleaseEvent(event1);
     clReleaseEvent(event2);
     clReleaseEvent(event3);
+    clReleaseEvent(event4);
+    clReleaseEvent(event5);
+    clReleaseEvent(event6);
     clReleaseKernel(kernel_elemwise_add);
     clReleaseKernel(kernel_permute3D_1_0_2);
 
-    auto result = std::vector<float>(token_embedding_result.size());
     return result;
 }
 

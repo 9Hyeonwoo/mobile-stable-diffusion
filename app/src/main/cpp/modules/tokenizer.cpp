@@ -87,7 +87,7 @@ std::vector<int> SimpleTokenizer::encode(std::string text) {
         // Expect match.str() is UTF-8 encoding.
         std::string token;
 
-        __android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "match: %s", match.str().c_str());
+        // __android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "match: %s", match.str().c_str());
 
         // transform token to byte encoding.
         for (unsigned char b : match.str()) {

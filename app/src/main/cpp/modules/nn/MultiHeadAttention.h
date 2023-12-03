@@ -5,6 +5,7 @@
 #ifndef MY_OPENCL_MULTIHEADATTENTION_H
 #define MY_OPENCL_MULTIHEADATTENTION_H
 
+#define CL_TARGET_OPENCL_VERSION 200
 #include "CL/opencl.h"
 #include "Linear.h"
 #include <android/asset_manager_jni.h>

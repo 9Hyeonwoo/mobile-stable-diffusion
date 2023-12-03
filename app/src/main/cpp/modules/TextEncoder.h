@@ -11,6 +11,7 @@
 #include <vector>
 #include <stdio.h>
 #include "nn/ResidualAttentionBlock.h"
+#include "nn/LayerNorm.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -44,6 +45,7 @@ private:
     cnpy::NpyArray embedding;
 
     std::vector<ResidualAttentionBlock *> resBlocks;
+    LayerNorm *ln_final;
 
     // Checked! (2023/11/29)
     // positional_embedding.shape = (CONTEXT_LENGTH, EMBEDDING_SIZE)
