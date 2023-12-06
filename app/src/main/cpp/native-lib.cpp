@@ -3,6 +3,8 @@
 #include <android/log.h>
 #include "modules/tokenizer.h"
 #include "modules/TextEncoder.h"
+#include "modules/DDIMSampler.h"
+#include "modules/util.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 #include <CL/opencl.h>
@@ -20,6 +22,7 @@ cl_command_queue cmdQueue;
 
 SimpleTokenizer *tokenizer;
 TextEncoder* encoder;
+DDIMSampler *sampler;
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_myopencl_MainActivity_initOpenCL(
@@ -43,6 +46,12 @@ Java_com_example_myopencl_MainActivity_initOpenCL(
     AAssetManager *assetManager = AAssetManager_fromJava(env, _assetManager);
     tokenizer = new SimpleTokenizer();
     encoder = new TextEncoder(assetManager, context, cmdQueue, deviceId);
+    sampler = new DDIMSampler([](auto x, auto t, auto c){ return x; });
+    // int shape[3] = {4, 64, 64};
+    // std::vector<float> tmp_c(77*1024, 0.f);
+    // auto x = util::load_npy_file("sampler/test/test_img.npy");
+    // auto x_vec = x.as_vec<float>();
+    // sampler->sample(&x_vec, 50, shape, tmp_c);
 
     size_t maxWorkGroupSize;
     err = clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &maxWorkGroupSize, nullptr);
