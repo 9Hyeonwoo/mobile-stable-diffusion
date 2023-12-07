@@ -50,6 +50,8 @@ ResBlock::ResBlock(
     CHECK_ERROR_THROW(err);
     kernel_chunk_add = clCreateKernel(program, "chunkwise_add", &err);
     CHECK_ERROR_THROW(err);
+    kernel_elem_add = clCreateKernel(program, "elemwise_add", &err);
+    CHECK_ERROR_THROW(err);
 
     clReleaseProgram(program);
 }
@@ -62,6 +64,7 @@ ResBlock::~ResBlock() {
     delete out_conv2d;
     clReleaseKernel(kernel_silu);
     clReleaseKernel(kernel_chunk_add);
+    clReleaseKernel(kernel_elem_add);
 }
 
 cl_int ResBlock::forward(
@@ -179,6 +182,21 @@ cl_int ResBlock::forward(
     // max diff: 0.00000953674316406250
     // util::testBuffer(cmdQueue, bufferInConv2d, "unet/input_block/test/test_resblock_out_layers.npy");
     /* out_layers */
+
+    /* skip_connection */
+    err = clSetKernelArg(kernel_elem_add, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel_elem_add, 1, sizeof(cl_mem), &bufferInConv2d);
+    err |= clSetKernelArg(kernel_elem_add, 2, sizeof(cl_mem), &output);
+    CHECK_ERROR(err);
+
+    size_t elemAddGlobalSize[1] = {inputBytes / sizeof(float)};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elem_add, 1, nullptr, elemAddGlobalSize, nullptr,
+                                 1, &event3_2, event);
+    CHECK_ERROR(err);
+
+    // max diff: 0.00000953674316406250
+    // util::testBuffer(cmdQueue, output, "unet/input_block/test/test_resblock_skip_connection.npy");
+    /* skip_connection */
 
     clReleaseEvent(event0_0);
     clReleaseEvent(event0_1);

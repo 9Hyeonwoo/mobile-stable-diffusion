@@ -37,6 +37,7 @@ private:
 
     cl_kernel kernel_silu;
     cl_kernel kernel_chunk_add;
+    cl_kernel kernel_elem_add;
 
     GroupNorm *in_group_norm;
     Conv2D *in_conv2d;
