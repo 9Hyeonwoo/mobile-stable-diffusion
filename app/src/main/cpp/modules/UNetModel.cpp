@@ -141,8 +141,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[0] */
 
     /* input_block layer[1] */
-    err = input_block_1_res_block->forward(bufferInputBlock_0, bufferInputBlock_0, 1, &event1_1,
-                                           &event1_2);
+    err = input_block_1_res_block->forward(bufferInputBlock_0, bufferEmbed, bufferInputBlock_0,
+                                           1, &event0_3,
+                                           1, &event1_1, &event1_2);
     CHECK_ERROR(err);
 
     /* input_block layer[1] */

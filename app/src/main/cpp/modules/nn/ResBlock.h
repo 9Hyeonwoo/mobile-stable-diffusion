@@ -12,6 +12,7 @@
 #include <android/asset_manager_jni.h>
 #include "GroupNorm.h"
 #include "Conv2D.h"
+#include "Linear.h"
 
 class ResBlock {
 public:
@@ -22,8 +23,9 @@ public:
 
     ~ResBlock();
 
-    cl_int forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
-                   const cl_event *event_wait_list, cl_event *event);
+    cl_int forward(cl_mem input, cl_mem embed, cl_mem output,
+                   cl_uint num_events_embed, const cl_event *event_wait_list_embed,
+                   cl_uint num_events_in_list, const cl_event *event_wait_list, cl_event *event);
 
 private:
     cl_context context;
@@ -34,6 +36,8 @@ private:
 
     GroupNorm *in_group_norm;
     Conv2D *in_conv2d;
+
+    Linear *embed_linear;
 };
 
 

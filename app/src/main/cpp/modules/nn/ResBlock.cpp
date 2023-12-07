@@ -32,6 +32,9 @@ ResBlock::ResBlock(
                                   in_group_norm_weight_name, in_group_norm_bias_name);
     in_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager, in_conv2d_weight_name,
                            in_conv2d_bias_name, 1, 1);
+    embed_linear = new Linear(context, cmdQueue, deviceId, assetManager,
+                              "unet/input_block/1/input_block_1_res_block_embed_linear_weight.npy",
+                              "unet/input_block/1/input_block_1_res_block_embed_linear_bias.npy");
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
@@ -45,16 +48,19 @@ ResBlock::ResBlock(
 ResBlock::~ResBlock() {
     delete in_group_norm;
     delete in_conv2d;
+    delete embed_linear;
     clReleaseKernel(kernel_silu);
 }
 
 cl_int ResBlock::forward(
-        cl_mem input, cl_mem output,
+        cl_mem input, cl_mem embed, cl_mem output,
+        cl_uint num_events_embed, const cl_event *event_wait_list_embed,
         cl_uint num_events_in_list, const cl_event *event_wait_list, cl_event *event
 ) {
     cl_int err;
-    cl_event event0, event1, event2;
-    cl_mem bufferInGroupNorm, bufferInConv2d;
+    cl_event event0_0, event0_1, event0_2;
+    cl_event event1_0, event1_1;
+    cl_mem bufferInGroupNorm, bufferInConv2d, bufferEmbedTemp, bufferEmbed;
 
     size_t inputBytes;
     err = clGetMemObjectInfo(input, CL_MEM_SIZE, sizeof(size_t), &inputBytes, nullptr);
@@ -72,7 +78,7 @@ cl_int ResBlock::forward(
     CHECK_ERROR(err);
 
     err = in_group_norm->forward(input, bufferInGroupNorm, num_events_in_list, event_wait_list,
-                                 &event0);
+                                 &event0_0);
     CHECK_ERROR(err);
 
     // max diff: 0.00000095367431640625
@@ -84,20 +90,56 @@ cl_int ResBlock::forward(
 
     size_t inSILUGlobalSize[3] = {inputBytes / sizeof(float)};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr, inSILUGlobalSize, nullptr, 1,
-                                 &event0, &event1);
+                                 &event0_0, &event0_1);
 
-    err = in_conv2d->forward(bufferInGroupNorm, bufferInConv2d, 1, &event1, &event2);
+    err = in_conv2d->forward(bufferInGroupNorm, bufferInConv2d, 1, &event0_1, &event0_2);
     CHECK_ERROR(err);
-    /* in_layers */
 
     // max diff: 0.00000810623168945312
     // util::testBuffer(cmdQueue, bufferInConv2d, "unet/input_block/test/test_resblock_in_layers.npy");
+    /* in_layers */
 
-    clReleaseEvent(event0);
-    clReleaseEvent(event1);
-    clReleaseEvent(event2);
+    /* emb_layers */
+    size_t embedBytes;
+    err = clGetMemObjectInfo(embed, CL_MEM_SIZE, sizeof(size_t), &embedBytes, nullptr);
+    CHECK_ERROR(err);
+
+    bufferEmbedTemp = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                     embedBytes,
+                                     nullptr, &err);
+    CHECK_ERROR(err);
+
+    bufferEmbed = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                 embedBytes / 1280 * 320,
+                                 nullptr, &err);
+    CHECK_ERROR(err);
+
+    err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &embed);
+    err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &bufferEmbedTemp);
+    CHECK_ERROR(err);
+
+    size_t embSILUGlobalSize[1] = {embedBytes / sizeof(float)};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr, embSILUGlobalSize, nullptr,
+                                 num_events_embed, event_wait_list_embed, &event1_0);
+    CHECK_ERROR(err);
+
+    err = embed_linear->forward(bufferEmbedTemp, bufferEmbed, 1, &event1_0, &event1_1);
+    CHECK_ERROR(err);
+
+    // max diff: 0.00001716613769531250
+    // util::testBuffer(cmdQueue, bufferEmbed, "unet/input_block/test/test_resblock_embed.npy");
+    /* emb_layers */
+
+
+    clReleaseEvent(event0_0);
+    clReleaseEvent(event0_1);
+    clReleaseEvent(event0_2);
+    clReleaseEvent(event1_0);
+    clReleaseEvent(event1_1);
     clReleaseMemObject(bufferInGroupNorm);
     clReleaseMemObject(bufferInConv2d);
+    clReleaseMemObject(bufferEmbedTemp);
+    clReleaseMemObject(bufferEmbed);
 
     return CL_SUCCESS;
 }
