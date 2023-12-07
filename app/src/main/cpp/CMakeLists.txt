@@ -38,7 +38,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         modules/DDIMSampler.cpp
         modules/UNetModel.cpp
         modules/nn/Conv2D.cpp
-        modules/nn/GroupNorm.cpp)
+        modules/nn/GroupNorm.cpp
+        modules/nn/ResBlock.cpp)
 
 # add libraries for OpenCL
 include_directories( ${CMAKE_SOURCE_DIR}/include )

@@ -36,10 +36,11 @@ UNetModel::UNetModel(
                                       "unet/input_block/0/input_block_0_conv2d_bias.npy",
                                       1, 1);
 
-    input_block_1_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager,
-                                             32, 320,
-                                             "unet/input_block/1/input_block_1_resblock_in_layers_group_norm_weight.npy",
-                                             "unet/input_block/1/input_block_1_resblock_in_layers_group_norm_bias.npy");
+    input_block_1_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
+                                           "unet/input_block/1/input_block_1_res_block_in_group_norm_weight.npy",
+                                           "unet/input_block/1/input_block_1_res_block_in_group_norm_bias.npy",
+                                           "unet/input_block/1/input_block_1_res_block_in_conv2d_weight.npy",
+                                           "unet/input_block/1/input_block_1_res_block_in_conv2d_bias.npy");
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
@@ -54,7 +55,7 @@ UNetModel::~UNetModel() {
     delete time_embed_0;
     delete time_embed_2;
     delete input_block_0_conv2d;
-    delete input_block_1_group_norm;
+    delete input_block_1_res_block;
     clReleaseKernel(kernel_silu);
 }
 
@@ -113,6 +114,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* time_embed layer */
 
     /* input_block layer */
+    /* input_block layer[0] */
     cl_event event1_0, event1_1, event1_2;
     cl_mem bufferInput, bufferInputBlock_0;
 
@@ -136,13 +138,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
 
     // x=seed45.npy. timestep=981. max diff: 0.00000059604644775391
     // util::testBuffer(cmdQueue, bufferInputBlock_0, "unet/input_block/test/test_input_block_0_conv2d.npy");
+    /* input_block layer[0] */
 
-    err = input_block_1_group_norm->forward(bufferInputBlock_0, bufferInputBlock_0,
-                                            1, &event1_1, &event1_2);
+    /* input_block layer[1] */
+    err = input_block_1_res_block->forward(bufferInputBlock_0, bufferInputBlock_0, 1, &event1_1,
+                                           &event1_2);
     CHECK_ERROR(err);
 
-    // max diff: 0.00000095367431640625
-    // util::testBuffer(cmdQueue, bufferInputBlock_0, "unet/input_block/test/test_resblock_group_norm.npy");
+    /* input_block layer[1] */
     /* input_block layer */
 
     clReleaseEvent(event0_0);

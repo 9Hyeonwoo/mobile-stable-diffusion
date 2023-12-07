@@ -9,7 +9,7 @@
 #include <android/asset_manager_jni.h>
 #include "nn/Linear.h"
 #include "nn/Conv2D.h"
-#include "nn/GroupNorm.h"
+#include "nn/ResBlock.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -36,7 +36,7 @@ private:
 
     Conv2D *input_block_0_conv2d;
 
-    GroupNorm *input_block_1_group_norm;
+    ResBlock *input_block_1_res_block;
 
     cl_kernel kernel_silu;
 };
