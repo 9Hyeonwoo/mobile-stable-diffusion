@@ -154,58 +154,29 @@ cnpy::NpyArray util::load_npy_file(const char *_filename) {
     return arr;
 }
 
-void util::testBuffer(AAssetManager *assetManager, cl_command_queue cmdQueue, cl_mem buffer,
-                      const char *filename) {
-    cl_int err;
-    cl_event event;
-    auto test = util::load_npy_file(assetManager, filename);
-
-    float result[test.num_vals];
-    err = clEnqueueReadBuffer(cmdQueue, buffer, CL_FALSE, 0,
-                              sizeof(float) * test.num_vals,
-                              result, 0, nullptr, &event);
-    CHECK_ERROR(err);
-    clWaitForEvents(1, &event);
-
-    int num = 0;
-    float maxDiff = 0;
-    int maxId = 0;
-    for (int i = 0; i < test.num_vals; i++) {
-        if (result[i] != test.data<float>()[i]) {
-            num++;
-            auto diff = std::abs(result[i] - test.data<float>()[i]);
-            if (diff > maxDiff) {
-                maxDiff = diff;
-                maxId = i;
-            }
-
-        }
-    }
-
-    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG,
-                        "%s max diff: %.20f / num : %d / result[%f] / test[%f]",
-                        filename, maxDiff, num, result[maxId], test.data<float>()[maxId]);
-    clReleaseEvent(event);
-}
-
 void util::testBuffer(cl_command_queue cmdQueue, cl_mem buffer, const char *filename) {
     cl_int err;
-    auto test = util::load_npy_file(filename);
 
     size_t bufferBytes;
     err = clGetMemObjectInfo(buffer, CL_MEM_SIZE, sizeof(size_t), &bufferBytes, nullptr);
     CHECK_ERROR(err);
     auto bufferSize = bufferBytes / sizeof(float);
-    if (bufferSize != test.num_vals) {
-        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "bufferSize(%ld) != test.num_vals(%ld)", bufferSize, test.num_vals);
-        return;
-    }
 
-    std::vector<float>result(test.num_vals);
+    std::vector<float>result(bufferSize);
     err = clEnqueueReadBuffer(cmdQueue, buffer, CL_TRUE, 0,
-                              sizeof(float) * test.num_vals,
+                              sizeof(float) * bufferSize,
                               result.data(), 0, nullptr, nullptr);
     CHECK_ERROR(err);
+
+    util::testBuffer(result, filename);
+}
+
+void util::testBuffer(std::vector<float> result, const char *filename) {
+    auto test = util::load_npy_file(filename);
+    if (result.size() != test.num_vals) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "bufferSize(%ld) != test.num_vals(%ld)", result.size(), test.num_vals);
+        return;
+    }
 
     float maxDiff = 0;
     int maxId = 0;
@@ -231,28 +202,4 @@ void util::testBuffer(cl_command_queue cmdQueue, cl_mem buffer, const char *file
                             "result[%d]: %f != test[%d]: %f",
                             wrongs[i], result[wrongs[i]], wrongs[i], test.data<float>()[wrongs[i]]);
     }
-}
-
-void util::testBuffer(std::vector<float> result, const char *filename) {
-    auto test = util::load_npy_file(filename);
-
-    int num = 0;
-    float maxDiff = 0;
-    int maxId = 0;
-    for (int i = 0; i < test.num_vals; i++) {
-        if (result[i] != test.data<float>()[i]) {
-            num++;
-            auto diff = std::abs(result[i] - test.data<float>()[i]);
-            if (diff > maxDiff) {
-                maxDiff = diff;
-                maxId = i;
-            }
-
-        }
-    }
-
-
-    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG,
-                        "%s max diff: %.20f / num : %d / result[%f] / test[%f]",
-                        filename, maxDiff, num, result[maxId], test.data<float>()[maxId]);
 }

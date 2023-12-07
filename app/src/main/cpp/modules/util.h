@@ -26,9 +26,6 @@ namespace util {
 
     cnpy::NpyArray load_npy_file(const char *filename);
 
-    void testBuffer(AAssetManager *assetManager, cl_command_queue cmdQueue, cl_mem buffer,
-                    const char *filename);
-
     void testBuffer(cl_command_queue cmdQueue, cl_mem buffer, const char *filename);
 
     void testBuffer(std::vector<float> result, const char *filename);
