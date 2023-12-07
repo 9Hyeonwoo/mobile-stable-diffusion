@@ -40,7 +40,11 @@ UNetModel::UNetModel(
                                            "unet/input_block/1/input_block_1_res_block_in_group_norm_weight.npy",
                                            "unet/input_block/1/input_block_1_res_block_in_group_norm_bias.npy",
                                            "unet/input_block/1/input_block_1_res_block_in_conv2d_weight.npy",
-                                           "unet/input_block/1/input_block_1_res_block_in_conv2d_bias.npy");
+                                           "unet/input_block/1/input_block_1_res_block_in_conv2d_bias.npy",
+                                           "unet/input_block/1/input_block_1_res_block_out_group_norm_weight.npy",
+                                           "unet/input_block/1/input_block_1_res_block_out_group_norm_bias.npy",
+                                           "unet/input_block/1/input_block_1_res_block_out_conv2d_weight.npy",
+                                           "unet/input_block/1/input_block_1_res_block_out_conv2d_bias.npy");
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");

@@ -25,7 +25,9 @@ ResBlock::ResBlock(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager,
         const char *in_group_norm_weight_name, const char *in_group_norm_bias_name,
-        const char *in_conv2d_weight_name, const char *in_conv2d_bias_name
+        const char *in_conv2d_weight_name, const char *in_conv2d_bias_name,
+        const char *out_group_norm_weight_name, const char *out_group_norm_bias_name,
+        const char *out_conv2d_weight_name, const char *out_conv2d_bias_name
 ) : context(context), cmdQueue(cmdQueue), assetManager(assetManager) {
     cl_int err;
     in_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, 320,
@@ -35,6 +37,10 @@ ResBlock::ResBlock(
     embed_linear = new Linear(context, cmdQueue, deviceId, assetManager,
                               "unet/input_block/1/input_block_1_res_block_embed_linear_weight.npy",
                               "unet/input_block/1/input_block_1_res_block_embed_linear_bias.npy");
+    out_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, 320,
+                                   out_group_norm_weight_name, out_group_norm_bias_name);
+    out_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager, out_conv2d_weight_name,
+                            out_conv2d_bias_name, 1, 1);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
@@ -51,6 +57,8 @@ ResBlock::~ResBlock() {
     delete in_group_norm;
     delete in_conv2d;
     delete embed_linear;
+    delete out_group_norm;
+    delete out_conv2d;
     clReleaseKernel(kernel_silu);
     clReleaseKernel(kernel_chunk_add);
 }
@@ -64,6 +72,7 @@ cl_int ResBlock::forward(
     cl_event event0_0, event0_1, event0_2;
     cl_event event1_0;
     cl_event event2_0;
+    cl_event event3_0, event3_1, event3_2;
     cl_mem bufferInGroupNorm, bufferInConv2d, bufferEmbedTemp, bufferEmbed;
 
     size_t inputBytes;
@@ -150,11 +159,34 @@ cl_int ResBlock::forward(
     // max diff: 0.00002098083496093750
     // util::testBuffer(cmdQueue, bufferInConv2d, "unet/input_block/test/test_resblock_chunk_add.npy");
 
+    /* out_layers */
+    err = out_group_norm->forward(bufferInConv2d, bufferInGroupNorm, 1, &event2_0, &event3_0);
+    CHECK_ERROR(err);
+
+    err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &bufferInGroupNorm);
+    err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &bufferInGroupNorm);
+    CHECK_ERROR(err);
+
+    size_t outSILUGlobalSize[3] = {inputBytes / sizeof(float)};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr, outSILUGlobalSize, nullptr, 1,
+                                 &event3_0, &event3_1);
+    CHECK_ERROR(err);
+
+    err = out_conv2d->forward(bufferInGroupNorm, bufferInConv2d, 1, &event3_1, &event3_2);
+    CHECK_ERROR(err);
+
+    // max diff: 0.00000953674316406250
+    // util::testBuffer(cmdQueue, bufferInConv2d, "unet/input_block/test/test_resblock_out_layers.npy");
+    /* out_layers */
+
     clReleaseEvent(event0_0);
     clReleaseEvent(event0_1);
     clReleaseEvent(event0_2);
     clReleaseEvent(event1_0);
     clReleaseEvent(event2_0);
+    clReleaseEvent(event3_0);
+    clReleaseEvent(event3_1);
+    clReleaseEvent(event3_2);
     clReleaseMemObject(bufferInGroupNorm);
     clReleaseMemObject(bufferInConv2d);
     clReleaseMemObject(bufferEmbedTemp);

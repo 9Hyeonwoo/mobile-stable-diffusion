@@ -19,7 +19,9 @@ public:
     ResBlock(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
              AAssetManager *assetManager,
              const char *in_group_norm_weight_name, const char *in_group_norm_bias_name,
-             const char *in_conv2d_weight_name, const char *in_conv2d_bias_name);
+             const char *in_conv2d_weight_name, const char *in_conv2d_bias_name,
+             const char *out_group_norm_weight_name, const char *out_group_norm_bias_name,
+             const char *out_conv2d_weight_name, const char *out_conv2d_bias_name);
 
     ~ResBlock();
 
@@ -39,6 +41,9 @@ private:
     Conv2D *in_conv2d;
 
     Linear *embed_linear;
+
+    GroupNorm *out_group_norm;
+    Conv2D *out_conv2d;
 };
 
 
