@@ -8,6 +8,7 @@
 #include <vector>
 #include <android/asset_manager_jni.h>
 #include "nn/Linear.h"
+#include "nn/Conv2D.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -31,6 +32,8 @@ private:
 
     Linear *time_embed_0;
     Linear *time_embed_2;
+
+    Conv2D *input_block_0_conv2d;
 
     cl_kernel kernel_silu;
 };

@@ -190,35 +190,47 @@ void util::testBuffer(AAssetManager *assetManager, cl_command_queue cmdQueue, cl
 
 void util::testBuffer(cl_command_queue cmdQueue, cl_mem buffer, const char *filename) {
     cl_int err;
-    cl_event event;
     auto test = util::load_npy_file(filename);
 
-    float result[test.num_vals];
-    err = clEnqueueReadBuffer(cmdQueue, buffer, CL_FALSE, 0,
-                              sizeof(float) * test.num_vals,
-                              result, 0, nullptr, &event);
+    size_t bufferBytes;
+    err = clGetMemObjectInfo(buffer, CL_MEM_SIZE, sizeof(size_t), &bufferBytes, nullptr);
     CHECK_ERROR(err);
-    clWaitForEvents(1, &event);
+    auto bufferSize = bufferBytes / sizeof(float);
+    if (bufferSize != test.num_vals) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "bufferSize(%ld) != test.num_vals(%ld)", bufferSize, test.num_vals);
+        return;
+    }
 
-    int num = 0;
+    std::vector<float>result(test.num_vals);
+    err = clEnqueueReadBuffer(cmdQueue, buffer, CL_TRUE, 0,
+                              sizeof(float) * test.num_vals,
+                              result.data(), 0, nullptr, nullptr);
+    CHECK_ERROR(err);
+
     float maxDiff = 0;
     int maxId = 0;
+    std::vector<int> wrongs;
     for (int i = 0; i < test.num_vals; i++) {
         if (result[i] != test.data<float>()[i]) {
-            num++;
             auto diff = std::abs(result[i] - test.data<float>()[i]);
             if (diff > maxDiff) {
                 maxDiff = diff;
                 maxId = i;
+                wrongs.insert(wrongs.begin(), i);
+            } else {
+                wrongs.push_back(i);
             }
-
         }
     }
 
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG,
-                        "%s max diff: %.20f / num : %d / result[%f] / test[%f]",
-                        filename, maxDiff, num, result[maxId], test.data<float>()[maxId]);
-    clReleaseEvent(event);
+                        "%s max diff: %.20f / num : %ld / result[%d]: %f/ test[%d]: %f",
+                        filename, maxDiff, wrongs.size(), maxId, result[maxId], maxId, test.data<float>()[maxId]);
+    for (int i =0; i < 10; i++) {
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG,
+                            "result[%d]: %f != test[%d]: %f",
+                            wrongs[i], result[wrongs[i]], wrongs[i], test.data<float>()[wrongs[i]]);
+    }
 }
 
 void util::testBuffer(std::vector<float> result, const char *filename) {

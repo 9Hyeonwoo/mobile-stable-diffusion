@@ -66,7 +66,7 @@ Java_com_example_myopencl_MainActivity_initOpenCL(
     unet = new UNetModel(assetManager, context, cmdQueue, deviceId);
     /* test unet */
     auto x = util::load_npy_file("sampler/test/test_seed_45_img.npy").as_vec<float>();
-    auto c = std::vector<float>(77*1024, 0.f);
+    auto c = util::load_npy_file("encoder/test/ln_final_test_fp32.npy").as_vec<float>();
     unet->forward(x, 981, c);
 
     size_t maxWorkGroupSize;
