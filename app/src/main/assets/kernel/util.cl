@@ -49,3 +49,15 @@ __kernel void gelu(__global float *src,
     temp = 1.0f + erf(temp);
     dst[idx] = x * 0.5f * temp;
 }
+
+__kernel void silu(__global float *src,
+                   __global float *dst)
+{
+    int idx = get_global_id(0);
+
+    // SILU(x) = x / (1.0 + exp(-x))
+    const float x = src[idx];
+    float temp = exp(-x);
+    temp = 1.0f / (1.0f + temp);
+    dst[idx] = x * temp;
+}

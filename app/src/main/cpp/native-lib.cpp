@@ -24,6 +24,7 @@ cl_command_queue cmdQueue;
 SimpleTokenizer *tokenizer;
 TextEncoder* encoder;
 DDIMSampler *sampler;
+UNetModel *unet;
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_myopencl_MainActivity_initOpenCL(
@@ -62,7 +63,11 @@ Java_com_example_myopencl_MainActivity_initOpenCL(
     // auto x_vec = x.as_vec<float>();
     // sampler->sample(&x_vec, 50, shape, tmp_c);
 
-    auto unet = UNetModel();
+    unet = new UNetModel(assetManager, context, cmdQueue, deviceId);
+    /* test unet */
+    auto x = util::load_npy_file("sampler/test/test_seed_45_img.npy").as_vec<float>();
+    auto c = std::vector<float>(77*1024, 0.f);
+    unet->forward(x, 981, c);
 
     size_t maxWorkGroupSize;
     err = clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &maxWorkGroupSize, nullptr);
@@ -157,6 +162,7 @@ Java_com_example_myopencl_MainActivity_destroyOpenCL(JNIEnv *env, jobject thiz) 
     delete tokenizer;
     delete encoder;
     delete sampler;
+    delete unet;
 
     clReleaseCommandQueue(cmdQueue);
     clReleaseContext(context);
