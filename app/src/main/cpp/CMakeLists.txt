@@ -35,7 +35,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         modules/nn/Linear.cpp
         modules/nn/ResidualAttentionBlock.cpp
         modules/nn/MultiHeadAttention.cpp
-        modules/DDIMSampler.cpp)
+        modules/DDIMSampler.cpp
+        modules/UNetModel.cpp)
 
 # add libraries for OpenCL
 include_directories( ${CMAKE_SOURCE_DIR}/include )

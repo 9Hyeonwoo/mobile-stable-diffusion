@@ -4,6 +4,7 @@
 #include "modules/tokenizer.h"
 #include "modules/TextEncoder.h"
 #include "modules/DDIMSampler.h"
+#include "modules/UNetModel.h"
 #include "modules/util.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
@@ -60,6 +61,8 @@ Java_com_example_myopencl_MainActivity_initOpenCL(
     // auto x = util::load_npy_file("sampler/test/test_img.npy");
     // auto x_vec = x.as_vec<float>();
     // sampler->sample(&x_vec, 50, shape, tmp_c);
+
+    auto unet = UNetModel();
 
     size_t maxWorkGroupSize;
     err = clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &maxWorkGroupSize, nullptr);
