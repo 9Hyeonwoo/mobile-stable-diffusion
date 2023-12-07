@@ -37,6 +37,7 @@ UNetModel::UNetModel(
                                       1, 1);
 
     input_block_1_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
+                                           320, 320,
                                            "unet/input_block/1/input_block_1_res_block_in_group_norm_weight.npy",
                                            "unet/input_block/1/input_block_1_res_block_in_group_norm_bias.npy",
                                            "unet/input_block/1/input_block_1_res_block_in_conv2d_weight.npy",

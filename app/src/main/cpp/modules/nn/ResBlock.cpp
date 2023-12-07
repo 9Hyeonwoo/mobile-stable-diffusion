@@ -24,20 +24,21 @@
 ResBlock::ResBlock(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager,
+        size_t channels, size_t out_channels,
         const char *in_group_norm_weight_name, const char *in_group_norm_bias_name,
         const char *in_conv2d_weight_name, const char *in_conv2d_bias_name,
         const char *out_group_norm_weight_name, const char *out_group_norm_bias_name,
         const char *out_conv2d_weight_name, const char *out_conv2d_bias_name
 ) : context(context), cmdQueue(cmdQueue), assetManager(assetManager) {
     cl_int err;
-    in_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, 320,
+    in_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, channels,
                                   in_group_norm_weight_name, in_group_norm_bias_name);
     in_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager, in_conv2d_weight_name,
                            in_conv2d_bias_name, 1, 1);
     embed_linear = new Linear(context, cmdQueue, deviceId, assetManager,
                               "unet/input_block/1/input_block_1_res_block_embed_linear_weight.npy",
                               "unet/input_block/1/input_block_1_res_block_embed_linear_bias.npy");
-    out_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, 320,
+    out_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, out_channels,
                                    out_group_norm_weight_name, out_group_norm_bias_name);
     out_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager, out_conv2d_weight_name,
                             out_conv2d_bias_name, 1, 1);
