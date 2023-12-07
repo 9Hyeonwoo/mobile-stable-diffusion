@@ -36,4 +36,5 @@ google-services.json
 
 # weight and pickle file
 app/src/main/assets/encoder
-assets/
+*.npy
+/assets
