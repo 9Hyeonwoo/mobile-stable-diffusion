@@ -9,6 +9,7 @@
 #include <android/asset_manager_jni.h>
 #include "nn/Linear.h"
 #include "nn/Conv2D.h"
+#include "nn/GroupNorm.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -34,6 +35,8 @@ private:
     Linear *time_embed_2;
 
     Conv2D *input_block_0_conv2d;
+
+    GroupNorm *input_block_1_group_norm;
 
     cl_kernel kernel_silu;
 };
