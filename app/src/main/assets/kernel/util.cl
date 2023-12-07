@@ -3,12 +3,12 @@ __kernel void elemwise_add(__global float *A,
             __global float *C)
 {
 
-   // Get the work-item’s unique ID
-   int idx = get_global_id(0);
+    // Get the work-item’s unique ID
+    int idx = get_global_id(0);
 
-  // Add the corresponding locations of
-   // 'A' and 'B', and store the result in 'C'.
-  C[idx] = A[idx] + B[idx];
+    // Add the corresponding locations of
+    // 'A' and 'B', and store the result in 'C'.
+    C[idx] = A[idx] + B[idx];
 }
 
 __kernel void permute3D__1_0_2(__global float *src,
@@ -60,4 +60,18 @@ __kernel void silu(__global float *src,
     float temp = exp(-x);
     temp = 1.0f / (1.0f + temp);
     dst[idx] = x * temp;
+}
+
+__kernel void chunkwise_add(__global float *A,
+            __global float *chunk,
+            __global float *C,
+            const size_t chunk_size)
+{
+    // Get the work-item’s unique ID
+    int idx = get_global_id(0);
+    int chunk_idx = idx / chunk_size;
+
+    // Add the corresponding locations of
+    // 'A' and 'chunk', and store the result in 'C'.
+    C[idx] = A[idx] + chunk[chunk_idx];
 }

@@ -41,6 +41,8 @@ ResBlock::ResBlock(
 
     kernel_silu = clCreateKernel(program, "silu", &err);
     CHECK_ERROR_THROW(err);
+    kernel_chunk_add = clCreateKernel(program, "chunkwise_add", &err);
+    CHECK_ERROR_THROW(err);
 
     clReleaseProgram(program);
 }
@@ -50,6 +52,7 @@ ResBlock::~ResBlock() {
     delete in_conv2d;
     delete embed_linear;
     clReleaseKernel(kernel_silu);
+    clReleaseKernel(kernel_chunk_add);
 }
 
 cl_int ResBlock::forward(
@@ -59,7 +62,8 @@ cl_int ResBlock::forward(
 ) {
     cl_int err;
     cl_event event0_0, event0_1, event0_2;
-    cl_event event1_0, event1_1;
+    cl_event event1_0;
+    cl_event event2_0;
     cl_mem bufferInGroupNorm, bufferInConv2d, bufferEmbedTemp, bufferEmbed;
 
     size_t inputBytes;
@@ -110,7 +114,7 @@ cl_int ResBlock::forward(
     CHECK_ERROR(err);
 
     bufferEmbed = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                 embedBytes / 1280 * 320,
+                                 sizeof(float) * 320,
                                  nullptr, &err);
     CHECK_ERROR(err);
 
@@ -123,19 +127,34 @@ cl_int ResBlock::forward(
                                  num_events_embed, event_wait_list_embed, &event1_0);
     CHECK_ERROR(err);
 
-    err = embed_linear->forward(bufferEmbedTemp, bufferEmbed, 1, &event1_0, &event1_1);
+    err = embed_linear->forward(bufferEmbedTemp, bufferEmbed, 1, &event1_0, &event0_2);
     CHECK_ERROR(err);
 
     // max diff: 0.00001716613769531250
     // util::testBuffer(cmdQueue, bufferEmbed, "unet/input_block/test/test_resblock_embed.npy");
     /* emb_layers */
 
+    size_t chunkSize = inputBytes / sizeof(float) / 320;
+    err = clSetKernelArg(kernel_chunk_add, 0, sizeof(cl_mem), &bufferInConv2d);
+    err |= clSetKernelArg(kernel_chunk_add, 1, sizeof(cl_mem), &bufferEmbed);
+    err |= clSetKernelArg(kernel_chunk_add, 2, sizeof(cl_mem), &bufferInConv2d);
+    err |= clSetKernelArg(kernel_chunk_add, 3, sizeof(size_t), &chunkSize);
+    CHECK_ERROR(err);
+
+    size_t chunkAddGlobalSize[1] = {inputBytes / sizeof(float)};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_chunk_add, 1, nullptr, chunkAddGlobalSize,
+                                 nullptr,
+                                 2, &event0_2, &event2_0);
+    CHECK_ERROR(err);
+
+    // max diff: 0.00002098083496093750
+    // util::testBuffer(cmdQueue, bufferInConv2d, "unet/input_block/test/test_resblock_chunk_add.npy");
 
     clReleaseEvent(event0_0);
     clReleaseEvent(event0_1);
     clReleaseEvent(event0_2);
     clReleaseEvent(event1_0);
-    clReleaseEvent(event1_1);
+    clReleaseEvent(event2_0);
     clReleaseMemObject(bufferInGroupNorm);
     clReleaseMemObject(bufferInConv2d);
     clReleaseMemObject(bufferEmbedTemp);
