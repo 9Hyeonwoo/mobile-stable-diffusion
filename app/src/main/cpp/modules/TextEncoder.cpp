@@ -80,7 +80,9 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
 }
 
 TextEncoder::~TextEncoder() {
-    delete[] resBlocks.data();
+    for (auto block: resBlocks) {
+        delete block;
+    }
     delete ln_final;
     clReleaseMemObject(bufferPositionalEmbedding);
 }

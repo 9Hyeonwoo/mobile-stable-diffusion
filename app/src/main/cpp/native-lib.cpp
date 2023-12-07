@@ -27,7 +27,7 @@ DDIMSampler *sampler;
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_myopencl_MainActivity_initOpenCL(
         JNIEnv* env,
-        jobject /* this */,
+        jobject thiz,
         jobject _assetManager) {
     cl_platform_id platformId;
     cl_device_id deviceId;
@@ -46,7 +46,15 @@ Java_com_example_myopencl_MainActivity_initOpenCL(
     AAssetManager *assetManager = AAssetManager_fromJava(env, _assetManager);
     tokenizer = new SimpleTokenizer();
     encoder = new TextEncoder(assetManager, context, cmdQueue, deviceId);
-    sampler = new DDIMSampler([](auto x, auto t, auto c){ return x; });
+
+    // auto clazz = env->FindClass("com/example/myopencl/MainActivity");
+    // auto methodId = env->GetMethodID(clazz, "unet", "([FJ[F)[F");
+
+    sampler = new DDIMSampler([](std::vector<float> x, int t, std::vector<float> c){
+        // auto _result = (jfloatArray)(env->CallObjectMethod(thiz, methodId, x.data(), t, c.data()));
+        // float* floatArray = env->GetFloatArrayElements(_result, nullptr);
+        return x;
+    });
     // int shape[3] = {4, 64, 64};
     // std::vector<float> tmp_c(77*1024, 0.f);
     // auto x = util::load_npy_file("sampler/test/test_img.npy");
@@ -124,10 +132,28 @@ Java_com_example_myopencl_MainActivity_encode(JNIEnv *env, jobject thiz, jlongAr
 }
 
 extern "C"
+JNIEXPORT jfloatArray JNICALL
+Java_com_example_myopencl_MainActivity_sample(JNIEnv *env, jobject thiz, jfloatArray _condition) {
+    float* floatArray = env->GetFloatArrayElements(_condition, nullptr);
+    auto condition = std::vector<float>(floatArray, floatArray + env->GetArrayLength(_condition));
+
+    auto x = util::load_npy_file("sampler/test/test_seed_45_img.npy");
+    auto x_vec = x.as_vec<float>();
+    int shape[3] = {4, 64, 64};
+    auto result = sampler->sample(&x_vec, 50, shape, condition);
+
+    jfloatArray resultArray = env->NewFloatArray(static_cast<int>(result.size()));
+    env->SetFloatArrayRegion(resultArray, 0, static_cast<int>(result.size()), result.data());
+    return resultArray;
+
+}
+
+extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_myopencl_MainActivity_destroyOpenCL(JNIEnv *env, jobject thiz) {
     delete tokenizer;
     delete encoder;
+    delete sampler;
 
     clReleaseCommandQueue(cmdQueue);
     clReleaseContext(context);
