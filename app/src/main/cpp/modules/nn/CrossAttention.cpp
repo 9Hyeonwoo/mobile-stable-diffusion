@@ -60,6 +60,9 @@ CrossAttention::CrossAttention(
     kernel_einsum_bik_bjk_bij = clCreateKernel(program, "einsum_bik_bjk_bij", &err);
     CHECK_ERROR_THROW(err);
 
+    kernel_einsum_bij_bjk_bik = clCreateKernel(program, "einsum_bij_bjk_bik", &err);
+    CHECK_ERROR_THROW(err);
+
     clReleaseProgram(program);
 }
 
@@ -69,6 +72,7 @@ CrossAttention::~CrossAttention() {
     delete toVLinear;
     clReleaseKernel(kernel_permute3D_1_0_2);
     clReleaseKernel(kernel_einsum_bik_bjk_bij);
+    clReleaseKernel(kernel_einsum_bij_bjk_bik);
     clReleaseKernel(kernel_softmax);
 }
 
@@ -76,11 +80,11 @@ cl_int
 CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint num_events_in_list,
                         const cl_event *event_wait_list, cl_event *event) {
     cl_int err;
-    cl_event event0_0, event0_1, event0_2, event0_3;
+    cl_event event0_0, event0_1, event0_2;
     cl_event event1_0;
-    cl_event event2_0, event2_1;
+    cl_event event2_0, event2_1, event2_2;
     cl_mem bufferQ, bufferK, bufferV, bufferPermuteQ, bufferPermuteK, bufferPermuteV;
-    cl_mem bufferEinsumQK;
+    cl_mem bufferEinsumQK, bufferEinsumV;
 
     size_t inputBytes, inputSize;
     err = clGetMemObjectInfo(input, CL_MEM_SIZE, sizeof(size_t), &inputBytes, nullptr);
@@ -111,6 +115,13 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
                                     (inputSize / toQLinear->weightShape[0]) *
                                     (inputSize / toKLinear->weightShape[0]),
                                     nullptr, &err);
+    CHECK_ERROR(err);
+
+    bufferEinsumV = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                   sizeof(float) * headSize *
+                                   (inputSize / toQLinear->weightShape[0]) *
+                                   (toVLinear->weightShape[0] / headSize),
+                                   nullptr, &err);
     CHECK_ERROR(err);
 
     if (condition == nullptr) {
@@ -197,11 +208,27 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     };
     size_t softmaxLocalSize[1] = {WORK_GROUP_SIZE};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_softmax, 1, nullptr,
-                                 softmaxGlobalSize, softmaxLocalSize, 1, &event0_2, &event0_3);
+                                 softmaxGlobalSize, softmaxLocalSize, 1, &event0_2, &event2_1);
     CHECK_ERROR(err);
 
     // max diff: 0.00000052154064178467
     // util::testBuffer(cmdQueue, bufferEinsumQK, "unet/input_block/test/test_cross_softmax.npy");
+
+    size_t jSize = inputSize / toVLinear->weightShape[0];
+    err = clSetKernelArg(kernel_einsum_bij_bjk_bik, 0, sizeof(cl_mem), &bufferEinsumQK);
+    err |= clSetKernelArg(kernel_einsum_bij_bjk_bik, 1, sizeof(cl_mem), &bufferPermuteV);
+    err |= clSetKernelArg(kernel_einsum_bij_bjk_bik, 2, sizeof(cl_mem), &bufferEinsumV);
+    err |= clSetKernelArg(kernel_einsum_bij_bjk_bik, 3, sizeof(size_t), &jSize);
+    CHECK_ERROR(err);
+
+    size_t einsumVGlobalSize[3] = {headSize, inputSize / toQLinear->weightShape[0],
+                                   toVLinear->weightShape[0] / headSize};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_einsum_bij_bjk_bik, 3, nullptr,
+                                 einsumVGlobalSize, nullptr, 2, &event2_1, &event2_2);
+    CHECK_ERROR(err);
+
+    // max diff: 0.00000193715095520020
+    // util::testBuffer(cmdQueue, bufferEinsumV, "unet/input_block/test/test_cross_einsum_v.npy");
 
     clReleaseEvent(event0_0);
     clReleaseEvent(event0_1);
@@ -209,6 +236,7 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     clReleaseEvent(event1_0);
     clReleaseEvent(event2_0);
     clReleaseEvent(event2_1);
+    clReleaseEvent(event2_2);
     clReleaseMemObject(bufferQ);
     clReleaseMemObject(bufferK);
     clReleaseMemObject(bufferV);
@@ -216,5 +244,7 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     clReleaseMemObject(bufferPermuteK);
     clReleaseMemObject(bufferPermuteV);
     clReleaseMemObject(bufferEinsumQK);
+    clReleaseMemObject(bufferEinsumV);
+
     return CL_SUCCESS;
 }

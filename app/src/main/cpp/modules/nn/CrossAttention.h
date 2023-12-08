@@ -36,6 +36,7 @@ private:
 
     cl_kernel kernel_permute3D_1_0_2;
     cl_kernel kernel_einsum_bik_bjk_bij;
+    cl_kernel kernel_einsum_bij_bjk_bik;
     cl_kernel kernel_softmax;
 };
 
