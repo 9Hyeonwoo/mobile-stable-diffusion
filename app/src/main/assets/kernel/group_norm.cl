@@ -56,7 +56,6 @@ __kernel void local_reduction_variance(__global const float *input,
 	}
 }
 
-__constant float epsilon = 0.00001;
 __kernel void group_norm(__global const float *input,
                         __global const float *mean,
                         __global const float *variance,
@@ -64,6 +63,7 @@ __kernel void group_norm(__global const float *input,
                         __global const float *bias,
                         const size_t groupSize,
                         const size_t channelSize,
+                        const float epsilon,
                         __global float *output
 ) {
     const int globalID = get_global_id(0);

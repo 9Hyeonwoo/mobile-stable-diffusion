@@ -26,9 +26,10 @@
 GroupNorm::GroupNorm(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager,
-        size_t num_groups, size_t num_channels,
+        size_t num_groups, size_t num_channels, float eps,
         const char *weight_name, const char *bias_name
-) : context(context), cmdQueue(cmdQueue), num_groups(num_groups), num_channels(num_channels) {
+) : context(context), cmdQueue(cmdQueue), num_groups(num_groups), num_channels(num_channels),
+    eps(eps) {
     cl_int err;
     auto weight = util::load_npy_file(weight_name);
     auto bias = util::load_npy_file(bias_name);
@@ -142,7 +143,8 @@ cl_int GroupNorm::forward(
     err |= clSetKernelArg(kernel_norm, 4, sizeof(cl_mem), &bufferBias);
     err |= clSetKernelArg(kernel_norm, 5, sizeof(size_t), &groupSize);
     err |= clSetKernelArg(kernel_norm, 6, sizeof(size_t), &channelSize);
-    err |= clSetKernelArg(kernel_norm, 7, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel_norm, 7, sizeof(float), &eps);
+    err |= clSetKernelArg(kernel_norm, 8, sizeof(cl_mem), &output);
     CHECK_ERROR(err);
 
     size_t globalWorkSize[1] = {input_size};

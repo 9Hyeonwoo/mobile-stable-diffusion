@@ -15,7 +15,7 @@ class GroupNorm {
 public:
     GroupNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
               AAssetManager *assetManager,
-              size_t num_groups, size_t num_channels,
+              size_t num_groups, size_t num_channels, float eps,
               const char *weight_name, const char *bias_name);
 
     ~GroupNorm();
@@ -30,6 +30,8 @@ private:
     size_t biasSize;
     size_t num_groups;
     size_t num_channels;
+    float eps;
+
     cl_command_queue cmdQueue;
     cl_context context;
     AAssetManager *assetManager;

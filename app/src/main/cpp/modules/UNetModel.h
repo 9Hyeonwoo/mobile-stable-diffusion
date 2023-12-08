@@ -10,6 +10,7 @@
 #include "nn/Linear.h"
 #include "nn/Conv2D.h"
 #include "nn/ResBlock.h"
+#include "nn/SpatialTransformer.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -37,6 +38,8 @@ private:
     Conv2D *input_block_0_conv2d;
 
     ResBlock *input_block_1_res_block;
+
+    SpatialTransformer *input_block_1_spatial;
 
     cl_kernel kernel_silu;
 };
