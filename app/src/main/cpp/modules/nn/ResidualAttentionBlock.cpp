@@ -41,8 +41,7 @@ ResidualAttentionBlock::ResidualAttentionBlock(
         const char *mlp_c_proj_weight_name,
         const char *mlp_c_proj_bias_name
 ) : context(context),
-    cmdQueue(cmdQueue),
-    assetManager(assetManager) {
+    cmdQueue(cmdQueue) {
     cl_int err;
     ln_1 = new LayerNorm(context, cmdQueue, deviceId, assetManager,
                          ln_1_weight_name, ln_1_bias_name);

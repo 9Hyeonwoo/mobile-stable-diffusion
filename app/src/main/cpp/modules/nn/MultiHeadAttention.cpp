@@ -34,7 +34,6 @@ MultiHeadAttention::MultiHeadAttention(
         const char *out_proj_bias_name
 ) : context(context),
     cmdQueue(cmdQueue),
-    assetManager(assetManager),
     numHeads(numHeads) {
     cl_int err;
 

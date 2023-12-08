@@ -34,7 +34,6 @@ private:
 
     cl_command_queue cmdQueue;
     cl_context context;
-    AAssetManager *assetManager;
 
     cl_kernel kernel_mean;
     cl_kernel kernel_var;

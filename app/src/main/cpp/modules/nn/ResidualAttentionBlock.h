@@ -44,7 +44,6 @@ private:
 
     cl_context context;
     cl_command_queue cmdQueue;
-    AAssetManager *assetManager;
 
     cl_kernel kernel_elemwise_add;
     cl_kernel kernel_gelu;

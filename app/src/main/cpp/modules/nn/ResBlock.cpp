@@ -29,7 +29,7 @@ ResBlock::ResBlock(
         const char *in_conv2d_weight_name, const char *in_conv2d_bias_name,
         const char *out_group_norm_weight_name, const char *out_group_norm_bias_name,
         const char *out_conv2d_weight_name, const char *out_conv2d_bias_name
-) : context(context), cmdQueue(cmdQueue), assetManager(assetManager) {
+) : context(context), cmdQueue(cmdQueue) {
     cl_int err;
     in_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, channels, 1e-5,
                                   in_group_norm_weight_name, in_group_norm_bias_name);

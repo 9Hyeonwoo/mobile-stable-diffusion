@@ -27,7 +27,6 @@ public:
 private:
     cl_context context;
     cl_command_queue cmdQueue;
-    AAssetManager *assetManager;
 
     size_t numHeads;
 
