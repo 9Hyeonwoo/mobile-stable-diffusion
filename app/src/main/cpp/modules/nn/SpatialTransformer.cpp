@@ -25,9 +25,16 @@
 SpatialTransformer::SpatialTransformer(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager,
-        size_t channels,
+        size_t channels, size_t headSize, size_t headDim,
         const char *group_norm_weight_name, const char *group_norm_bias_name,
-        const char *in_linear_weight_name, const char *in_linear_bias_name
+        const char *in_linear_weight_name, const char *in_linear_bias_name,
+        const char *layer_norm_1_weight_name, const char *layer_norm_1_bias_name,
+        const char *layer_norm_2_weight_name, const char *layer_norm_2_bias_name,
+        const char *layer_norm_3_weight_name, const char *layer_norm_3_bias_name,
+        const char *cross_q_linear_weight_name,
+        const char *cross_k_linear_weight_name,
+        const char *cross_v_linear_weight_name,
+        const char *cross_out_linear_weight_name, const char *cross_out_linear_bias_name
 ) : context(context), cmdQueue(cmdQueue), channels(channels) {
     cl_int err;
     groupNorm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, channels, 1e-6,
@@ -36,15 +43,15 @@ SpatialTransformer::SpatialTransformer(
     projInLinear = new Linear(context, cmdQueue, deviceId, assetManager,
                               in_linear_weight_name, in_linear_bias_name);
     transformer = new BasicTransformerBlock(context, cmdQueue, deviceId, assetManager,
-                                            "unet/input_block/1/input_block_1_basic_layer_norm_1_weight.npy",
-                                            "unet/input_block/1/input_block_1_basic_layer_norm_1_bias.npy",
-                                            "unet/input_block/1/input_block_1_basic_layer_norm_2_weight.npy",
-                                            "unet/input_block/1/input_block_1_basic_layer_norm_2_bias.npy",
-                                            "unet/input_block/1/input_block_1_basic_layer_norm_3_weight.npy",
-                                            "unet/input_block/1/input_block_1_basic_layer_norm_3_bias.npy",
-                                            "unet/input_block/1/input_block_1_cross_q_linear_weight.npy",
-                                            "unet/input_block/1/input_block_1_cross_k_linear_weight.npy",
-                                            "unet/input_block/1/input_block_1_cross_v_linear_weight.npy");
+                                            headSize, headDim,
+                                            layer_norm_1_weight_name, layer_norm_1_bias_name,
+                                            layer_norm_2_weight_name, layer_norm_2_bias_name,
+                                            layer_norm_3_weight_name, layer_norm_3_bias_name,
+                                            cross_q_linear_weight_name,
+                                            cross_k_linear_weight_name,
+                                            cross_v_linear_weight_name,
+                                            cross_out_linear_weight_name,
+                                            cross_out_linear_bias_name);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");

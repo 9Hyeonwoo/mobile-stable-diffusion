@@ -17,7 +17,8 @@ public:
                    AAssetManager *assetManager, size_t headSize, size_t headDim,
                    const char *q_linear_weight_name,
                    const char *k_linear_weight_name,
-                   const char *v_linear_weight_name);
+                   const char *v_linear_weight_name,
+                   const char *out_linear_weight_name, const char *out_linear_bias_name);
 
     ~CrossAttention();
 
@@ -33,6 +34,7 @@ private:
     Linear *toQLinear;
     Linear *toKLinear;
     Linear *toVLinear;
+    Linear *toOutLinear;
 
     cl_kernel kernel_permute3D_1_0_2;
     cl_kernel kernel_einsum_bik_bjk_bij;

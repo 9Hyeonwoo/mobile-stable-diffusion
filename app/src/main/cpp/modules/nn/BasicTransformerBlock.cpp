@@ -23,13 +23,14 @@
 
 BasicTransformerBlock::BasicTransformerBlock(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-        AAssetManager *assetManager,
+        AAssetManager *assetManager, size_t headSize, size_t headDim,
         const char *layer_norm_1_weight_name, const char *layer_norm_1_bias_name,
         const char *layer_norm_2_weight_name, const char *layer_norm_2_bias_name,
         const char *layer_norm_3_weight_name, const char *layer_norm_3_bias_name,
         const char *cross_q_linear_weight_name,
         const char *cross_k_linear_weight_name,
-        const char *cross_v_linear_weight_name
+        const char *cross_v_linear_weight_name,
+        const char *cross_out_linear_weight_name, const char *cross_out_linear_bias_name
 ) : cmdQueue(cmdQueue), context(context) {
     layerNorm1 = new LayerNorm(context, cmdQueue, deviceId, assetManager, layer_norm_1_weight_name,
                                layer_norm_1_bias_name);
@@ -37,10 +38,11 @@ BasicTransformerBlock::BasicTransformerBlock(
                                layer_norm_2_bias_name);
     layerNorm3 = new LayerNorm(context, cmdQueue, deviceId, assetManager, layer_norm_3_weight_name,
                                layer_norm_3_bias_name);
-    crossAttention1 = new CrossAttention(context, cmdQueue, deviceId, assetManager, 5, 64,
+    crossAttention1 = new CrossAttention(context, cmdQueue, deviceId, assetManager, headSize, headDim,
                                          cross_q_linear_weight_name,
                                          cross_k_linear_weight_name,
-                                         cross_v_linear_weight_name);
+                                         cross_v_linear_weight_name,
+                                         cross_out_linear_weight_name, cross_out_linear_bias_name);
 }
 
 BasicTransformerBlock::~BasicTransformerBlock() {

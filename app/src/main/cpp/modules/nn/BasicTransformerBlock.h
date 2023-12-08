@@ -16,13 +16,15 @@
 class BasicTransformerBlock {
 public:
     BasicTransformerBlock(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-                          AAssetManager *assetManager,
+                          AAssetManager *assetManager, size_t headSize, size_t headDim,
                           const char *layer_norm_1_weight_name, const char *layer_norm_1_bias_name,
                           const char *layer_norm_2_weight_name, const char *layer_norm_2_bias_name,
                           const char *layer_norm_3_weight_name, const char *layer_norm_3_bias_name,
                           const char *cross_q_linear_weight_name,
                           const char *cross_k_linear_weight_name,
-                          const char *cross_v_linear_weight_name);
+                          const char *cross_v_linear_weight_name,
+                          const char *cross_out_linear_weight_name,
+                          const char *cross_out_linear_bias_name);
 
     ~BasicTransformerBlock();
 
