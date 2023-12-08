@@ -95,3 +95,41 @@ __kernel void chunkwise_add(__global float *A,
     // 'A' and 'chunk', and store the result in 'C'.
     C[idx] = A[idx] + chunk[chunk_idx];
 }
+
+__kernel void softmax(
+    __global const float *input,
+    __global float *output,
+    __local float* reductionSums,
+    __local float* cache,
+    const size_t reductionSize
+) {
+	const int localID = get_local_id(0);
+	const int localSize = get_local_size(0);
+	const int workgroupID = get_group_id(0);
+
+    const int i = workgroupID * localSize * reductionSize + localID;
+    float sum = 0.0f;
+    for(int j = 0; j < reductionSize; j++) {
+        float expVal = exp(input[i + j * localSize]);
+        sum += expVal;
+        // save to cache using adjacent memory locations
+        cache[localID * reductionSize + j] = expVal;
+    }
+	reductionSums[localID] = sum;
+
+	int remainder = localSize % 2;
+	for(int offset = localSize / 2; offset > 0; offset /= 2) {
+		barrier(CLK_LOCAL_MEM_FENCE);	// wait for all other work-items to finish previous iteration.
+		if(localID < offset) {
+			reductionSums[localID + remainder] += reductionSums[localID + offset + remainder];
+		}
+	    offset += remainder;
+	    remainder = offset % 2;
+	}
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    for(int j = 0; j < reductionSize; j++) {
+        output[i + j * localSize] = cache[localID * reductionSize + j] / reductionSums[0];
+    }
+}

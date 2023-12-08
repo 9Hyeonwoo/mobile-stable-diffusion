@@ -8,6 +8,8 @@
 
 #define LOG_TAG "CROSS_ATTENTION"
 
+#define WORK_GROUP_SIZE 64
+
 #define CHECK_ERROR(err) \
     if (err != CL_SUCCESS) { \
       __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "[%s:%d] OpenCL error %d\n", __FILE__, __LINE__, err); \
@@ -47,6 +49,9 @@ CrossAttention::CrossAttention(
     kernel_permute3D_1_0_2 = clCreateKernel(program, "permute3D__1_0_2", &err);
     CHECK_ERROR_THROW(err);
 
+    kernel_softmax = clCreateKernel(program, "softmax", &err);
+    CHECK_ERROR_THROW(err);
+
     clReleaseProgram(program);
 
     program = util::create_and_build_program_with_source(context, deviceId, assetManager,
@@ -64,13 +69,14 @@ CrossAttention::~CrossAttention() {
     delete toVLinear;
     clReleaseKernel(kernel_permute3D_1_0_2);
     clReleaseKernel(kernel_einsum_bik_bjk_bij);
+    clReleaseKernel(kernel_softmax);
 }
 
 cl_int
 CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint num_events_in_list,
                         const cl_event *event_wait_list, cl_event *event) {
     cl_int err;
-    cl_event event0_0, event0_1, event0_2;
+    cl_event event0_0, event0_1, event0_2, event0_3;
     cl_event event1_0;
     cl_event event2_0, event2_1;
     cl_mem bufferQ, bufferK, bufferV, bufferPermuteQ, bufferPermuteK, bufferPermuteV;
@@ -176,6 +182,26 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
 
     // max diff: 0.00001931190490722656
     // util::testBuffer(cmdQueue, bufferEinsumQK, "unet/input_block/test/test_cross_einsum.npy");
+
+    size_t reductionSize = inputSize / toKLinear->weightShape[0] / WORK_GROUP_SIZE;
+    err = clSetKernelArg(kernel_softmax, 0, sizeof(cl_mem), &bufferEinsumQK);
+    err |= clSetKernelArg(kernel_softmax, 1, sizeof(cl_mem), &bufferEinsumQK);
+    err |= clSetKernelArg(kernel_softmax, 2, sizeof(float) * WORK_GROUP_SIZE, nullptr);
+    err |= clSetKernelArg(kernel_softmax, 3, sizeof(float) * inputSize / toKLinear->weightShape[0],
+                          nullptr);
+    err |= clSetKernelArg(kernel_softmax, 4, sizeof(size_t), &reductionSize);
+    CHECK_ERROR(err);
+
+    size_t softmaxGlobalSize[1] = {
+            headSize * (inputSize / toQLinear->weightShape[0]) * WORK_GROUP_SIZE
+    };
+    size_t softmaxLocalSize[1] = {WORK_GROUP_SIZE};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_softmax, 1, nullptr,
+                                 softmaxGlobalSize, softmaxLocalSize, 1, &event0_2, &event0_3);
+    CHECK_ERROR(err);
+
+    // max diff: 0.00000052154064178467
+    // util::testBuffer(cmdQueue, bufferEinsumQK, "unet/input_block/test/test_cross_softmax.npy");
 
     clReleaseEvent(event0_0);
     clReleaseEvent(event0_1);
