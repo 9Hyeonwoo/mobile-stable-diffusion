@@ -7,7 +7,7 @@
 #include <android/log.h>
 
 #define LOG_TAG "LAYER_NORM"
-#define MAX_WORK_GROUP_SIZE 512
+#define WORK_GROUP_SIZE 64
 
 #define CHECK_ERROR(err) \
     if (err != CL_SUCCESS) { \
@@ -31,6 +31,10 @@ LayerNorm::LayerNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id
     biasSize = bias.num_vals;
     if (weightSize != biasSize) {
         throw std::runtime_error("weightSize != biasSize");
+    }
+
+    if (weightSize % WORK_GROUP_SIZE != 0) {
+        throw std::runtime_error("weightSize % WORK_GROUP_SIZE != 0");
     }
 
     bufferWeight = clCreateBuffer(context, CL_MEM_READ_ONLY,
@@ -100,13 +104,15 @@ cl_int LayerNorm::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
                                            nullptr, &err);
     CHECK_ERROR(err);
 
+    size_t reductionSize = weightSize / WORK_GROUP_SIZE;
     err = clSetKernelArg(kernel_mean, 0, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel_mean, 1, sizeof(cl_mem), &bufferMean);
-    err |= clSetKernelArg(kernel_mean, 2, sizeof(float) * weightSize / 4, nullptr);
+    err |= clSetKernelArg(kernel_mean, 2, sizeof(float) * WORK_GROUP_SIZE, nullptr);
+    err |= clSetKernelArg(kernel_mean, 3, sizeof(size_t), &reductionSize);
     CHECK_ERROR(err);
 
-    size_t globalReductionSize[1] = {input_size / 4};
-    size_t localReductionSize[1] = {weightSize / 4};
+    size_t globalReductionSize[1] = {input_size / reductionSize};
+    size_t localReductionSize[1] = {WORK_GROUP_SIZE};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_mean, 1, nullptr, globalReductionSize,
                                  localReductionSize,
                                  num_events_in_list, event_wait_list, &event1);
@@ -118,7 +124,8 @@ cl_int LayerNorm::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
     err = clSetKernelArg(kernel_var, 0, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel_var, 1, sizeof(cl_mem), &bufferMean);
     err |= clSetKernelArg(kernel_var, 2, sizeof(cl_mem), &bufferVariance);
-    err |= clSetKernelArg(kernel_var, 3, sizeof(float) * weightSize / 4, nullptr);
+    err |= clSetKernelArg(kernel_var, 3, sizeof(float) * WORK_GROUP_SIZE, nullptr);
+    err |= clSetKernelArg(kernel_var, 4, sizeof(size_t), &reductionSize);
     CHECK_ERROR(err);
 
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_var, 1, nullptr, globalReductionSize,

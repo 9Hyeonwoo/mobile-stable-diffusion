@@ -91,11 +91,19 @@ cl_int GroupNorm::forward(
     CHECK_ERROR(err);
 
     auto input_size = input_bytes / sizeof(float);
+    size_t groupSize = input_size / num_groups;
+    size_t reductionSize = groupSize / WORK_GROUP_SIZE;
 
     if (input_size % weightSize != 0) {
         __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "input_size: %ld, weight->num_vals: %ld",
                             input_size, weightSize);
         throw std::runtime_error("input_size % weight->num_vals != 0");
+    }
+
+    if (groupSize % WORK_GROUP_SIZE != 0) {
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "groupSize: %ld, WORK_GROUP_SIZE: %d",
+                            groupSize, WORK_GROUP_SIZE);
+        throw std::runtime_error("groupSize % WORK_GROUP_SIZE != 0");
     }
 
     cl_mem bufferMean = clCreateBuffer(context, CL_MEM_READ_WRITE,
@@ -108,8 +116,6 @@ cl_int GroupNorm::forward(
                                            nullptr, &err);
     CHECK_ERROR(err);
 
-    size_t groupSize = input_size / num_groups;
-    size_t reductionSize = groupSize / WORK_GROUP_SIZE;
     err = clSetKernelArg(kernel_mean, 0, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel_mean, 1, sizeof(cl_mem), &bufferMean);
     err |= clSetKernelArg(kernel_mean, 2, sizeof(float) * groupSize / reductionSize, nullptr);

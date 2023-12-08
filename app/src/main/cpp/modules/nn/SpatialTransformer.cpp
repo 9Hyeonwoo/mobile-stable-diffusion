@@ -35,6 +35,16 @@ SpatialTransformer::SpatialTransformer(
 
     projInLinear = new Linear(context, cmdQueue, deviceId, assetManager,
                               in_linear_weight_name, in_linear_bias_name);
+    transformer = new BasicTransformerBlock(context, cmdQueue, deviceId, assetManager,
+                                            "unet/input_block/1/input_block_1_basic_layer_norm_1_weight.npy",
+                                            "unet/input_block/1/input_block_1_basic_layer_norm_1_bias.npy",
+                                            "unet/input_block/1/input_block_1_basic_layer_norm_2_weight.npy",
+                                            "unet/input_block/1/input_block_1_basic_layer_norm_2_bias.npy",
+                                            "unet/input_block/1/input_block_1_basic_layer_norm_3_weight.npy",
+                                            "unet/input_block/1/input_block_1_basic_layer_norm_3_bias.npy",
+                                            "unet/input_block/1/input_block_1_cross_q_linear_weight.npy",
+                                            "unet/input_block/1/input_block_1_cross_k_linear_weight.npy",
+                                            "unet/input_block/1/input_block_1_cross_v_linear_weight.npy");
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
@@ -48,13 +58,15 @@ SpatialTransformer::SpatialTransformer(
 SpatialTransformer::~SpatialTransformer() {
     delete groupNorm;
     delete projInLinear;
+    delete transformer;
     clReleaseKernel(kernel_permute_0_2_1);
 }
 
-cl_int SpatialTransformer::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
-                                   const cl_event *event_wait_list, cl_event *event) {
+cl_int SpatialTransformer::forward(cl_mem input, cl_mem condition, cl_mem output,
+                                   cl_uint num_events_in_list, const cl_event *event_wait_list,
+                                   cl_event *event) {
     cl_int err;
-    cl_event event0, event1, event2;
+    cl_event event0, event1, event2, event3;
     cl_mem bufferGroupNorm, bufferPermute;
 
     size_t inputBytes;
@@ -75,6 +87,9 @@ cl_int SpatialTransformer::forward(cl_mem input, cl_mem output, cl_uint num_even
     err = groupNorm->forward(input, bufferGroupNorm, num_events_in_list, event_wait_list, &event0);
     CHECK_ERROR(err);
 
+    // max diff: 0.00000278651714324951
+    // util::testBuffer(cmdQueue, bufferGroupNorm, "unet/input_block/test/test_spatial_norm.npy");
+
     err = clSetKernelArg(kernel_permute_0_2_1, 0, sizeof(cl_mem), &bufferGroupNorm);
     err |= clSetKernelArg(kernel_permute_0_2_1, 1, sizeof(cl_mem), &bufferPermute);
     CHECK_ERROR(err);
@@ -89,6 +104,9 @@ cl_int SpatialTransformer::forward(cl_mem input, cl_mem output, cl_uint num_even
 
     // max diff: 0.00000250339508056641
     // util::testBuffer(cmdQueue, bufferGroupNorm, "unet/input_block/test/test_spatial_proj_in.npy");
+
+    err = transformer->forward(bufferGroupNorm, condition, bufferPermute, 1, &event2, &event3);
+    CHECK_ERROR(err);
 
     clReleaseEvent(event0);
     clReleaseEvent(event1);

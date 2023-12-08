@@ -82,7 +82,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                       const std::vector<float> &condition) {
     cl_int err;
     cl_event event0_0, event0_1, event0_2, event0_3;
+    cl_event event1_0, event1_1, event1_2, event1_3;
     cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed;
+    cl_mem bufferInput, bufferInputBlock_0, bufferCondition;
 
     /* time_embed layer */
     auto t_emb = timestep_embedding(timestep);
@@ -128,8 +130,6 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
 
     /* input_block layer */
     /* input_block layer[0] */
-    cl_event event1_0, event1_1, event1_2, event1_3;
-    cl_mem bufferInput, bufferInputBlock_0;
 
     bufferInput = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                  sizeof(float) * x.size(),
@@ -154,13 +154,23 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[0] */
 
     /* input_block layer[1] */
+
+    bufferCondition = clCreateBuffer(context, CL_MEM_READ_ONLY,
+                                     sizeof(float) * condition.size(),
+                                     nullptr, &err);
+    CHECK_ERROR(err);
+
+    err = clEnqueueWriteBuffer(cmdQueue, bufferCondition, CL_FALSE, 0,
+                               sizeof(float) * condition.size(),
+                               condition.data(), 0, nullptr, &event1_2);
+
     err = input_block_1_res_block->forward(bufferInputBlock_0, bufferEmbed, bufferInputBlock_0,
                                            1, &event0_3,
                                            1, &event1_1, &event1_2);
     CHECK_ERROR(err);
 
-    err = input_block_1_spatial->forward(bufferInputBlock_0, bufferInputBlock_0, 1, &event1_2,
-                                         &event1_3);
+    err = input_block_1_spatial->forward(bufferInputBlock_0, bufferCondition, bufferInputBlock_0,
+                                         2, &event1_2, &event1_3);
     CHECK_ERROR(err);
 
     /* input_block layer[1] */
@@ -179,6 +189,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     clReleaseMemObject(bufferEmbed);
     clReleaseMemObject(bufferInput);
     clReleaseMemObject(bufferInputBlock_0);
+    clReleaseMemObject(bufferCondition);
 
     return std::vector<float>();
 }

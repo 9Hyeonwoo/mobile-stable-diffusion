@@ -14,5 +14,8 @@ __kernel void linear(__global float *A,
         // A(M, K) * B(N, K) = C(M, N)
         sum += A[i * K + k] * B[j * K + k];
     }
-    C[i * N + j] = sum + bias[j];
+    if (bias != NULL) {
+        sum += bias[j];
+    }
+    C[i * N + j] = sum;
 }

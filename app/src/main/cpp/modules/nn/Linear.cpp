@@ -25,30 +25,35 @@ Linear::Linear(cl_context context, cl_command_queue cmdQueue, cl_device_id devic
         : cmdQueue(cmdQueue) {
     cl_int err;
     auto weight = util::load_npy_file(weight_name);
-    auto bias = util::load_npy_file(bias_name);
     weightShape = weight.shape;
-    biasShape = bias.shape;
-    if (weight.shape[0] != bias.shape[0]) {
-        throw std::runtime_error("weight.shape[0] != bias.shape[0]");
-    }
 
+    if (bias_name != nullptr) {
+        auto bias = util::load_npy_file(bias_name);
+        if (weight.shape[0] != bias.shape[0]) {
+            throw std::runtime_error("weight.shape[0] != bias.shape[0]");
+        }
+
+        bufferBias = clCreateBuffer(context, CL_MEM_READ_ONLY,
+                                    sizeof(float) * bias.num_vals,
+                                    nullptr, &err);
+        CHECK_ERROR_THROW(err);
+
+        err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_TRUE, 0,
+                                    sizeof(float) * bias.num_vals,
+                                    bias.data<float>(), 0, nullptr, nullptr);
+        CHECK_ERROR_THROW(err);
+    } else {
+        bufferBias = nullptr;
+    }
 
     bufferWeight = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                   sizeof(float) * weight.num_vals,
                                   nullptr, &err);
     CHECK_ERROR_THROW(err);
 
-    bufferBias = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                                sizeof(float) * bias.num_vals,
-                                nullptr, &err);
-    CHECK_ERROR_THROW(err);
-
     err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_TRUE, 0,
                                sizeof(float) * weight.num_vals,
                                weight.data<float>(), 0, nullptr, nullptr);
-    err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_TRUE, 0,
-                                sizeof(float) * bias.num_vals,
-                                bias.data<float>(), 0, nullptr, nullptr);
     CHECK_ERROR_THROW(err);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
