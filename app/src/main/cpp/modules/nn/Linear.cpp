@@ -74,6 +74,12 @@ Linear::~Linear() {
 cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                        const cl_event *event_wait_list, cl_event *event) {
     cl_int err;
+
+    if (input == output) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Linear not support input == output");
+        throw std::runtime_error("Linear not support input == output");
+    }
+
     size_t inputBytes;
     err = clGetMemObjectInfo(input, CL_MEM_SIZE, sizeof(size_t), &inputBytes, nullptr);
     CHECK_ERROR(err);

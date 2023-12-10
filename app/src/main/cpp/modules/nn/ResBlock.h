@@ -18,12 +18,13 @@ class ResBlock {
 public:
     ResBlock(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
              AAssetManager *assetManager,
-             size_t channels, size_t out_channels,
+             size_t in_channels, size_t out_channels,
              const char *in_group_norm_weight_name, const char *in_group_norm_bias_name,
              const char *in_conv2d_weight_name, const char *in_conv2d_bias_name,
              const char *embed_linear_weight_name, const char *embed_linear_bias_name,
              const char *out_group_norm_weight_name, const char *out_group_norm_bias_name,
-             const char *out_conv2d_weight_name, const char *out_conv2d_bias_name);
+             const char *out_conv2d_weight_name, const char *out_conv2d_bias_name,
+             const char *skip_conv2d_weight_name, const char *skip_conv2d_bias_name);
 
     ~ResBlock();
 
@@ -34,6 +35,9 @@ public:
 private:
     cl_context context;
     cl_command_queue cmdQueue;
+
+    size_t in_channels;
+    size_t out_channels;
 
     cl_kernel kernel_silu;
     cl_kernel kernel_chunk_add;
@@ -46,6 +50,10 @@ private:
 
     GroupNorm *out_group_norm;
     Conv2D *out_conv2d;
+
+    Conv2D *skip_conv2d;
+
+    static int cnt;
 };
 
 
