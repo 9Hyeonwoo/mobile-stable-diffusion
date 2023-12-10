@@ -43,6 +43,8 @@ private:
     ResBlock *input_block_2_res_block;
     SpatialTransformer *input_block_2_spatial;
 
+    Conv2D *input_block_3_conv2d;
+
     cl_kernel kernel_silu;
 };
 

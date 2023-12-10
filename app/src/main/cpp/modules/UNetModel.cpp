@@ -120,6 +120,10 @@ UNetModel::UNetModel(
                                                    "unet/input_block/2/input_blocks_2_1_proj_out_weight.npy",
                                                    "unet/input_block/2/input_blocks_2_1_proj_out_bias.npy");
 
+    input_block_3_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+                                      "unet/input_block/3/input_blocks_3_0_op_weight.npy",
+                                      "unet/input_block/3/input_blocks_3_0_op_bias.npy",
+                                      2, 1);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
@@ -138,6 +142,7 @@ UNetModel::~UNetModel() {
     delete input_block_1_spatial;
     delete input_block_2_res_block;
     delete input_block_2_spatial;
+    delete input_block_3_conv2d;
     clReleaseKernel(kernel_silu);
 }
 
@@ -151,9 +156,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                       const std::vector<float> &condition) {
     cl_int err;
     cl_event event0_0, event0_1, event0_2, event0_3;
-    cl_event event1_0, event1_1, event1_2, event1_3, event1_4, event1_5;
+    cl_event event1_0, event1_1, event1_2, event1_3, event1_4, event1_5, event1_6;
     cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed;
-    cl_mem bufferInput, bufferInputBlock_0, bufferCondition;
+    cl_mem bufferInput, bufferInputBlock_0, bufferCondition, bufferInputBlock_3;
 
     /* time_embed layer */
     auto t_emb = timestep_embedding(timestep);
@@ -256,6 +261,20 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     // max diff: 0.00001168251037597656
     // util::testBuffer(cmdQueue, bufferInputBlock_0, "unet/input_block/test/test_input_block_2.npy");
     /* input_block layer[2] */
+
+    /* input_block layer[3] */
+    bufferInputBlock_3 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                        sizeof(float) * MODEL_CHANNELS * 32 * 32,
+                                        nullptr, &err);
+    CHECK_ERROR(err);
+
+    err = input_block_3_conv2d->forward(bufferInputBlock_0, bufferInputBlock_3,
+                                        1, &event1_5, &event1_6);
+    CHECK_ERROR(err);
+
+    // max diff: 0.00001525878906250000
+    // util::testBuffer(cmdQueue, bufferInputBlock_3, "unet/input_block/test/test_input_block_3.npy");
+    /* input_block layer[3] */
     /* input_block layer */
 
     clReleaseEvent(event0_0);
@@ -268,12 +287,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     clReleaseEvent(event1_3);
     clReleaseEvent(event1_4);
     clReleaseEvent(event1_5);
+    clReleaseEvent(event1_6);
     clReleaseMemObject(bufferTimeEmbed);
     clReleaseMemObject(bufferEmbedTemp);
     clReleaseMemObject(bufferEmbed);
     clReleaseMemObject(bufferInput);
     clReleaseMemObject(bufferInputBlock_0);
     clReleaseMemObject(bufferCondition);
+    clReleaseMemObject(bufferInputBlock_3);
 
     return std::vector<float>();
 }
