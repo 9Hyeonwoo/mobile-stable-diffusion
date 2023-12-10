@@ -171,6 +171,49 @@ UNetModel::UNetModel(
                                                    "unet/input_block/4/input_blocks_4_1_proj_out_weight.npy",
                                                    "unet/input_block/4/input_blocks_4_1_proj_out_bias.npy");
 
+    input_block_5_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
+                                           640, 640,
+                                           "unet/input_block/5/input_blocks_5_0_in_layers_0_weight.npy",
+                                           "unet/input_block/5/input_blocks_5_0_in_layers_0_bias.npy",
+                                           "unet/input_block/5/input_blocks_5_0_in_layers_2_weight.npy",
+                                           "unet/input_block/5/input_blocks_5_0_in_layers_2_bias.npy",
+                                           "unet/input_block/5/input_blocks_5_0_emb_layers_1_weight.npy",
+                                           "unet/input_block/5/input_blocks_5_0_emb_layers_1_bias.npy",
+                                           "unet/input_block/5/input_blocks_5_0_out_layers_0_weight.npy",
+                                           "unet/input_block/5/input_blocks_5_0_out_layers_0_bias.npy",
+                                           "unet/input_block/5/input_blocks_5_0_out_layers_3_weight.npy",
+                                           "unet/input_block/5/input_blocks_5_0_out_layers_3_bias.npy",
+                                           nullptr, nullptr);
+
+    input_block_5_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
+                                                   640, 10, 64,
+                                                   "unet/input_block/5/input_blocks_5_1_norm_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_norm_bias.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_proj_in_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_proj_in_bias.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_norm1_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_norm1_bias.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_norm2_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_norm2_bias.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_norm3_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_norm3_bias.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_attn1_to_q_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_attn1_to_k_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_attn1_to_v_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_attn1_to_out_0_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_attn1_to_out_0_bias.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_attn2_to_q_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_attn2_to_k_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_attn2_to_v_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_attn2_to_out_0_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_attn2_to_out_0_bias.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_ff_net_0_proj_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_ff_net_0_proj_bias.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_ff_net_2_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_ff_net_2_bias.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_proj_out_weight.npy",
+                                                   "unet/input_block/5/input_blocks_5_1_proj_out_bias.npy");
+
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
 
@@ -191,6 +234,8 @@ UNetModel::~UNetModel() {
     delete input_block_3_conv2d;
     delete input_block_4_res_block;
     delete input_block_4_spatial;
+    delete input_block_5_res_block;
+    delete input_block_5_spatial;
     clReleaseKernel(kernel_silu);
 }
 
@@ -204,7 +249,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                       const std::vector<float> &condition) {
     cl_int err;
     cl_event event0_0, event0_1, event0_2, event0_3;
-    cl_event event1_0, event1_1, event1_2, event1_3, event1_4, event1_5, event1_6, event1_7, event1_8;
+    cl_event event1_0, event1_1, event1_2, event1_3, event1_4, event1_5, event1_6, event1_7, event1_8, event1_9, event1_10;
     cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed;
     cl_mem bufferInput, bufferInputBlock_0, bufferCondition, bufferInputBlock_3;
     cl_mem bufferInputBlock_4;
@@ -346,6 +391,21 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     // max diff: 0.00002956390380859375
     // util::testBuffer(cmdQueue, bufferInputBlock_4, "unet/input_block/test/test_input_block_4.npy");
     /* input_block layer[4] */
+
+    /* input_block layer[5] */
+    err = input_block_5_res_block->forward(bufferInputBlock_4, bufferEmbed, bufferInputBlock_4,
+                                           1, &event0_3,
+                                           1, &event1_8, &event1_9);
+    CHECK_ERROR(err);
+
+    err = input_block_5_spatial->forward(bufferInputBlock_4, bufferCondition, bufferInputBlock_4,
+                                         1, &event1_9, &event1_10);
+    CHECK_ERROR(err);
+
+    // max diff: 0.00013732910156250000
+    // util::testBuffer(cmdQueue, bufferInputBlock_4, "unet/input_block/test/test_input_block_5.npy");
+
+    /* input_block layer[5] */
     /* input_block layer */
 
     clReleaseEvent(event0_0);
@@ -361,6 +421,8 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     clReleaseEvent(event1_6);
     clReleaseEvent(event1_7);
     clReleaseEvent(event1_8);
+    clReleaseEvent(event1_9);
+    clReleaseEvent(event1_10);
     clReleaseMemObject(bufferTimeEmbed);
     clReleaseMemObject(bufferEmbedTemp);
     clReleaseMemObject(bufferEmbed);

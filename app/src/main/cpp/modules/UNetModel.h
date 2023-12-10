@@ -48,6 +48,9 @@ private:
     ResBlock *input_block_4_res_block;
     SpatialTransformer *input_block_4_spatial;
 
+    ResBlock *input_block_5_res_block;
+    SpatialTransformer *input_block_5_spatial;
+
     cl_kernel kernel_silu;
 };
 
