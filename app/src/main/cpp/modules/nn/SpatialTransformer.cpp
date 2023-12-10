@@ -38,7 +38,9 @@ SpatialTransformer::SpatialTransformer(
         const char *cross_2_q_linear_weight_name,
         const char *cross_2_k_linear_weight_name,
         const char *cross_2_v_linear_weight_name,
-        const char *cross_2_out_linear_weight_name, const char *cross_2_out_linear_bias_name
+        const char *cross_2_out_linear_weight_name, const char *cross_2_out_linear_bias_name,
+        const char *ff_geglu_linear_weight_name, const char *ff_geglu_linear_bias_name,
+        const char *ff_net_linear_weight_name, const char *ff_net_linear_bias_name
 ) : context(context), cmdQueue(cmdQueue), channels(channels) {
     cl_int err;
     groupNorm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, channels, 1e-6,
@@ -60,7 +62,9 @@ SpatialTransformer::SpatialTransformer(
                                             cross_2_k_linear_weight_name,
                                             cross_2_v_linear_weight_name,
                                             cross_2_out_linear_weight_name,
-                                            cross_2_out_linear_bias_name);
+                                            cross_2_out_linear_bias_name,
+                                            ff_geglu_linear_weight_name, ff_geglu_linear_bias_name,
+                                            ff_net_linear_weight_name, ff_net_linear_bias_name);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");

@@ -34,7 +34,10 @@ public:
                        const char *cross_2_k_linear_weight_name,
                        const char *cross_2_v_linear_weight_name,
                        const char *cross_2_out_linear_weight_name,
-                       const char *cross_2_out_linear_bias_name);
+                       const char *cross_2_out_linear_bias_name,
+                       const char *ff_geglu_linear_weight_name,
+                       const char *ff_geglu_linear_bias_name,
+                       const char *ff_net_linear_weight_name, const char *ff_net_linear_bias_name);
 
     ~SpatialTransformer();
 

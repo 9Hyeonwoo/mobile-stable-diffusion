@@ -42,7 +42,9 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         modules/nn/ResBlock.cpp
         modules/nn/SpatialTransformer.cpp
         modules/nn/BasicTransformerBlock.cpp
-        modules/nn/CrossAttention.cpp)
+        modules/nn/CrossAttention.cpp
+        modules/nn/FeedForward.cpp
+        modules/nn/GEGLU.cpp)
 
 # add libraries for OpenCL
 include_directories( ${CMAKE_SOURCE_DIR}/include )

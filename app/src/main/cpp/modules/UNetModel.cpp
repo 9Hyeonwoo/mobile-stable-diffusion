@@ -68,7 +68,11 @@ UNetModel::UNetModel(
                                                    "unet/input_block/1/input_block_1_cross_2_k_linear_weight.npy",
                                                    "unet/input_block/1/input_block_1_cross_2_v_linear_weight.npy",
                                                    "unet/input_block/1/input_block_1_cross_2_out_linear_weight.npy",
-                                                   "unet/input_block/1/input_block_1_cross_2_out_linear_bias.npy");
+                                                   "unet/input_block/1/input_block_1_cross_2_out_linear_bias.npy",
+                                                   "unet/input_block/1/input_block_1_ff_geglu_linear_weight.npy",
+                                                   "unet/input_block/1/input_block_1_ff_geglu_linear_bias.npy",
+                                                   "unet/input_block/1/input_block_1_ff_net_linear_weight.npy",
+                                                   "unet/input_block/1/input_block_1_ff_net_linear_bias.npy");
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");

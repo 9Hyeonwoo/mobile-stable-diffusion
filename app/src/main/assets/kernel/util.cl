@@ -11,6 +11,19 @@ __kernel void elemwise_add(__global float *A,
     C[idx] = A[idx] + B[idx];
 }
 
+__kernel void elemwise_multiply(__global float *A,
+            __global float *B,
+            __global float *C)
+{
+
+    // Get the work-item’s unique ID
+    int idx = get_global_id(0);
+
+    // Add the corresponding locations of
+    // 'A' and 'B', and store the result in 'C'.
+    C[idx] = A[idx] * B[idx];
+}
+
 __kernel void permute3D__1_0_2(__global float *src,
                       __global float *dst)
 {
