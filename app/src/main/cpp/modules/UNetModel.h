@@ -38,8 +38,10 @@ private:
     Conv2D *input_block_0_conv2d;
 
     ResBlock *input_block_1_res_block;
-
     SpatialTransformer *input_block_1_spatial;
+
+    ResBlock *input_block_2_res_block;
+    SpatialTransformer *input_block_2_spatial;
 
     cl_kernel kernel_silu;
 };

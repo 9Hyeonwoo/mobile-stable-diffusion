@@ -27,6 +27,7 @@ ResBlock::ResBlock(
         size_t channels, size_t out_channels,
         const char *in_group_norm_weight_name, const char *in_group_norm_bias_name,
         const char *in_conv2d_weight_name, const char *in_conv2d_bias_name,
+        const char *embed_linear_weight_name, const char *embed_linear_bias_name,
         const char *out_group_norm_weight_name, const char *out_group_norm_bias_name,
         const char *out_conv2d_weight_name, const char *out_conv2d_bias_name
 ) : context(context), cmdQueue(cmdQueue) {
@@ -36,8 +37,7 @@ ResBlock::ResBlock(
     in_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager, in_conv2d_weight_name,
                            in_conv2d_bias_name, 1, 1);
     embed_linear = new Linear(context, cmdQueue, deviceId, assetManager,
-                              "unet/input_block/1/input_block_1_res_block_embed_linear_weight.npy",
-                              "unet/input_block/1/input_block_1_res_block_embed_linear_bias.npy");
+                                embed_linear_weight_name, embed_linear_bias_name);
     out_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, out_channels, 1e-5,
                                    out_group_norm_weight_name, out_group_norm_bias_name);
     out_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager, out_conv2d_weight_name,
