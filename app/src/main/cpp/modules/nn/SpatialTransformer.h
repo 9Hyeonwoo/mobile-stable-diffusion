@@ -37,7 +37,8 @@ public:
                        const char *cross_2_out_linear_bias_name,
                        const char *ff_geglu_linear_weight_name,
                        const char *ff_geglu_linear_bias_name,
-                       const char *ff_net_linear_weight_name, const char *ff_net_linear_bias_name);
+                       const char *ff_net_linear_weight_name, const char *ff_net_linear_bias_name,
+                       const char *out_linear_weight_name, const char *out_linear_bias_name);
 
     ~SpatialTransformer();
 
@@ -52,8 +53,10 @@ private:
     GroupNorm *groupNorm;
     Linear *projInLinear;
     BasicTransformerBlock *transformer;
+    Linear *projOutLinear;
 
     cl_kernel kernel_permute_0_2_1;
+    cl_kernel kernel_elem_add;
 };
 
 

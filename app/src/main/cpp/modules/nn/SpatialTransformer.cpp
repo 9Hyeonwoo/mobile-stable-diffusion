@@ -40,7 +40,8 @@ SpatialTransformer::SpatialTransformer(
         const char *cross_2_v_linear_weight_name,
         const char *cross_2_out_linear_weight_name, const char *cross_2_out_linear_bias_name,
         const char *ff_geglu_linear_weight_name, const char *ff_geglu_linear_bias_name,
-        const char *ff_net_linear_weight_name, const char *ff_net_linear_bias_name
+        const char *ff_net_linear_weight_name, const char *ff_net_linear_bias_name,
+        const char *out_linear_weight_name, const char *out_linear_bias_name
 ) : context(context), cmdQueue(cmdQueue), channels(channels) {
     cl_int err;
     groupNorm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, channels, 1e-6,
@@ -48,6 +49,7 @@ SpatialTransformer::SpatialTransformer(
 
     projInLinear = new Linear(context, cmdQueue, deviceId, assetManager,
                               in_linear_weight_name, in_linear_bias_name);
+
     transformer = new BasicTransformerBlock(context, cmdQueue, deviceId, assetManager,
                                             headSize, headDim,
                                             layer_norm_1_weight_name, layer_norm_1_bias_name,
@@ -66,10 +68,16 @@ SpatialTransformer::SpatialTransformer(
                                             ff_geglu_linear_weight_name, ff_geglu_linear_bias_name,
                                             ff_net_linear_weight_name, ff_net_linear_bias_name);
 
+    projOutLinear = new Linear(context, cmdQueue, deviceId, assetManager,
+                               out_linear_weight_name, out_linear_bias_name);
+
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
 
     kernel_permute_0_2_1 = clCreateKernel(program, "permute3D__0_2_1", &err);
+    CHECK_ERROR_THROW(err);
+
+    kernel_elem_add = clCreateKernel(program, "elemwise_add", &err);
     CHECK_ERROR_THROW(err);
 
     clReleaseProgram(program);
@@ -79,14 +87,16 @@ SpatialTransformer::~SpatialTransformer() {
     delete groupNorm;
     delete projInLinear;
     delete transformer;
+    delete projOutLinear;
     clReleaseKernel(kernel_permute_0_2_1);
+    clReleaseKernel(kernel_elem_add);
 }
 
 cl_int SpatialTransformer::forward(cl_mem input, cl_mem condition, cl_mem output,
                                    cl_uint num_events_in_list, const cl_event *event_wait_list,
                                    cl_event *event) {
     cl_int err;
-    cl_event event0, event1, event2, event3;
+    cl_event event0, event1, event2, event3, event4, event5;
     cl_mem bufferGroupNorm, bufferPermute;
 
     size_t inputBytes;
@@ -128,9 +138,37 @@ cl_int SpatialTransformer::forward(cl_mem input, cl_mem condition, cl_mem output
     err = transformer->forward(bufferGroupNorm, condition, bufferPermute, 1, &event2, &event3);
     CHECK_ERROR(err);
 
+    err = projOutLinear->forward(bufferPermute, bufferGroupNorm, 1, &event3, &event4);
+    CHECK_ERROR(err);
+
+    err = clSetKernelArg(kernel_permute_0_2_1, 0, sizeof(cl_mem), &bufferGroupNorm);
+    err |= clSetKernelArg(kernel_permute_0_2_1, 1, sizeof(cl_mem), &bufferPermute);
+    CHECK_ERROR(err);
+
+    size_t permuteGlobalSize2[3] = {1, inputSize / channels, channels};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute_0_2_1, 3, nullptr,
+                                 permuteGlobalSize2, nullptr, 1, &event4, &event5);
+    CHECK_ERROR(err);
+
+    err = clSetKernelArg(kernel_elem_add, 0, sizeof(cl_mem), &bufferPermute);
+    err |= clSetKernelArg(kernel_elem_add, 1, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel_elem_add, 2, sizeof(cl_mem), &output);
+    CHECK_ERROR(err);
+
+    size_t addGlobalSize[1] = {inputSize};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elem_add, 1, nullptr, addGlobalSize, nullptr,
+                                 1, &event5, event);
+    CHECK_ERROR(err);
+
+    // max diff: 0.00001049041748046875
+    // util::testBuffer(cmdQueue, output, "unet/input_block/test/test_spatial.npy");
+
     clReleaseEvent(event0);
     clReleaseEvent(event1);
     clReleaseEvent(event2);
+    clReleaseEvent(event3);
+    clReleaseEvent(event4);
+    clReleaseEvent(event5);
     clReleaseMemObject(bufferGroupNorm);
     clReleaseMemObject(bufferPermute);
 
