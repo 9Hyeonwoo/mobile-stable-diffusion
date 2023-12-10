@@ -154,7 +154,9 @@ cnpy::NpyArray util::load_npy_file(const char *_filename) {
     return arr;
 }
 
-void util::testBuffer(cl_command_queue cmdQueue, cl_mem buffer, const char *filename) {
+void util::testBuffer(
+        cl_command_queue cmdQueue, cl_mem buffer, const char *filename
+) {
     cl_int err;
 
     size_t bufferBytes;
@@ -162,7 +164,7 @@ void util::testBuffer(cl_command_queue cmdQueue, cl_mem buffer, const char *file
     CHECK_ERROR(err);
     auto bufferSize = bufferBytes / sizeof(float);
 
-    std::vector<float>result(bufferSize);
+    std::vector<float> result(bufferSize);
     err = clEnqueueReadBuffer(cmdQueue, buffer, CL_TRUE, 0,
                               sizeof(float) * bufferSize,
                               result.data(), 0, nullptr, nullptr);
@@ -174,7 +176,8 @@ void util::testBuffer(cl_command_queue cmdQueue, cl_mem buffer, const char *file
 void util::testBuffer(std::vector<float> result, const char *filename) {
     auto test = util::load_npy_file(filename);
     if (result.size() != test.num_vals) {
-        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "bufferSize(%ld) != test.num_vals(%ld)", result.size(), test.num_vals);
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "%s: bufferSize(%ld) != test.num_vals(%ld)",
+                            filename, result.size(), test.num_vals);
         return;
     }
 
@@ -196,8 +199,9 @@ void util::testBuffer(std::vector<float> result, const char *filename) {
 
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG,
                         "%s max diff: %.20f / num : %ld / result[%d]: %f/ test[%d]: %f",
-                        filename, maxDiff, wrongs.size(), maxId, result[maxId], maxId, test.data<float>()[maxId]);
-    for (int i =0; i < 10; i++) {
+                        filename, maxDiff, wrongs.size(), maxId, result[maxId], maxId,
+                        test.data<float>()[maxId]);
+    for (int i = 0; i < 10; i++) {
         __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG,
                             "result[%d]: %f != test[%d]: %f",
                             wrongs[i], result[wrongs[i]], wrongs[i], test.data<float>()[wrongs[i]]);

@@ -31,10 +31,14 @@ SpatialTransformer::SpatialTransformer(
         const char *layer_norm_1_weight_name, const char *layer_norm_1_bias_name,
         const char *layer_norm_2_weight_name, const char *layer_norm_2_bias_name,
         const char *layer_norm_3_weight_name, const char *layer_norm_3_bias_name,
-        const char *cross_q_linear_weight_name,
-        const char *cross_k_linear_weight_name,
-        const char *cross_v_linear_weight_name,
-        const char *cross_out_linear_weight_name, const char *cross_out_linear_bias_name
+        const char *cross_1_q_linear_weight_name,
+        const char *cross_1_k_linear_weight_name,
+        const char *cross_1_v_linear_weight_name,
+        const char *cross_1_out_linear_weight_name, const char *cross_1_out_linear_bias_name,
+        const char *cross_2_q_linear_weight_name,
+        const char *cross_2_k_linear_weight_name,
+        const char *cross_2_v_linear_weight_name,
+        const char *cross_2_out_linear_weight_name, const char *cross_2_out_linear_bias_name
 ) : context(context), cmdQueue(cmdQueue), channels(channels) {
     cl_int err;
     groupNorm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, channels, 1e-6,
@@ -47,11 +51,16 @@ SpatialTransformer::SpatialTransformer(
                                             layer_norm_1_weight_name, layer_norm_1_bias_name,
                                             layer_norm_2_weight_name, layer_norm_2_bias_name,
                                             layer_norm_3_weight_name, layer_norm_3_bias_name,
-                                            cross_q_linear_weight_name,
-                                            cross_k_linear_weight_name,
-                                            cross_v_linear_weight_name,
-                                            cross_out_linear_weight_name,
-                                            cross_out_linear_bias_name);
+                                            cross_1_q_linear_weight_name,
+                                            cross_1_k_linear_weight_name,
+                                            cross_1_v_linear_weight_name,
+                                            cross_1_out_linear_weight_name,
+                                            cross_1_out_linear_bias_name,
+                                            cross_2_q_linear_weight_name,
+                                            cross_2_k_linear_weight_name,
+                                            cross_2_v_linear_weight_name,
+                                            cross_2_out_linear_weight_name,
+                                            cross_2_out_linear_bias_name);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");

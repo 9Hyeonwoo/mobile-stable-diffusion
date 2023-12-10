@@ -59,11 +59,16 @@ UNetModel::UNetModel(
                                                    "unet/input_block/1/input_block_1_basic_layer_norm_2_bias.npy",
                                                    "unet/input_block/1/input_block_1_basic_layer_norm_3_weight.npy",
                                                    "unet/input_block/1/input_block_1_basic_layer_norm_3_bias.npy",
-                                                   "unet/input_block/1/input_block_1_cross_q_linear_weight.npy",
-                                                   "unet/input_block/1/input_block_1_cross_k_linear_weight.npy",
-                                                   "unet/input_block/1/input_block_1_cross_v_linear_weight.npy",
-                                                   "unet/input_block/1/input_block_1_cross_out_linear_weight.npy",
-                                                   "unet/input_block/1/input_block_1_cross_out_linear_bias.npy");
+                                                   "unet/input_block/1/input_block_1_cross_1_q_linear_weight.npy",
+                                                   "unet/input_block/1/input_block_1_cross_1_k_linear_weight.npy",
+                                                   "unet/input_block/1/input_block_1_cross_1_v_linear_weight.npy",
+                                                   "unet/input_block/1/input_block_1_cross_1_out_linear_weight.npy",
+                                                   "unet/input_block/1/input_block_1_cross_1_out_linear_bias.npy",
+                                                   "unet/input_block/1/input_block_1_cross_2_q_linear_weight.npy",
+                                                   "unet/input_block/1/input_block_1_cross_2_k_linear_weight.npy",
+                                                   "unet/input_block/1/input_block_1_cross_2_v_linear_weight.npy",
+                                                   "unet/input_block/1/input_block_1_cross_2_out_linear_weight.npy",
+                                                   "unet/input_block/1/input_block_1_cross_2_out_linear_bias.npy");
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");

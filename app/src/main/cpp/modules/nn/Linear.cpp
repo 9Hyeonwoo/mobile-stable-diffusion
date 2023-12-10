@@ -80,6 +80,7 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
 
     auto inputSize = inputBytes / sizeof(float);
     if (inputSize % weightShape[1] != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "[%s:%d] inputSize(%ld) %% weightShape[1](%ld) != 0\n", __FILE__, __LINE__, inputSize, weightShape[1]);
         throw std::runtime_error("inputSize % weightShape[1] != 0");
     }
 

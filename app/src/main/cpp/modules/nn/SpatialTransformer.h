@@ -25,11 +25,16 @@ public:
                        const char *layer_norm_1_weight_name, const char *layer_norm_1_bias_name,
                        const char *layer_norm_2_weight_name, const char *layer_norm_2_bias_name,
                        const char *layer_norm_3_weight_name, const char *layer_norm_3_bias_name,
-                       const char *cross_q_linear_weight_name,
-                       const char *cross_k_linear_weight_name,
-                       const char *cross_v_linear_weight_name,
-                       const char *cross_out_linear_weight_name,
-                       const char *cross_out_linear_bias_name);
+                       const char *cross_1_q_linear_weight_name,
+                       const char *cross_1_k_linear_weight_name,
+                       const char *cross_1_v_linear_weight_name,
+                       const char *cross_1_out_linear_weight_name,
+                       const char *cross_1_out_linear_bias_name,
+                       const char *cross_2_q_linear_weight_name,
+                       const char *cross_2_k_linear_weight_name,
+                       const char *cross_2_v_linear_weight_name,
+                       const char *cross_2_out_linear_weight_name,
+                       const char *cross_2_out_linear_bias_name);
 
     ~SpatialTransformer();
 

@@ -30,6 +30,7 @@ private:
     cl_context context;
     size_t headSize;
     float scale;
+    static int cnt;
 
     Linear *toQLinear;
     Linear *toKLinear;

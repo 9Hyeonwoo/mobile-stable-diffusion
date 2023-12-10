@@ -101,19 +101,20 @@ __kernel void softmax(
     __global float *output,
     __local float* reductionSums,
     __local float* cache,
-    const size_t reductionSize
+    const size_t chunkSize
 ) {
 	const int localID = get_local_id(0);
 	const int localSize = get_local_size(0);
 	const int workgroupID = get_group_id(0);
+	const int globalOffset = workgroupID * chunkSize;
 
-    const int i = workgroupID * localSize * reductionSize + localID;
+    const int i = globalOffset + localID;
     float sum = 0.0f;
-    for(int j = 0; j < reductionSize; j++) {
-        float expVal = exp(input[i + j * localSize]);
+    for(int index = i; index < (globalOffset + chunkSize); index += localSize) {
+        float expVal = exp(input[index]);
         sum += expVal;
         // save to cache using adjacent memory locations
-        cache[localID * reductionSize + j] = expVal;
+        cache[index - globalOffset] = expVal;
     }
 	reductionSums[localID] = sum;
 
@@ -129,7 +130,7 @@ __kernel void softmax(
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    for(int j = 0; j < reductionSize; j++) {
-        output[i + j * localSize] = cache[localID * reductionSize + j] / reductionSums[0];
+    for(int index = i; index < (globalOffset + chunkSize); index += localSize) {
+        output[index] = cache[index - globalOffset] / reductionSums[0];
     }
 }
