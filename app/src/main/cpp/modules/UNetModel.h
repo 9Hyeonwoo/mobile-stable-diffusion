@@ -53,6 +53,9 @@ private:
 
     Conv2D *input_block_6_conv2d;
 
+    ResBlock *input_block_7_res_block;
+    SpatialTransformer *input_block_7_spatial;
+
     cl_kernel kernel_silu;
 };
 
