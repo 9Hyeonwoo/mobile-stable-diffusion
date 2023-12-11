@@ -65,6 +65,12 @@ private:
 
     ResBlock *input_block_11_res_block;
 
+    ResBlock *middle_block_0_res_block;
+
+    SpatialTransformer *middle_block_1_spatial;
+
+    ResBlock *middle_block_2_res_block;
+
     cl_kernel kernel_silu;
 };
 

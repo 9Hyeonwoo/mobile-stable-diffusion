@@ -339,6 +339,63 @@ UNetModel::UNetModel(
                                             "unet/input_block/11/input_blocks_11_0_out_layers_3_bias.npy",
                                             nullptr, nullptr);
 
+    middle_block_0_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
+                                            1280, 1280,
+                                            "unet/middle_block/0/middle_block_0_in_layers_0_weight.npy",
+                                            "unet/middle_block/0/middle_block_0_in_layers_0_bias.npy",
+                                            "unet/middle_block/0/middle_block_0_in_layers_2_weight.npy",
+                                            "unet/middle_block/0/middle_block_0_in_layers_2_bias.npy",
+                                            "unet/middle_block/0/middle_block_0_emb_layers_1_weight.npy",
+                                            "unet/middle_block/0/middle_block_0_emb_layers_1_bias.npy",
+                                            "unet/middle_block/0/middle_block_0_out_layers_0_weight.npy",
+                                            "unet/middle_block/0/middle_block_0_out_layers_0_bias.npy",
+                                            "unet/middle_block/0/middle_block_0_out_layers_3_weight.npy",
+                                            "unet/middle_block/0/middle_block_0_out_layers_3_bias.npy",
+                                            nullptr, nullptr);
+
+    middle_block_1_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
+                                                    1280, 20, 64,
+                                                    "unet/middle_block/1/middle_block_1_norm_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_norm_bias.npy",
+                                                    "unet/middle_block/1/middle_block_1_proj_in_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_proj_in_bias.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_norm1_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_norm1_bias.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_norm2_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_norm2_bias.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_norm3_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_norm3_bias.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_attn1_to_q_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_attn1_to_k_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_attn1_to_v_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_attn1_to_out_0_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_attn1_to_out_0_bias.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_attn2_to_q_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_attn2_to_k_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_attn2_to_v_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_attn2_to_out_0_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_attn2_to_out_0_bias.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_ff_net_0_proj_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_ff_net_0_proj_bias.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_ff_net_2_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_transformer_blocks_0_ff_net_2_bias.npy",
+                                                    "unet/middle_block/1/middle_block_1_proj_out_weight.npy",
+                                                    "unet/middle_block/1/middle_block_1_proj_out_bias.npy");
+
+    middle_block_2_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
+                                            1280, 1280,
+                                            "unet/middle_block/2/middle_block_2_in_layers_0_weight.npy",
+                                            "unet/middle_block/2/middle_block_2_in_layers_0_bias.npy",
+                                            "unet/middle_block/2/middle_block_2_in_layers_2_weight.npy",
+                                            "unet/middle_block/2/middle_block_2_in_layers_2_bias.npy",
+                                            "unet/middle_block/2/middle_block_2_emb_layers_1_weight.npy",
+                                            "unet/middle_block/2/middle_block_2_emb_layers_1_bias.npy",
+                                            "unet/middle_block/2/middle_block_2_out_layers_0_weight.npy",
+                                            "unet/middle_block/2/middle_block_2_out_layers_0_bias.npy",
+                                            "unet/middle_block/2/middle_block_2_out_layers_3_weight.npy",
+                                            "unet/middle_block/2/middle_block_2_out_layers_3_bias.npy",
+                                            nullptr, nullptr);
+
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
 
@@ -369,6 +426,9 @@ UNetModel::~UNetModel() {
     delete input_block_9_conv2d;
     delete input_block_10_res_block;
     delete input_block_11_res_block;
+    delete middle_block_0_res_block;
+    delete middle_block_1_spatial;
+    delete middle_block_2_res_block;
     clReleaseKernel(kernel_silu);
 }
 
@@ -384,6 +444,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     cl_event event0_0, event0_1, event0_2, event0_3;
     cl_event event1_0, event1_1, event1_2, event1_3, event1_4, event1_5, event1_6, event1_7, event1_8, event1_9, event1_10, event1_11;
     cl_event event1_12, event1_13, event1_14, event1_15, event1_16, event1_17, event1_18;
+    cl_event event2_0, event2_1, event2_2;
     cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed;
     cl_mem bufferInput, buffer_320_64, bufferCondition, buffer_320_32;
     cl_mem buffer_640_32, buffer_640_16, buffer_1280_16, buffer_1280_8;
@@ -618,6 +679,25 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[11] */
     /* input_block layer */
 
+    /* middle_block layer */
+    err = middle_block_0_res_block->forward(buffer_1280_8, bufferEmbed, buffer_1280_8,
+                                            1, &event0_3,
+                                            1, &event1_18, &event2_0);
+    CHECK_ERROR(err);
+
+    err = middle_block_1_spatial->forward(buffer_1280_8, bufferCondition, buffer_1280_8,
+                                          1, &event2_0, &event2_1);
+    CHECK_ERROR(err);
+
+    err = middle_block_2_res_block->forward(buffer_1280_8, bufferEmbed, buffer_1280_8,
+                                            1, &event0_3,
+                                            1, &event2_1, &event2_2);
+    CHECK_ERROR(err);
+
+    // max diff: 0.00013828277587890625
+    // util::testBuffer(cmdQueue, buffer_1280_8, "unet/middle_block/test/test_middle_block.npy");
+    /* middle_block layer */
+
     clReleaseEvent(event0_0);
     clReleaseEvent(event0_1);
     clReleaseEvent(event0_2);
@@ -641,6 +721,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     clReleaseEvent(event1_16);
     clReleaseEvent(event1_17);
     clReleaseEvent(event1_18);
+    clReleaseEvent(event2_0);
+    clReleaseEvent(event2_1);
+    clReleaseEvent(event2_2);
     clReleaseMemObject(bufferTimeEmbed);
     clReleaseMemObject(bufferEmbedTemp);
     clReleaseMemObject(bufferEmbed);
