@@ -75,6 +75,8 @@ private:
 
     ResBlock *output_block_0_res_block;
 
+    ResBlock *output_block_1_res_block;
+
     cl_kernel kernel_silu;
 };
 
