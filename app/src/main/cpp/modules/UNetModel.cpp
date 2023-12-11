@@ -395,6 +395,20 @@ UNetModel::UNetModel(
                                             "unet/middle_block/2/middle_block_2_out_layers_3_weight.npy",
                                             "unet/middle_block/2/middle_block_2_out_layers_3_bias.npy",
                                             nullptr, nullptr);
+    output_block_0_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
+                                            2560, 1280,
+                                            "unet/output_block/0/output_blocks_0_0_in_layers_0_weight.npy",
+                                            "unet/output_block/0/output_blocks_0_0_in_layers_0_bias.npy",
+                                            "unet/output_block/0/output_blocks_0_0_in_layers_2_weight.npy",
+                                            "unet/output_block/0/output_blocks_0_0_in_layers_2_bias.npy",
+                                            "unet/output_block/0/output_blocks_0_0_emb_layers_1_weight.npy",
+                                            "unet/output_block/0/output_blocks_0_0_emb_layers_1_bias.npy",
+                                            "unet/output_block/0/output_blocks_0_0_out_layers_0_weight.npy",
+                                            "unet/output_block/0/output_blocks_0_0_out_layers_0_bias.npy",
+                                            "unet/output_block/0/output_blocks_0_0_out_layers_3_weight.npy",
+                                            "unet/output_block/0/output_blocks_0_0_out_layers_3_bias.npy",
+                                            "unet/output_block/0/output_blocks_0_0_skip_connection_weight.npy",
+                                            "unet/output_block/0/output_blocks_0_0_skip_connection_bias.npy");
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
@@ -429,6 +443,7 @@ UNetModel::~UNetModel() {
     delete middle_block_0_res_block;
     delete middle_block_1_spatial;
     delete middle_block_2_res_block;
+    delete output_block_0_res_block;
     clReleaseKernel(kernel_silu);
 }
 
@@ -758,4 +773,93 @@ std::vector<float> UNetModel::timestep_embedding(long timestep) {
     // timestep=981. max diff: 0.00000005960464477539
     // util::testBuffer(embedding, "unet/time_embed/test/test_timestep_embedding.npy");
     return embedding;
+}
+
+void
+UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<float> &condition) {
+    cl_int err;
+    cl_event event0, event1, event2, event3;
+    cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed, bufferCondition, bufferInput, buffer_1280_8;
+
+    auto t_emb = timestep_embedding(timestep);
+
+    bufferTimeEmbed = clCreateBuffer(context, CL_MEM_READ_ONLY,
+                                     sizeof(float) * t_emb.size(),
+                                     nullptr, &err);
+    CHECK_ERROR(err);
+
+    bufferEmbed = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                 sizeof(float) * MODEL_CHANNELS * 4,
+                                 nullptr, &err);
+    CHECK_ERROR(err);
+
+    bufferCondition = clCreateBuffer(context, CL_MEM_READ_ONLY,
+                                     sizeof(float) * condition.size(),
+                                     nullptr, &err);
+    CHECK_ERROR(err);
+
+    bufferInput = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                 sizeof(float) * x.size(),
+                                 nullptr, &err);
+    CHECK_ERROR(err);
+
+    buffer_1280_8 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                   sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
+                                   nullptr, &err);
+    CHECK_ERROR(err);
+
+    err = clEnqueueWriteBuffer(cmdQueue, bufferTimeEmbed, CL_TRUE, 0,
+                               sizeof(float) * t_emb.size(),
+                               t_emb.data(), 0, nullptr, nullptr);
+    CHECK_ERROR(err);
+
+    err = clEnqueueWriteBuffer(cmdQueue, bufferCondition, CL_TRUE, 0,
+                               sizeof(float) * condition.size(),
+                               condition.data(), 0, nullptr, nullptr);
+    CHECK_ERROR(err);
+
+    err = clEnqueueWriteBuffer(cmdQueue, bufferInput, CL_TRUE, 0,
+                               sizeof(float) * x.size(),
+                               x.data(), 0, nullptr, nullptr);
+    CHECK_ERROR(err);
+
+    bufferEmbedTemp = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                     sizeof(float) * MODEL_CHANNELS * 4,
+                                     nullptr, &err);
+    CHECK_ERROR(err);
+
+    err = time_embed_0->forward(bufferTimeEmbed, bufferEmbedTemp, 0, nullptr, &event0);
+    CHECK_ERROR(err);
+
+    err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &bufferEmbedTemp);
+    err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &bufferEmbedTemp);
+    CHECK_ERROR(err);
+
+    size_t embedWorkSize[1] = {MODEL_CHANNELS * 4};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr,
+                                 embedWorkSize, nullptr, 1, &event0, &event1);
+    CHECK_ERROR(err);
+
+    err = time_embed_2->forward(bufferEmbedTemp, bufferEmbed, 1, &event1, &event2);
+    CHECK_ERROR(err);
+
+    err = output_block_0_res_block->forward(bufferInput, bufferEmbed, buffer_1280_8,
+                                            1, &event2,
+                                            0, nullptr,
+                                            &event3);
+    CHECK_ERROR(err);
+
+    util::testBuffer(cmdQueue, buffer_1280_8, "unet/output_block/test/test_output_block_0.npy");
+
+    // output_block_0_res_block: max diff: 0.00002098083496093750
+    clReleaseEvent(event0);
+    clReleaseEvent(event1);
+    clReleaseEvent(event2);
+    clReleaseEvent(event3);
+    clReleaseMemObject(buffer_1280_8);
+    clReleaseMemObject(bufferTimeEmbed);
+    clReleaseMemObject(bufferEmbedTemp);
+    clReleaseMemObject(bufferEmbed);
+    clReleaseMemObject(bufferInput);
+    clReleaseMemObject(bufferCondition);
 }

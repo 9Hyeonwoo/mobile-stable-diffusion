@@ -26,6 +26,8 @@ public:
     std::vector<float>
     forward(const std::vector<float> &x, long timestep, const std::vector<float> &condition);
 
+    void
+    test(const std::vector<float> &x, long timestep, const std::vector<float> &condition);
 private:
     std::vector<float> timestep_embedding(long timestep);
 
@@ -70,6 +72,8 @@ private:
     SpatialTransformer *middle_block_1_spatial;
 
     ResBlock *middle_block_2_res_block;
+
+    ResBlock *output_block_0_res_block;
 
     cl_kernel kernel_silu;
 };
