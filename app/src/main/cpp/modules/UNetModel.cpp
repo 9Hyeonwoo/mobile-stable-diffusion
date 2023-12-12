@@ -425,7 +425,7 @@ UNetModel::UNetModel(
                                             "unet/output_block/1/output_blocks_1_0_out_layers_3_bias.npy",
                                             "unet/output_block/1/output_blocks_1_0_skip_connection_weight.npy",
                                             "unet/output_block/1/output_blocks_1_0_skip_connection_bias.npy");
-/*
+
     output_block_2_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             2560, 1280,
                                             "unet/output_block/2/output_blocks_2_0_in_layers_0_weight.npy",
@@ -445,7 +445,7 @@ UNetModel::UNetModel(
                                             "unet/output_block/2/output_blocks_2_1_conv_weight.npy",
                                             "unet/output_block/2/output_blocks_2_1_conv_bias.npy",
                                             1, 1);
-
+/*
     output_block_3_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             2560, 1280,
                                             "unet/output_block/3/output_blocks_3_0_in_layers_0_weight.npy",
@@ -925,9 +925,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     cl_event event1_0, event1_1, event1_2, event1_3, event1_4, event1_5, event1_6, event1_7, event1_8, event1_9, event1_10, event1_11;
     cl_event event1_12, event1_13, event1_14, event1_15, event1_16, event1_17, event1_18;
     cl_event event2_0, event2_1, event2_2;
-    cl_event event3_0, event3_1, event3_2, event3_3;
+    cl_event event3_0, event3_1, event3_2, event3_3, event3_4, event3_5, event3_6, event3_7, event3_8, event3_9, event3_10, event3_11;
     cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed;
-    cl_mem bufferInput, bufferInput_10, bufferInput_11, buffer_320_64, bufferCondition, buffer_320_32;
+    cl_mem bufferInput, bufferInput_9, bufferInput_10, bufferInput_11, buffer_320_64, bufferCondition, buffer_320_32;
     cl_mem buffer_640_32, buffer_640_16, buffer_1280_16, buffer_1280_8;
     cl_mem buffer_2560_8;
 
@@ -1132,12 +1132,12 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[8] */
 
     /* input_block layer[9] */
-    buffer_1280_8 = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                   sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
-                                   nullptr, &err);
+    bufferInput_9 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                    sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
+                                    nullptr, &err);
     CHECK_ERROR(err);
 
-    err = input_block_9_conv2d->forward(buffer_1280_16, buffer_1280_8,
+    err = input_block_9_conv2d->forward(buffer_1280_16, bufferInput_9,
                                         1, &event1_15, &event1_16);
     CHECK_ERROR(err);
     /* input_block layer[9] */
@@ -1147,7 +1147,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                     sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
                                     nullptr, &err);
     CHECK_ERROR(err);
-    err = input_block_10_res_block->forward(buffer_1280_8, bufferEmbed, bufferInput_10,
+    err = input_block_10_res_block->forward(bufferInput_9, bufferEmbed, bufferInput_10,
                                             1, &event0_3,
                                             1, &event1_16, &event1_17);
     CHECK_ERROR(err);
@@ -1170,6 +1170,11 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer */
 
     /* middle_block layer */
+    buffer_1280_8 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                   sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
+                                   nullptr, &err);
+    CHECK_ERROR(err);
+
     err = middle_block_0_res_block->forward(bufferInput_11, bufferEmbed, buffer_1280_8,
                                             1, &event0_3,
                                             1, &event1_18, &event2_0);
@@ -1219,6 +1224,23 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     // util::testBuffer(cmdQueue, buffer_1280_8, "unet/output_block/test/test_output_block_1.npy");
     /* output_block layer[1] */
 
+    /* output_block layer[2] */
+    concat_buffer(buffer_1280_8, bufferInput_9, buffer_2560_8,
+                  1, &event3_3, &event3_4);
+
+    err = output_block_2_res_block->forward(buffer_2560_8, bufferEmbed, buffer_1280_8,
+                                            1, &event0_3,
+                                            1, &event3_4, &event3_5);
+    CHECK_ERROR(err);
+
+    err = output_block_2_up_sample->forward(buffer_1280_8, buffer_1280_16,
+                                            1, &event3_5, &event3_6);
+    CHECK_ERROR(err);
+
+    // test_output_block_2.npy max diff: 0.00007247924804687500
+    // util::testBuffer(cmdQueue, buffer_1280_16, "unet/output_block/test/test_output_block_2.npy");
+    /* output_block layer[2] */
+
     /* output_block layer */
     clReleaseEvent(event0_0);
     clReleaseEvent(event0_1);
@@ -1248,6 +1270,11 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     clReleaseEvent(event2_2);
     clReleaseEvent(event3_0);
     clReleaseEvent(event3_1);
+    clReleaseEvent(event3_2);
+    clReleaseEvent(event3_3);
+    clReleaseEvent(event3_4);
+    clReleaseEvent(event3_5);
+    clReleaseEvent(event3_6);
     clReleaseMemObject(bufferTimeEmbed);
     clReleaseMemObject(bufferEmbedTemp);
     clReleaseMemObject(bufferEmbed);
@@ -1259,6 +1286,8 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     clReleaseMemObject(buffer_640_16);
     clReleaseMemObject(buffer_1280_16);
     clReleaseMemObject(buffer_1280_8);
+    clReleaseMemObject(bufferInput_9);
+    clReleaseMemObject(bufferInput_10);
     clReleaseMemObject(bufferInput_11);
     clReleaseMemObject(buffer_2560_8);
 
