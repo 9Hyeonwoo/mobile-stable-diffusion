@@ -395,6 +395,7 @@ UNetModel::UNetModel(
                                             "unet/middle_block/2/middle_block_2_out_layers_3_weight.npy",
                                             "unet/middle_block/2/middle_block_2_out_layers_3_bias.npy",
                                             nullptr, nullptr);
+
     output_block_0_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             2560, 1280,
                                             "unet/output_block/0/output_blocks_0_0_in_layers_0_weight.npy",
@@ -489,6 +490,51 @@ UNetModel::UNetModel(
                                                     "unet/output_block/3/output_blocks_3_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                     "unet/output_block/3/output_blocks_3_1_proj_out_weight.npy",
                                                     "unet/output_block/3/output_blocks_3_1_proj_out_bias.npy");
+*/
+
+    output_block_4_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
+                                            2560, 1280,
+                                            "unet/output_block/4/output_blocks_4_0_in_layers_0_weight.npy",
+                                            "unet/output_block/4/output_blocks_4_0_in_layers_0_bias.npy",
+                                            "unet/output_block/4/output_blocks_4_0_in_layers_2_weight.npy",
+                                            "unet/output_block/4/output_blocks_4_0_in_layers_2_bias.npy",
+                                            "unet/output_block/4/output_blocks_4_0_emb_layers_1_weight.npy",
+                                            "unet/output_block/4/output_blocks_4_0_emb_layers_1_bias.npy",
+                                            "unet/output_block/4/output_blocks_4_0_out_layers_0_weight.npy",
+                                            "unet/output_block/4/output_blocks_4_0_out_layers_0_bias.npy",
+                                            "unet/output_block/4/output_blocks_4_0_out_layers_3_weight.npy",
+                                            "unet/output_block/4/output_blocks_4_0_out_layers_3_bias.npy",
+                                            "unet/output_block/4/output_blocks_4_0_skip_connection_weight.npy",
+                                            "unet/output_block/4/output_blocks_4_0_skip_connection_bias.npy");
+
+    output_block_4_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
+                                                    1280, 20, 64,
+                                                    "unet/output_block/4/output_blocks_4_1_norm_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_norm_bias.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_proj_in_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_proj_in_bias.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_norm1_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_norm1_bias.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_norm2_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_norm2_bias.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_norm3_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_norm3_bias.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_attn1_to_q_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_attn1_to_k_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_attn1_to_v_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_attn1_to_out_0_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_attn1_to_out_0_bias.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_attn2_to_q_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_attn2_to_k_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_attn2_to_v_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_attn2_to_out_0_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_attn2_to_out_0_bias.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_ff_net_0_proj_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_ff_net_0_proj_bias.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_ff_net_2_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_ff_net_2_bias.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_proj_out_weight.npy",
+                                                    "unet/output_block/4/output_blocks_4_1_proj_out_bias.npy");
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
@@ -529,6 +575,8 @@ UNetModel::~UNetModel() {
     delete output_block_2_up_sample;
     delete output_block_3_res_block;
     delete output_block_3_spatial;
+    delete output_block_4_res_block;
+    delete output_block_4_spatial;
     clReleaseKernel(kernel_silu);
 }
 
@@ -929,22 +977,23 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
     err = time_embed_2->forward(bufferEmbedTemp, bufferEmbed, 1, &event1, &event2);
     CHECK_ERROR(err);
 
-    err = output_block_3_res_block->forward(bufferInput, bufferEmbed, buffer_1280_16,
+    err = output_block_4_res_block->forward(bufferInput, bufferEmbed, buffer_1280_16,
                                             1, &event2,
                                             0, nullptr,
                                             &event3);
     CHECK_ERROR(err);
 
-    err = output_block_3_spatial->forward(buffer_1280_16, bufferCondition, buffer_1280_16,
+    err = output_block_4_spatial->forward(buffer_1280_16, bufferCondition, buffer_1280_16,
                                             1, &event3, nullptr);
     CHECK_ERROR(err);
 
-    util::testBuffer(cmdQueue, buffer_1280_16, "unet/output_block/test/test_output_block_3.npy");
+    util::testBuffer(cmdQueue, buffer_1280_16, "unet/output_block/test/test_output_block_4.npy");
 
     // test_output_block_0 max diff: 0.00002098083496093750
     // test_output_block_1.npy max diff: 0.00002479553222656250
     // test_output_block_2.npy max diff: 0.00007152557373046875
     // test_output_block_3.npy max diff: 0.00005149841308593750
+    // test_output_block_4.npy max diff: 0.00006866455078125000
     clReleaseEvent(event0);
     clReleaseEvent(event1);
     clReleaseEvent(event2);
