@@ -425,6 +425,26 @@ UNetModel::UNetModel(
                                             "unet/output_block/1/output_blocks_1_0_skip_connection_weight.npy",
                                             "unet/output_block/1/output_blocks_1_0_skip_connection_bias.npy");
 
+    output_block_2_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
+                                            2560, 1280,
+                                            "unet/output_block/2/output_blocks_2_0_in_layers_0_weight.npy",
+                                            "unet/output_block/2/output_blocks_2_0_in_layers_0_bias.npy",
+                                            "unet/output_block/2/output_blocks_2_0_in_layers_2_weight.npy",
+                                            "unet/output_block/2/output_blocks_2_0_in_layers_2_bias.npy",
+                                            "unet/output_block/2/output_blocks_2_0_emb_layers_1_weight.npy",
+                                            "unet/output_block/2/output_blocks_2_0_emb_layers_1_bias.npy",
+                                            "unet/output_block/2/output_blocks_2_0_out_layers_0_weight.npy",
+                                            "unet/output_block/2/output_blocks_2_0_out_layers_0_bias.npy",
+                                            "unet/output_block/2/output_blocks_2_0_out_layers_3_weight.npy",
+                                            "unet/output_block/2/output_blocks_2_0_out_layers_3_bias.npy",
+                                            "unet/output_block/2/output_blocks_2_0_skip_connection_weight.npy",
+                                            "unet/output_block/2/output_blocks_2_0_skip_connection_bias.npy");
+
+    output_block_2_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
+                                       "unet/output_block/2/output_blocks_2_1_conv_weight.npy",
+                                       "unet/output_block/2/output_blocks_2_1_conv_bias.npy",
+                                       1, 1);
+
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
 
@@ -460,6 +480,8 @@ UNetModel::~UNetModel() {
     delete middle_block_2_res_block;
     delete output_block_0_res_block;
     delete output_block_1_res_block;
+    delete output_block_2_res_block;
+    delete output_block_2_up_sample;
     clReleaseKernel(kernel_silu);
 }
 
@@ -795,7 +817,7 @@ void
 UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<float> &condition) {
     cl_int err;
     cl_event event0, event1, event2, event3;
-    cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed, bufferCondition, bufferInput, buffer_1280_8;
+    cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed, bufferCondition, bufferInput, buffer_1280_8, buffer_1280_16;
 
     auto t_emb = timestep_embedding(timestep);
 
@@ -823,6 +845,12 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
                                    sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
                                    nullptr, &err);
     CHECK_ERROR(err);
+
+    buffer_1280_16 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                   sizeof(float) * 4 * MODEL_CHANNELS * 16 * 16,
+                                    nullptr, &err);
+    CHECK_ERROR(err);
+
 
     err = clEnqueueWriteBuffer(cmdQueue, bufferTimeEmbed, CL_TRUE, 0,
                                sizeof(float) * t_emb.size(),
@@ -859,16 +887,21 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
     err = time_embed_2->forward(bufferEmbedTemp, bufferEmbed, 1, &event1, &event2);
     CHECK_ERROR(err);
 
-    err = output_block_1_res_block->forward(bufferInput, bufferEmbed, buffer_1280_8,
+    err = output_block_2_res_block->forward(bufferInput, bufferEmbed, buffer_1280_8,
                                             1, &event2,
                                             0, nullptr,
                                             &event3);
     CHECK_ERROR(err);
 
-    util::testBuffer(cmdQueue, buffer_1280_8, "unet/output_block/test/test_output_block_1.npy");
+    err = output_block_2_up_sample->forward(buffer_1280_8, buffer_1280_16,
+                                            1, &event3, nullptr);
+    CHECK_ERROR(err);
+
+    util::testBuffer(cmdQueue, buffer_1280_16, "unet/output_block/test/test_output_block_2.npy");
 
     // test_output_block_0 max diff: 0.00002098083496093750
     // test_output_block_1.npy max diff: 0.00002479553222656250
+    // test_output_block_2.npy max diff: 0.00007152557373046875
     clReleaseEvent(event0);
     clReleaseEvent(event1);
     clReleaseEvent(event2);

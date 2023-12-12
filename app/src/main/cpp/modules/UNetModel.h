@@ -11,6 +11,7 @@
 #include "nn/Conv2D.h"
 #include "nn/ResBlock.h"
 #include "nn/SpatialTransformer.h"
+#include "nn/UpSample.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -76,6 +77,9 @@ private:
     ResBlock *output_block_0_res_block;
 
     ResBlock *output_block_1_res_block;
+
+    ResBlock *output_block_2_res_block;
+    UpSample *output_block_2_up_sample;
 
     cl_kernel kernel_silu;
 };

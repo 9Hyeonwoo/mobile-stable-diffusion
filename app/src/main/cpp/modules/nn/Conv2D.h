@@ -25,8 +25,8 @@ public:
 
     size_t getOutputSize(size_t inputSize);
 
-private:
     std::vector<size_t> weightShape;
+private:
     std::vector<size_t> biasShape;
     cl_command_queue cmdQueue;
 

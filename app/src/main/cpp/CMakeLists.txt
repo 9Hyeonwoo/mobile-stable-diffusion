@@ -44,7 +44,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         modules/nn/BasicTransformerBlock.cpp
         modules/nn/CrossAttention.cpp
         modules/nn/FeedForward.cpp
-        modules/nn/GEGLU.cpp)
+        modules/nn/GEGLU.cpp
+        modules/nn/UpSample.cpp)
 
 # add libraries for OpenCL
 include_directories( ${CMAKE_SOURCE_DIR}/include )
