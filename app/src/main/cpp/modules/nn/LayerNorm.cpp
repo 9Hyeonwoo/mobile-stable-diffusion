@@ -47,10 +47,10 @@ LayerNorm::LayerNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id
                                 nullptr, &err);
     CHECK_ERROR_THROW(err);
 
-    err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_TRUE, 0,
+    err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_FALSE, 0,
                                sizeof(float) * weightSize,
                                weight.data<float>(), 0, nullptr, nullptr);
-    err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_TRUE, 0,
+    err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_FALSE, 0,
                                 sizeof(float) * biasSize,
                                 bias.data<float>(), 0, nullptr, nullptr);
     CHECK_ERROR_THROW(err);

@@ -21,7 +21,7 @@ UNetModel::UNetModel(
         cl_context context,
         cl_command_queue cmdQueue,
         cl_device_id deviceId
-) : context(context), cmdQueue(cmdQueue) {
+) : context(context), cmdQueue(cmdQueue), deviceId(deviceId), assetManager(assetManager) {
     cl_int err;
     time_embed_0 = new Linear(context, cmdQueue, deviceId, assetManager,
                               "unet/time_embed/time_embed_0_weight.npy",
@@ -31,11 +31,23 @@ UNetModel::UNetModel(
                               "unet/time_embed/time_embed_2_weight.npy",
                               "unet/time_embed/time_embed_2_bias.npy");
 
+    auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
+                                                              "kernel/util.cl");
+
+    kernel_silu = clCreateKernel(program, "silu", &err);
+    CHECK_ERROR(err);
+
+    clReleaseProgram(program);
+}
+
+void UNetModel::initInputBlock0() {
     input_block_0_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
                                       "unet/input_block/0/input_block_0_conv2d_weight.npy",
                                       "unet/input_block/0/input_block_0_conv2d_bias.npy",
                                       1, 1);
+}
 
+void UNetModel::initInputBlock1() {
     input_block_1_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                            320, 320,
                                            "unet/input_block/1/input_block_1_res_block_in_group_norm_weight.npy",
@@ -78,7 +90,9 @@ UNetModel::UNetModel(
                                                    "unet/input_block/1/input_block_1_ff_net_linear_bias.npy",
                                                    "unet/input_block/1/input_block_1_spatial_out_linear_weight.npy",
                                                    "unet/input_block/1/input_block_1_spatial_out_linear_bias.npy");
+}
 
+void UNetModel::initInputBlock2() {
     input_block_2_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                            320, 320,
                                            "unet/input_block/2/input_blocks_2_0_in_layers_0_weight.npy",
@@ -122,11 +136,16 @@ UNetModel::UNetModel(
                                                    "unet/input_block/2/input_blocks_2_1_proj_out_weight.npy",
                                                    "unet/input_block/2/input_blocks_2_1_proj_out_bias.npy");
 
+}
+
+void UNetModel::initInputBlock3() {
     input_block_3_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
                                       "unet/input_block/3/input_blocks_3_0_op_weight.npy",
                                       "unet/input_block/3/input_blocks_3_0_op_bias.npy",
                                       2, 1);
+}
 
+void UNetModel::initInputBlock4() {
     input_block_4_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                            320, 640,
                                            "unet/input_block/4/input_blocks_4_0_in_layers_0_weight.npy",
@@ -170,7 +189,9 @@ UNetModel::UNetModel(
                                                    "unet/input_block/4/input_blocks_4_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                    "unet/input_block/4/input_blocks_4_1_proj_out_weight.npy",
                                                    "unet/input_block/4/input_blocks_4_1_proj_out_bias.npy");
+}
 
+void UNetModel::initInputBlock5() {
     input_block_5_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                            640, 640,
                                            "unet/input_block/5/input_blocks_5_0_in_layers_0_weight.npy",
@@ -214,11 +235,16 @@ UNetModel::UNetModel(
                                                    "unet/input_block/5/input_blocks_5_1_proj_out_weight.npy",
                                                    "unet/input_block/5/input_blocks_5_1_proj_out_bias.npy");
 
+}
+
+void UNetModel::initInputBlock6() {
     input_block_6_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
                                       "unet/input_block/6/input_blocks_6_0_op_weight.npy",
                                       "unet/input_block/6/input_blocks_6_0_op_bias.npy",
                                       2, 1);
+}
 
+void UNetModel::initInputBlock7() {
     input_block_7_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                            640, 1280,
                                            "unet/input_block/7/input_blocks_7_0_in_layers_0_weight.npy",
@@ -262,7 +288,9 @@ UNetModel::UNetModel(
                                                    "unet/input_block/7/input_blocks_7_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                    "unet/input_block/7/input_blocks_7_1_proj_out_weight.npy",
                                                    "unet/input_block/7/input_blocks_7_1_proj_out_bias.npy");
+}
 
+void UNetModel::initInputBlock8() {
     input_block_8_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                            1280, 1280,
                                            "unet/input_block/8/input_blocks_8_0_in_layers_0_weight.npy",
@@ -305,12 +333,16 @@ UNetModel::UNetModel(
                                                    "unet/input_block/8/input_blocks_8_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                    "unet/input_block/8/input_blocks_8_1_proj_out_weight.npy",
                                                    "unet/input_block/8/input_blocks_8_1_proj_out_bias.npy");
+}
 
+void UNetModel::initInputBlock9() {
     input_block_9_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
                                       "unet/input_block/9/input_blocks_9_0_op_weight.npy",
                                       "unet/input_block/9/input_blocks_9_0_op_bias.npy",
                                       2, 1);
+}
 
+void UNetModel::initInputBlock10() {
     input_block_10_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             1280, 1280,
                                             "unet/input_block/10/input_blocks_10_0_in_layers_0_weight.npy",
@@ -324,7 +356,9 @@ UNetModel::UNetModel(
                                             "unet/input_block/10/input_blocks_10_0_out_layers_3_weight.npy",
                                             "unet/input_block/10/input_blocks_10_0_out_layers_3_bias.npy",
                                             nullptr, nullptr);
+}
 
+void UNetModel::initInputBlock11() {
     input_block_11_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             1280, 1280,
                                             "unet/input_block/11/input_blocks_11_0_in_layers_0_weight.npy",
@@ -338,7 +372,10 @@ UNetModel::UNetModel(
                                             "unet/input_block/11/input_blocks_11_0_out_layers_3_weight.npy",
                                             "unet/input_block/11/input_blocks_11_0_out_layers_3_bias.npy",
                                             nullptr, nullptr);
+}
 
+
+void UNetModel::initMiddleBlock() {
     middle_block_0_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             1280, 1280,
                                             "unet/middle_block/0/middle_block_0_in_layers_0_weight.npy",
@@ -395,7 +432,9 @@ UNetModel::UNetModel(
                                             "unet/middle_block/2/middle_block_2_out_layers_3_weight.npy",
                                             "unet/middle_block/2/middle_block_2_out_layers_3_bias.npy",
                                             nullptr, nullptr);
+}
 
+void UNetModel::initOutputBlock0() {
     output_block_0_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             2560, 1280,
                                             "unet/output_block/0/output_blocks_0_0_in_layers_0_weight.npy",
@@ -410,7 +449,10 @@ UNetModel::UNetModel(
                                             "unet/output_block/0/output_blocks_0_0_out_layers_3_bias.npy",
                                             "unet/output_block/0/output_blocks_0_0_skip_connection_weight.npy",
                                             "unet/output_block/0/output_blocks_0_0_skip_connection_bias.npy");
+}
 
+
+void UNetModel::initOutputBlock1() {
     output_block_1_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             2560, 1280,
                                             "unet/output_block/1/output_blocks_1_0_in_layers_0_weight.npy",
@@ -425,7 +467,9 @@ UNetModel::UNetModel(
                                             "unet/output_block/1/output_blocks_1_0_out_layers_3_bias.npy",
                                             "unet/output_block/1/output_blocks_1_0_skip_connection_weight.npy",
                                             "unet/output_block/1/output_blocks_1_0_skip_connection_bias.npy");
+}
 
+void UNetModel::initOutputBlock2() {
     output_block_2_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             2560, 1280,
                                             "unet/output_block/2/output_blocks_2_0_in_layers_0_weight.npy",
@@ -445,7 +489,9 @@ UNetModel::UNetModel(
                                             "unet/output_block/2/output_blocks_2_1_conv_weight.npy",
                                             "unet/output_block/2/output_blocks_2_1_conv_bias.npy",
                                             1, 1);
+}
 
+void UNetModel::initOutputBlock3() {
     output_block_3_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             2560, 1280,
                                             "unet/output_block/3/output_blocks_3_0_in_layers_0_weight.npy",
@@ -489,7 +535,9 @@ UNetModel::UNetModel(
                                                     "unet/output_block/3/output_blocks_3_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                     "unet/output_block/3/output_blocks_3_1_proj_out_weight.npy",
                                                     "unet/output_block/3/output_blocks_3_1_proj_out_bias.npy");
+}
 
+void UNetModel::initOutputBlock4() {
     output_block_4_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             2560, 1280,
                                             "unet/output_block/4/output_blocks_4_0_in_layers_0_weight.npy",
@@ -533,7 +581,9 @@ UNetModel::UNetModel(
                                                     "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                     "unet/output_block/4/output_blocks_4_1_proj_out_weight.npy",
                                                     "unet/output_block/4/output_blocks_4_1_proj_out_bias.npy");
-/*
+}
+
+void UNetModel::initOutputBlock5() {
     output_block_5_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             1920, 1280,
                                             "unet/output_block/5/output_blocks_5_0_in_layers_0_weight.npy",
@@ -582,7 +632,9 @@ UNetModel::UNetModel(
                                             "unet/output_block/5/output_blocks_5_2_conv_weight.npy",
                                             "unet/output_block/5/output_blocks_5_2_conv_bias.npy",
                                             1, 1);
+}
 
+void UNetModel::initOutputBlock6() {
     output_block_6_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             1920, 640,
                                             "unet/output_block/6/output_blocks_6_0_in_layers_0_weight.npy",
@@ -626,7 +678,9 @@ UNetModel::UNetModel(
                                                     "unet/output_block/6/output_blocks_6_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                     "unet/output_block/6/output_blocks_6_1_proj_out_weight.npy",
                                                     "unet/output_block/6/output_blocks_6_1_proj_out_bias.npy");
+}
 
+void UNetModel::initOutputBlock7() {
     output_block_7_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             1280, 640,
                                             "unet/output_block/7/output_blocks_7_0_in_layers_0_weight.npy",
@@ -670,7 +724,9 @@ UNetModel::UNetModel(
                                                     "unet/output_block/7/output_blocks_7_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                     "unet/output_block/7/output_blocks_7_1_proj_out_weight.npy",
                                                     "unet/output_block/7/output_blocks_7_1_proj_out_bias.npy");
+}
 
+void UNetModel::initOutputBlock8() {
     output_block_8_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             960, 640,
                                             "unet/output_block/8/output_blocks_8_0_in_layers_0_weight.npy",
@@ -719,7 +775,9 @@ UNetModel::UNetModel(
                                             "unet/output_block/8/output_blocks_8_2_conv_weight.npy",
                                             "unet/output_block/8/output_blocks_8_2_conv_bias.npy",
                                             1, 1);
+}
 
+void UNetModel::initOutputBlock9() {
     output_block_9_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             960, 320,
                                             "unet/output_block/9/output_blocks_9_0_in_layers_0_weight.npy",
@@ -763,7 +821,9 @@ UNetModel::UNetModel(
                                                     "unet/output_block/9/output_blocks_9_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                     "unet/output_block/9/output_blocks_9_1_proj_out_weight.npy",
                                                     "unet/output_block/9/output_blocks_9_1_proj_out_bias.npy");
+}
 
+void UNetModel::initOutputBlock10() {
     output_block_10_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                              640, 320,
                                              "unet/output_block/10/output_blocks_10_0_in_layers_0_weight.npy",
@@ -807,7 +867,9 @@ UNetModel::UNetModel(
                                                      "unet/output_block/10/output_blocks_10_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                      "unet/output_block/10/output_blocks_10_1_proj_out_weight.npy",
                                                      "unet/output_block/10/output_blocks_10_1_proj_out_bias.npy");
+}
 
+void UNetModel::initOutputBlock11() {
     output_block_11_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                              640, 320,
                                              "unet/output_block/11/output_blocks_11_0_in_layers_0_weight.npy",
@@ -851,14 +913,18 @@ UNetModel::UNetModel(
                                                      "unet/output_block/11/output_blocks_11_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                      "unet/output_block/11/output_blocks_11_1_proj_out_weight.npy",
                                                      "unet/output_block/11/output_blocks_11_1_proj_out_bias.npy");
-*/
-    auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                              "kernel/util.cl");
+}
 
-    kernel_silu = clCreateKernel(program, "silu", &err);
-    CHECK_ERROR(err);
+void UNetModel::initOut() {
+    out_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager,
+                                   32, 320, 1e-5,
+                                   "unet/out/out_group_norm_weight.npy",
+                                   "unet/out/out_group_norm_bias.npy");
 
-    clReleaseProgram(program);
+    out_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+                            "unet/out/out_conv2d_weight.npy",
+                            "unet/out/out_conv2d_bias.npy",
+                            1, 1);
 }
 
 UNetModel::~UNetModel() {
@@ -909,6 +975,8 @@ UNetModel::~UNetModel() {
     delete output_block_10_spatial;
     delete output_block_11_res_block;
     delete output_block_11_spatial;
+    delete out_group_norm;
+    delete out_conv2d;
     clReleaseKernel(kernel_silu);
 }
 
@@ -928,9 +996,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     cl_event event3_0, event3_1, event3_2, event3_3, event3_4, event3_5, event3_6, event3_7, event3_8, event3_9, event3_10, event3_11;
     cl_event event3_12, event3_13, event3_14, event3_15, event3_16, event3_17, event3_18;
     cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed;
-    cl_mem bufferInput, bufferInput_7, bufferInput_8, bufferInput_9, bufferInput_10, bufferInput_11, buffer_320_64, bufferCondition, buffer_320_32;
-    cl_mem buffer_640_32, buffer_640_16, buffer_1280_16, buffer_1280_8;
-    cl_mem buffer_2560_8, buffer_2560_16;
+    cl_mem bufferInput, bufferInput_6, bufferInput_7, bufferInput_8, bufferInput_9, bufferInput_10, bufferInput_11, buffer_320_64, bufferCondition, buffer_320_32;
+    cl_mem buffer_640_32, buffer_1280_16, buffer_1280_8;
+    cl_mem buffer_2560_8, buffer_2560_16, buffer_1920_16, buffer_1280_32;
 
     /* time_embed layer */
     auto t_emb = timestep_embedding(timestep);
@@ -976,6 +1044,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
 
     /* input_block layer */
     /* input_block layer[0] */
+    initInputBlock0();
 
     bufferInput = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                  sizeof(float) * x.size(),
@@ -994,12 +1063,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
 
     err = input_block_0_conv2d->forward(bufferInput, buffer_320_64, 1, &event1_0, &event1_1);
     CHECK_ERROR(err);
+    delete input_block_0_conv2d;
 
     // x=seed45.npy. timestep=981. max diff: 0.00000059604644775391
     // util::testBuffer(cmdQueue, buffer_320_64, "unet/input_block/test/test_input_block_0_conv2d.npy");
     /* input_block layer[0] */
 
     /* input_block layer[1] */
+    initInputBlock1();
 
     bufferCondition = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                      sizeof(float) * condition.size(),
@@ -1014,27 +1085,33 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                            1, &event0_3,
                                            1, &event1_1, &event1_2);
     CHECK_ERROR(err);
+    delete input_block_1_res_block;
 
     err = input_block_1_spatial->forward(buffer_320_64, bufferCondition, buffer_320_64,
                                          2, &event1_2, &event1_3);
     CHECK_ERROR(err);
+    delete input_block_1_spatial;
     /* input_block layer[1] */
 
     /* input_block layer[2] */
+    initInputBlock2();
     err = input_block_2_res_block->forward(buffer_320_64, bufferEmbed, buffer_320_64,
                                            1, &event0_3,
                                            1, &event1_3, &event1_4);
     CHECK_ERROR(err);
+    delete input_block_2_res_block;
 
     err = input_block_2_spatial->forward(buffer_320_64, bufferCondition, buffer_320_64,
                                          1, &event1_4, &event1_5);
     CHECK_ERROR(err);
+    delete input_block_2_spatial;
 
     // max diff: 0.00001168251037597656
     // util::testBuffer(cmdQueue, buffer_320_64, "unet/input_block/test/test_input_block_2.npy");
     /* input_block layer[2] */
 
     /* input_block layer[3] */
+    initInputBlock3();
     buffer_320_32 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * MODEL_CHANNELS * 32 * 32,
                                    nullptr, &err);
@@ -1043,12 +1120,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     err = input_block_3_conv2d->forward(buffer_320_64, buffer_320_32,
                                         1, &event1_5, &event1_6);
     CHECK_ERROR(err);
+    delete input_block_3_conv2d;
 
     // max diff: 0.00001525878906250000
     // util::testBuffer(cmdQueue, buffer_320_32, "unet/input_block/test/test_input_block_3.npy");
     /* input_block layer[3] */
 
     /* input_block layer[4] */
+    initInputBlock4();
     buffer_640_32 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * 2 * MODEL_CHANNELS * 32 * 32,
                                    nullptr, &err);
@@ -1058,6 +1137,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                            1, &event0_3,
                                            1, &event1_6, &event1_7);
     CHECK_ERROR(err);
+    delete input_block_4_res_block;
 
     // max diff: 0.00001382827758789062
     // util::testBuffer(cmdQueue, buffer_640_32, "unet/input_block/test/test_input_block_4_res.npy");
@@ -1065,20 +1145,24 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     err = input_block_4_spatial->forward(buffer_640_32, bufferCondition, buffer_640_32,
                                          1, &event1_7, &event1_8);
     CHECK_ERROR(err);
+    delete input_block_4_spatial;
 
     // max diff: 0.00002956390380859375
     // util::testBuffer(cmdQueue, buffer_640_32, "unet/input_block/test/test_input_block_4.npy");
     /* input_block layer[4] */
 
     /* input_block layer[5] */
+    initInputBlock5();
     err = input_block_5_res_block->forward(buffer_640_32, bufferEmbed, buffer_640_32,
                                            1, &event0_3,
                                            1, &event1_8, &event1_9);
     CHECK_ERROR(err);
+    delete input_block_5_res_block;
 
     err = input_block_5_spatial->forward(buffer_640_32, bufferCondition, buffer_640_32,
                                          1, &event1_9, &event1_10);
     CHECK_ERROR(err);
+    delete input_block_5_spatial;
 
     // max diff: 0.00013732910156250000
     // util::testBuffer(cmdQueue, buffer_640_32, "unet/input_block/test/test_input_block_5.npy");
@@ -1086,39 +1170,45 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[5] */
 
     /* input_block layer[6] */
-    buffer_640_16 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+    initInputBlock6();
+    bufferInput_6 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * 2 * MODEL_CHANNELS * 16 * 16,
                                    nullptr, &err);
     CHECK_ERROR(err);
 
-    err = input_block_6_conv2d->forward(buffer_640_32, buffer_640_16,
+    err = input_block_6_conv2d->forward(buffer_640_32, bufferInput_6,
                                         1, &event1_10, &event1_11);
     CHECK_ERROR(err);
+    delete input_block_6_conv2d;
 
     // max diff: 0.00004652142524719238
-    // util::testBuffer(cmdQueue, buffer_640_16, "unet/input_block/test/test_input_block_6.npy");
+    // util::testBuffer(cmdQueue, bufferInput_6, "unet/input_block/test/test_input_block_6.npy");
     /* input_block layer[6] */
 
     /* input_block layer[7] */
+    initInputBlock7();
     bufferInput_7 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * 4 * MODEL_CHANNELS * 16 * 16,
                                    nullptr, &err);
     CHECK_ERROR(err);
 
-    err = input_block_7_res_block->forward(buffer_640_16, bufferEmbed, bufferInput_7,
+    err = input_block_7_res_block->forward(bufferInput_6, bufferEmbed, bufferInput_7,
                                            1, &event0_3,
                                            1, &event1_11, &event1_12);
     CHECK_ERROR(err);
+    delete input_block_7_res_block;
 
     err = input_block_7_spatial->forward(bufferInput_7, bufferCondition, bufferInput_7,
                                          1, &event1_12, &event1_13);
     CHECK_ERROR(err);
+    delete input_block_7_spatial;
 
     // max diff: 0.00004172325134277344
     // util::testBuffer(cmdQueue, bufferInput_7, "unet/input_block/test/test_input_block_7.npy");
     /* input_block layer[7] */
 
     /* input_block layer[8] */
+    initInputBlock8();
     bufferInput_8 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * 4 * MODEL_CHANNELS * 16 * 16,
                                    nullptr, &err);
@@ -1128,27 +1218,32 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                            1, &event0_3,
                                            1, &event1_13, &event1_14);
     CHECK_ERROR(err);
+    delete input_block_8_res_block;
 
     err = input_block_8_spatial->forward(bufferInput_8, bufferCondition, bufferInput_8,
                                          1, &event1_14, &event1_15);
     CHECK_ERROR(err);
+    delete input_block_8_spatial;
 
     // max diff: 0.00004684925079345703
     // util::testBuffer(cmdQueue, bufferInput_8, "unet/input_block/test/test_input_block_8.npy");
     /* input_block layer[8] */
 
     /* input_block layer[9] */
+    initInputBlock9();
     bufferInput_9 = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                    sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
-                                    nullptr, &err);
+                                   sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
+                                   nullptr, &err);
     CHECK_ERROR(err);
 
     err = input_block_9_conv2d->forward(bufferInput_8, bufferInput_9,
                                         1, &event1_15, &event1_16);
     CHECK_ERROR(err);
+    delete input_block_9_conv2d;
     /* input_block layer[9] */
 
     /* input_block layer[10] */
+    initInputBlock10();
     bufferInput_10 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                     sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
                                     nullptr, &err);
@@ -1157,9 +1252,11 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event0_3,
                                             1, &event1_16, &event1_17);
     CHECK_ERROR(err);
+    delete input_block_10_res_block;
     /* input_block layer[10] */
 
     /* input_block layer[11] */
+    initInputBlock11();
     bufferInput_11 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                     sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
                                     nullptr, &err);
@@ -1169,6 +1266,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event0_3,
                                             1, &event1_17, &event1_18);
     CHECK_ERROR(err);
+    delete input_block_11_res_block;
 
     // max diff: 0.00013542175292968750
     // util::testBuffer(cmdQueue, buffer_1280_8, "unet/input_block/test/test_input_block_11.npy");
@@ -1176,6 +1274,8 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer */
 
     /* middle_block layer */
+    clWaitForEvents(1, &event1_17);
+    initMiddleBlock();
     buffer_1280_8 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
                                    nullptr, &err);
@@ -1185,15 +1285,18 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event0_3,
                                             1, &event1_18, &event2_0);
     CHECK_ERROR(err);
+    delete middle_block_0_res_block;
 
     err = middle_block_1_spatial->forward(buffer_1280_8, bufferCondition, buffer_1280_8,
                                           1, &event2_0, &event2_1);
     CHECK_ERROR(err);
+    delete middle_block_1_spatial;
 
     err = middle_block_2_res_block->forward(buffer_1280_8, bufferEmbed, buffer_1280_8,
                                             1, &event0_3,
                                             1, &event2_1, &event2_2);
     CHECK_ERROR(err);
+    delete middle_block_2_res_block;
 
     // max diff: 0.00013828277587890625
     // util::testBuffer(cmdQueue, buffer_1280_8, "unet/middle_block/test/test_middle_block.npy");
@@ -1201,6 +1304,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
 
     /* output_block layer */
     /* output_block layer[0] */
+    initOutputBlock0();
     buffer_2560_8 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * 8 * MODEL_CHANNELS * 8 * 8,
                                    nullptr, &err);
@@ -1213,11 +1317,13 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event0_3,
                                             1, &event3_0, &event3_1);
     CHECK_ERROR(err);
+    delete output_block_0_res_block;
     // test_output_block_0.npy max diff: 0.00009822845458984375
     // util::testBuffer(cmdQueue, buffer_1280_8, "unet/output_block/test/test_output_block_0.npy");
     /* output_block layer[0] */
 
     /* output_block layer[1] */
+    initOutputBlock1();
     concat_buffer(buffer_1280_8, bufferInput_10, buffer_2560_8,
                   1, &event3_1, &event3_2);
 
@@ -1225,12 +1331,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event0_3,
                                             1, &event3_2, &event3_3);
     CHECK_ERROR(err);
+    delete output_block_1_res_block;
 
     // test_output_block_1.npy max diff: 0.00010108947753906250
     // util::testBuffer(cmdQueue, buffer_1280_8, "unet/output_block/test/test_output_block_1.npy");
     /* output_block layer[1] */
 
     /* output_block layer[2] */
+    initOutputBlock2();
     buffer_1280_16 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                     sizeof(float) * 4 * MODEL_CHANNELS * 16 * 16,
                                     nullptr, &err);
@@ -1243,19 +1351,23 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event0_3,
                                             1, &event3_4, &event3_5);
     CHECK_ERROR(err);
+    delete output_block_2_res_block;
 
     err = output_block_2_up_sample->forward(buffer_1280_8, buffer_1280_16,
                                             1, &event3_5, &event3_6);
     CHECK_ERROR(err);
+    delete output_block_2_up_sample;
 
     // test_output_block_2.npy max diff: 0.00007247924804687500
     // util::testBuffer(cmdQueue, buffer_1280_16, "unet/output_block/test/test_output_block_2.npy");
     /* output_block layer[2] */
 
     /* output_block layer[3] */
+    clWaitForEvents(1, &event3_3);
+    initOutputBlock3();
     buffer_2560_16 = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                   sizeof(float) * 8 * MODEL_CHANNELS * 16 * 16,
-                                   nullptr, &err);
+                                    sizeof(float) * 8 * MODEL_CHANNELS * 16 * 16,
+                                    nullptr, &err);
     CHECK_ERROR(err);
 
     concat_buffer(buffer_1280_16, bufferInput_8, buffer_2560_16,
@@ -1265,13 +1377,20 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event0_3,
                                             1, &event3_7, &event3_8);
     CHECK_ERROR(err);
+    delete output_block_3_res_block;
 
     err = output_block_3_spatial->forward(buffer_1280_16, bufferCondition, buffer_1280_16,
                                           1, &event3_8, &event3_9);
     CHECK_ERROR(err);
+    delete output_block_3_spatial;
+
+    // test_output_block_3.npy max diff: 0.00009536743164062500
+    // util::testBuffer(cmdQueue, buffer_1280_16, "unet/output_block/test/test_output_block_3.npy");
     /* output_block layer[3] */
 
     /* output_block layer[4] */
+    initOutputBlock4();
+
     concat_buffer(buffer_1280_16, bufferInput_7, buffer_2560_16,
                   1, &event3_9, &event3_10);
 
@@ -1284,6 +1403,36 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                           1, &event3_11, &event3_12);
     CHECK_ERROR(err);
     /* output_block layer[4] */
+
+    /* output_block layer[5] */
+    initOutputBlock5();
+
+    buffer_1920_16 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                    sizeof(float) * 6 * MODEL_CHANNELS * 16 * 16,
+                                    nullptr, &err);
+    CHECK_ERROR(err);
+
+    buffer_1280_32 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                    sizeof(float) * 4 * MODEL_CHANNELS * 32 * 32,
+                                    nullptr, &err);
+    CHECK_ERROR(err);
+
+    concat_buffer(buffer_1280_16, bufferInput_6, buffer_1920_16,
+                  1, &event3_12, &event3_13);
+
+    err = output_block_5_res_block->forward(buffer_1920_16, bufferEmbed, buffer_1280_16,
+                                            1, &event0_3,
+                                            1, &event3_13, &event3_14);
+    CHECK_ERROR(err);
+
+    err = output_block_5_spatial->forward(buffer_1280_16, bufferCondition, buffer_1280_16,
+                                          1, &event3_14, &event3_15);
+    CHECK_ERROR(err);
+
+    err = output_block_5_up_sample->forward(buffer_1280_16, buffer_1280_32,
+                                            1, &event3_15, &event3_16);
+    CHECK_ERROR(err);
+    /* output_block layer[5] */
     /* output_block layer */
     clReleaseEvent(event0_0);
     clReleaseEvent(event0_1);
@@ -1321,9 +1470,6 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     clReleaseEvent(event3_7);
     clReleaseEvent(event3_8);
     clReleaseEvent(event3_9);
-    clReleaseEvent(event3_10);
-    clReleaseEvent(event3_11);
-    clReleaseEvent(event3_12);
     clReleaseMemObject(bufferTimeEmbed);
     clReleaseMemObject(bufferEmbedTemp);
     clReleaseMemObject(bufferEmbed);
@@ -1332,9 +1478,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     clReleaseMemObject(bufferCondition);
     clReleaseMemObject(buffer_320_32);
     clReleaseMemObject(buffer_640_32);
-    clReleaseMemObject(buffer_640_16);
     clReleaseMemObject(buffer_1280_16);
     clReleaseMemObject(buffer_1280_8);
+    clReleaseMemObject(bufferInput_6);
     clReleaseMemObject(bufferInput_7);
     clReleaseMemObject(bufferInput_8);
     clReleaseMemObject(bufferInput_9);
@@ -1342,6 +1488,8 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     clReleaseMemObject(bufferInput_11);
     clReleaseMemObject(buffer_2560_8);
     clReleaseMemObject(buffer_2560_16);
+    clReleaseMemObject(buffer_1920_16);
+    clReleaseMemObject(buffer_1280_32);
 
     return std::vector<float>();
 }
@@ -1432,17 +1580,17 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
                                    nullptr, &err);
     CHECK_ERROR(err);
 
-    err = clEnqueueWriteBuffer(cmdQueue, bufferTimeEmbed, CL_TRUE, 0,
+    err = clEnqueueWriteBuffer(cmdQueue, bufferTimeEmbed, CL_FALSE, 0,
                                sizeof(float) * t_emb.size(),
                                t_emb.data(), 0, nullptr, nullptr);
     CHECK_ERROR(err);
 
-    err = clEnqueueWriteBuffer(cmdQueue, bufferCondition, CL_TRUE, 0,
+    err = clEnqueueWriteBuffer(cmdQueue, bufferCondition, CL_FALSE, 0,
                                sizeof(float) * condition.size(),
                                condition.data(), 0, nullptr, nullptr);
     CHECK_ERROR(err);
 
-    err = clEnqueueWriteBuffer(cmdQueue, bufferInput, CL_TRUE, 0,
+    err = clEnqueueWriteBuffer(cmdQueue, bufferInput, CL_FALSE, 0,
                                sizeof(float) * x.size(),
                                x.data(), 0, nullptr, nullptr);
     CHECK_ERROR(err);

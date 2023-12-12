@@ -38,7 +38,7 @@ Linear::Linear(cl_context context, cl_command_queue cmdQueue, cl_device_id devic
                                     nullptr, &err);
         CHECK_ERROR_THROW(err);
 
-        err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_TRUE, 0,
+        err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_FALSE, 0,
                                     sizeof(float) * bias.num_vals,
                                     bias.data<float>(), 0, nullptr, nullptr);
         CHECK_ERROR_THROW(err);
@@ -51,7 +51,7 @@ Linear::Linear(cl_context context, cl_command_queue cmdQueue, cl_device_id devic
                                   nullptr, &err);
     CHECK_ERROR_THROW(err);
 
-    err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_TRUE, 0,
+    err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_FALSE, 0,
                                sizeof(float) * weight.num_vals,
                                weight.data<float>(), 0, nullptr, nullptr);
     CHECK_ERROR_THROW(err);

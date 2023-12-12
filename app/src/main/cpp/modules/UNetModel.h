@@ -34,8 +34,40 @@ private:
     void concat_buffer(cl_mem input1, cl_mem input2, cl_mem output,
                          cl_uint num_events_in_list, const cl_event *event_wait_list, cl_event *event);
 
+    void initInputBlock0();
+    void initInputBlock1();
+    void initInputBlock2();
+    void initInputBlock3();
+    void initInputBlock4();
+    void initInputBlock5();
+    void initInputBlock6();
+    void initInputBlock7();
+    void initInputBlock8();
+    void initInputBlock9();
+    void initInputBlock10();
+    void initInputBlock11();
+
+    void initMiddleBlock();
+
+    void initOutputBlock0();
+    void initOutputBlock1();
+    void initOutputBlock2();
+    void initOutputBlock3();
+    void initOutputBlock4();
+    void initOutputBlock5();
+    void initOutputBlock6();
+    void initOutputBlock7();
+    void initOutputBlock8();
+    void initOutputBlock9();
+    void initOutputBlock10();
+    void initOutputBlock11();
+
+    void initOut();
+
     cl_context context;
     cl_command_queue cmdQueue;
+    cl_device_id deviceId;
+    AAssetManager *assetManager;
 
     Linear *time_embed_0;
     Linear *time_embed_2;
@@ -111,6 +143,9 @@ private:
 
     ResBlock *output_block_11_res_block;
     SpatialTransformer *output_block_11_spatial;
+
+    GroupNorm *out_group_norm;
+    Conv2D *out_conv2d;
 
     cl_kernel kernel_silu;
 };

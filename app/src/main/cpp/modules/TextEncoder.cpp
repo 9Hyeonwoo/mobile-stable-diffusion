@@ -39,7 +39,7 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
                                                nullptr, &err);
     CHECK_ERROR(err);
 
-    err = clEnqueueWriteBuffer(cmdQueue, bufferPositionalEmbedding, CL_TRUE, 0,
+    err = clEnqueueWriteBuffer(cmdQueue, bufferPositionalEmbedding, CL_FALSE, 0,
                                positional_embedding.num_bytes(),
                                positional_embedding.data<float>(), 0, nullptr, nullptr);
 
