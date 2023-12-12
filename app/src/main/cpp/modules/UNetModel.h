@@ -87,6 +87,10 @@ private:
     ResBlock *output_block_4_res_block;
     SpatialTransformer *output_block_4_spatial;
 
+    ResBlock *output_block_5_res_block;
+    SpatialTransformer *output_block_5_spatial;
+    UpSample *output_block_5_up_sample;
+
     cl_kernel kernel_silu;
 };
 
