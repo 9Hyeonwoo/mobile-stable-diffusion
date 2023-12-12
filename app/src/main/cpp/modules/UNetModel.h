@@ -91,6 +91,9 @@ private:
     SpatialTransformer *output_block_5_spatial;
     UpSample *output_block_5_up_sample;
 
+    ResBlock *output_block_6_res_block;
+    SpatialTransformer *output_block_6_spatial;
+
     cl_kernel kernel_silu;
 };
 
