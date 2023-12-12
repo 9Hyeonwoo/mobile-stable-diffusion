@@ -410,7 +410,7 @@ UNetModel::UNetModel(
                                             "unet/output_block/0/output_blocks_0_0_out_layers_3_bias.npy",
                                             "unet/output_block/0/output_blocks_0_0_skip_connection_weight.npy",
                                             "unet/output_block/0/output_blocks_0_0_skip_connection_bias.npy");
-/*
+
     output_block_1_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             2560, 1280,
                                             "unet/output_block/1/output_blocks_1_0_in_layers_0_weight.npy",
@@ -425,7 +425,7 @@ UNetModel::UNetModel(
                                             "unet/output_block/1/output_blocks_1_0_out_layers_3_bias.npy",
                                             "unet/output_block/1/output_blocks_1_0_skip_connection_weight.npy",
                                             "unet/output_block/1/output_blocks_1_0_skip_connection_bias.npy");
-
+/*
     output_block_2_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             2560, 1280,
                                             "unet/output_block/2/output_blocks_2_0_in_layers_0_weight.npy",
@@ -925,9 +925,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     cl_event event1_0, event1_1, event1_2, event1_3, event1_4, event1_5, event1_6, event1_7, event1_8, event1_9, event1_10, event1_11;
     cl_event event1_12, event1_13, event1_14, event1_15, event1_16, event1_17, event1_18;
     cl_event event2_0, event2_1, event2_2;
-    cl_event event3_0, event3_1, event3_2;
+    cl_event event3_0, event3_1, event3_2, event3_3;
     cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed;
-    cl_mem bufferInput, bufferInput_11, buffer_320_64, bufferCondition, buffer_320_32;
+    cl_mem bufferInput, bufferInput_10, bufferInput_11, buffer_320_64, bufferCondition, buffer_320_32;
     cl_mem buffer_640_32, buffer_640_16, buffer_1280_16, buffer_1280_8;
     cl_mem buffer_2560_8;
 
@@ -1143,7 +1143,11 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[9] */
 
     /* input_block layer[10] */
-    err = input_block_10_res_block->forward(buffer_1280_8, bufferEmbed, buffer_1280_8,
+    bufferInput_10 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                    sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
+                                    nullptr, &err);
+    CHECK_ERROR(err);
+    err = input_block_10_res_block->forward(buffer_1280_8, bufferEmbed, bufferInput_10,
                                             1, &event0_3,
                                             1, &event1_16, &event1_17);
     CHECK_ERROR(err);
@@ -1155,7 +1159,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                     nullptr, &err);
     CHECK_ERROR(err);
 
-    err = input_block_11_res_block->forward(buffer_1280_8, bufferEmbed, bufferInput_11,
+    err = input_block_11_res_block->forward(bufferInput_10, bufferEmbed, bufferInput_11,
                                             1, &event0_3,
                                             1, &event1_17, &event1_18);
     CHECK_ERROR(err);
@@ -1201,6 +1205,19 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     // test_output_block_0.npy max diff: 0.00009822845458984375
     // util::testBuffer(cmdQueue, buffer_1280_8, "unet/output_block/test/test_output_block_0.npy");
     /* output_block layer[0] */
+
+    /* output_block layer[1] */
+    concat_buffer(buffer_1280_8, bufferInput_10, buffer_2560_8,
+                  1, &event3_1, &event3_2);
+
+    err = output_block_1_res_block->forward(buffer_2560_8, bufferEmbed, buffer_1280_8,
+                                            1, &event0_3,
+                                            1, &event3_2, &event3_3);
+    CHECK_ERROR(err);
+
+    // test_output_block_1.npy max diff: 0.00010108947753906250
+    // util::testBuffer(cmdQueue, buffer_1280_8, "unet/output_block/test/test_output_block_1.npy");
+    /* output_block layer[1] */
 
     /* output_block layer */
     clReleaseEvent(event0_0);
