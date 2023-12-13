@@ -38,9 +38,13 @@ ResBlock::ResBlock(
     in_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
                            in_channels, out_channels, 3, 1, 1,
                            in_conv2d_weight_name, in_conv2d_bias_name);
-    embed_linear = new Linear(context, cmdQueue, deviceId, assetManager,
-                              emb_channels, out_channels,
-                              embed_linear_weight_name, embed_linear_bias_name);
+    if (emb_channels <= 0) {
+        embed_linear = nullptr;
+    } else {
+        embed_linear = new Linear(context, cmdQueue, deviceId, assetManager,
+                                  emb_channels, out_channels,
+                                  embed_linear_weight_name, embed_linear_bias_name);
+    }
     out_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, out_channels,
                                    1e-5,
                                    out_group_norm_weight_name, out_group_norm_bias_name);
@@ -84,7 +88,9 @@ ResBlock::~ResBlock() {
 void ResBlock::init() {
     in_group_norm->init();
     in_conv2d->init();
-    embed_linear->init();
+    if (embed_linear != nullptr) {
+        embed_linear->init();
+    }
     out_group_norm->init();
     out_conv2d->init();
     if (skip_conv2d != nullptr) {
@@ -104,7 +110,8 @@ cl_int ResBlock::forward(
     cl_event event3_0, event3_1, event3_2[2];
     cl_mem bufferInGroupNorm, bufferInConv2d, bufferEmbedTemp, bufferEmbed, bufferOut, bufferSkip;
 
-    size_t inputBytes, outSize;
+    size_t embSILUGlobalSize[1], chunkAddGlobalSize[1];
+    size_t inputBytes, outSize, embedBytes, chunkSize;
     err = clGetMemObjectInfo(input, CL_MEM_SIZE, sizeof(size_t), &inputBytes, nullptr);
     CHECK_ERROR(err);
 
@@ -152,7 +159,9 @@ cl_int ResBlock::forward(
     /* in_layers */
 
     /* emb_layers */
-    size_t embedBytes;
+    if (embed == nullptr || embed_linear == nullptr) {
+        goto out_layers;
+    }
     err = clGetMemObjectInfo(embed, CL_MEM_SIZE, sizeof(size_t), &embedBytes, nullptr);
     CHECK_ERROR(err);
 
@@ -171,7 +180,7 @@ cl_int ResBlock::forward(
     err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &bufferEmbedTemp);
     CHECK_ERROR(err);
 
-    size_t embSILUGlobalSize[1] = {embedBytes / sizeof(float)};
+    embSILUGlobalSize[0] = embedBytes / sizeof(float);
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr, embSILUGlobalSize, nullptr,
                                  num_events_embed, event_wait_list_embed, &event1_0);
     CHECK_ERROR(err);
@@ -181,16 +190,15 @@ cl_int ResBlock::forward(
 
     // max diff: 0.00001716613769531250
     // util::testBuffer(cmdQueue, bufferEmbed, "unet/input_block/test/test_resblock_embed.npy");
-    /* emb_layers */
 
-    size_t chunkSize = outSize / out_channels;
+    chunkSize = outSize / out_channels;
     err = clSetKernelArg(kernel_chunk_add, 0, sizeof(cl_mem), &bufferInConv2d);
     err |= clSetKernelArg(kernel_chunk_add, 1, sizeof(cl_mem), &bufferEmbed);
     err |= clSetKernelArg(kernel_chunk_add, 2, sizeof(cl_mem), &bufferInConv2d);
     err |= clSetKernelArg(kernel_chunk_add, 3, sizeof(size_t), &chunkSize);
     CHECK_ERROR(err);
 
-    size_t chunkAddGlobalSize[1] = {outSize};
+    chunkAddGlobalSize[0] = outSize;
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_chunk_add, 1, nullptr, chunkAddGlobalSize,
                                  nullptr,
                                  2, event0_2, &event2_0);
@@ -202,14 +210,22 @@ cl_int ResBlock::forward(
         //  max diff: 0.00001168251037597656
         // util::testBuffer(cmdQueue, bufferInConv2d, "unet/input_block/test/test_input_block_4_res_chunk.npy");
     }
+    /* emb_layers */
 
     /* out_layers */
+    out_layers:
     bufferOut = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                sizeof(float) * outSize,
                                nullptr, &err);
     CHECK_ERROR(err);
 
-    err = out_group_norm->forward(bufferInConv2d, bufferInConv2d, 1, &event2_0, &event3_0);
+    cl_event *event_emb;
+    if (embed != nullptr) {
+        event_emb = &event2_0;
+    } else {
+        event_emb = &event0_2[0];
+    }
+    err = out_group_norm->forward(bufferInConv2d, bufferInConv2d, 1, event_emb, &event3_0);
     CHECK_ERROR(err);
 
     err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &bufferInConv2d);
@@ -278,18 +294,20 @@ cl_int ResBlock::forward(
     clReleaseEvent(event0_0);
     clReleaseEvent(event0_1);
     clReleaseEvent(event0_2[0]);
-    clReleaseEvent(event0_2[1]);
-    clReleaseEvent(event1_0);
-    clReleaseEvent(event2_0);
     clReleaseEvent(event3_0);
     clReleaseEvent(event3_1);
     clReleaseEvent(event3_2[0]);
     clReleaseEvent(event3_2[1]);
     clReleaseMemObject(bufferInGroupNorm);
     clReleaseMemObject(bufferInConv2d);
-    clReleaseMemObject(bufferEmbedTemp);
-    clReleaseMemObject(bufferEmbed);
     clReleaseMemObject(bufferOut);
+    if (embed != nullptr) {
+        clReleaseEvent(event0_2[1]);
+        clReleaseEvent(event1_0);
+        clReleaseEvent(event2_0);
+        clReleaseMemObject(bufferEmbedTemp);
+        clReleaseMemObject(bufferEmbed);
+    }
     if (in_channels != out_channels) {
         clReleaseMemObject(bufferSkip);
     }

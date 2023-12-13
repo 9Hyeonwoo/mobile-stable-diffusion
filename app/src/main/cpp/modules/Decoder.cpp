@@ -32,11 +32,25 @@ Decoder::Decoder(
                            4, 512, 3, 1, 1,
                            "decoder/decoder_conv_in_weight.npy",
                            "decoder/decoder_conv_in_bias.npy");
+
+    mid_res_block_1 = new ResBlock(context, cmdQueue, deviceId, assetManager,
+                                   512, 0, 512,
+                                   "decoder/mid/decoder_mid_block_1_norm1_weight.npy",
+                                   "decoder/mid/decoder_mid_block_1_norm1_bias.npy",
+                                   "decoder/mid/decoder_mid_block_1_conv1_weight.npy",
+                                   "decoder/mid/decoder_mid_block_1_conv1_bias.npy",
+                                   nullptr, nullptr,
+                                   "decoder/mid/decoder_mid_block_1_norm2_weight.npy",
+                                   "decoder/mid/decoder_mid_block_1_norm2_bias.npy",
+                                   "decoder/mid/decoder_mid_block_1_conv2_weight.npy",
+                                   "decoder/mid/decoder_mid_block_1_conv2_bias.npy",
+                                   nullptr, nullptr);
 }
 
 Decoder::~Decoder() {
     delete post_quant_conv2d;
     delete in_conv2d;
+    delete mid_res_block_1;
 }
 
 std::vector<float> Decoder::decode(const std::vector<float> &x) {
@@ -46,17 +60,17 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     }
 
     cl_int err;
-    cl_event event[3];
+    cl_event event[4];
     cl_mem bufferX, buffer_4_64, buffer_512_64;
 
     bufferX = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                                    sizeof(float) * x.size(),
-                                    nullptr, &err);
+                             sizeof(float) * x.size(),
+                             nullptr, &err);
     CHECK_ERROR_THROW(err);
 
     buffer_4_64 = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                             sizeof(float) * 4 * 64 * 64,
-                             nullptr, &err);
+                                 sizeof(float) * 4 * 64 * 64,
+                                 nullptr, &err);
     CHECK_ERROR_THROW(err);
 
     err = clEnqueueWriteBuffer(cmdQueue, bufferX, CL_FALSE, 0,
@@ -80,9 +94,18 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
 
     // test_conv_in.npy max diff: 0.00000238418579101562
     // util::testBuffer(cmdQueue, buffer_512_64, "decoder/test/test_conv_in.npy");
+
+    mid_res_block_1->init();
+    err = mid_res_block_1->forward(buffer_512_64, nullptr, buffer_512_64,
+                                   0, nullptr,
+                                   1, &event[2], &event[3]);
+    CHECK_ERROR_THROW(err);
+
+    // test_mid_block_1.npy max diff: 0.00001192092895507812
+    // util::testBuffer(cmdQueue, buffer_512_64, "decoder/test/test_mid_block_1.npy");
     /* Decoder */
 
-    for (auto &e : event) {
+    for (auto &e: event) {
         clReleaseEvent(e);
     }
     clReleaseMemObject(bufferX);

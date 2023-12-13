@@ -8,6 +8,7 @@
 #include <android/asset_manager_jni.h>
 #include <vector>
 #include "nn/Conv2D.h"
+#include "nn/ResBlock.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 #include "CL/opencl.h"
@@ -29,6 +30,8 @@ private:
     Conv2D *post_quant_conv2d;
 
     Conv2D *in_conv2d;
+
+    ResBlock *mid_res_block_1;
 };
 
 
