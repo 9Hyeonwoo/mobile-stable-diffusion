@@ -22,20 +22,12 @@
     }
 
 LayerNorm::LayerNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-                     AAssetManager *assetManager, const char *weight_name, const char *bias_name)
-        : context(context), cmdQueue(cmdQueue) {
+                     AAssetManager *assetManager, size_t dim, const char *weight_name,
+                     const char *bias_name)
+        : context(context), cmdQueue(cmdQueue), weight_name(weight_name), bias_name(bias_name) {
     cl_int err;
-    auto weight = util::load_npy_file(weight_name);
-    auto bias = util::load_npy_file(bias_name);
-    weightSize = weight.num_vals;
-    biasSize = bias.num_vals;
-    if (weightSize != biasSize) {
-        throw std::runtime_error("weightSize != biasSize");
-    }
-
-    if (weightSize % WORK_GROUP_SIZE != 0) {
-        throw std::runtime_error("weightSize % WORK_GROUP_SIZE != 0");
-    }
+    weightSize = dim;
+    biasSize = dim;
 
     bufferWeight = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                   sizeof(float) * weightSize,
@@ -45,14 +37,6 @@ LayerNorm::LayerNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id
     bufferBias = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                 sizeof(float) * biasSize,
                                 nullptr, &err);
-    CHECK_ERROR_THROW(err);
-
-    err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_FALSE, 0,
-                               sizeof(float) * weightSize,
-                               weight.data<float>(), 0, nullptr, nullptr);
-    err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_FALSE, 0,
-                                sizeof(float) * biasSize,
-                                bias.data<float>(), 0, nullptr, nullptr);
     CHECK_ERROR_THROW(err);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
@@ -75,14 +59,42 @@ LayerNorm::~LayerNorm() {
     clReleaseKernel(kernel_mean);
     clReleaseKernel(kernel_var);
     clReleaseKernel(kernel_norm);
+    clReleaseEvent(event_init_weight);
+    clReleaseEvent(event_init_bias);
 }
 
-cl_int LayerNorm::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
-                          const cl_event *event_wait_list,
-                          cl_event *event) {
+void LayerNorm::init() {
     cl_int err;
-    size_t input_bytes;
-    cl_event event1, event2;
+    auto weight = util::load_npy_file(weight_name);
+    auto bias = util::load_npy_file(bias_name);
+    if (weight.num_vals != bias.num_vals) {
+        throw std::runtime_error("weightSize != biasSize");
+    }
+
+    if (weight.num_vals != weightSize) {
+        throw std::runtime_error("weightSize != weight->num_vals");
+    }
+
+    if (weightSize % WORK_GROUP_SIZE != 0) {
+        throw std::runtime_error("weightSize % WORK_GROUP_SIZE != 0");
+    }
+
+    err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_FALSE, 0,
+                               sizeof(float) * weightSize,
+                               weight.data<float>(), 0, nullptr, &event_init_weight);
+    err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_FALSE, 0,
+                                sizeof(float) * biasSize,
+                                bias.data<float>(), 0, nullptr, &event_init_bias);
+    CHECK_ERROR_THROW(err);
+}
+
+cl_int LayerNorm::forward(
+        cl_mem input, cl_mem output,
+        cl_uint num_events_in_list, const cl_event *event_wait_list, cl_event *event
+) {
+    cl_int err;
+    size_t input_bytes, _num_events;
+    cl_event event1, event2, *_event_list;
     err = clGetMemObjectInfo(input, CL_MEM_SIZE, sizeof(size_t), &input_bytes, nullptr);
     CHECK_ERROR(err);
 
@@ -92,6 +104,14 @@ cl_int LayerNorm::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
         __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "input_size: %ld, weight->num_vals: %ld",
                             input_size, weightSize);
         throw std::runtime_error("input_size % weight->num_vals != 0");
+    }
+
+    _num_events = num_events_in_list + 2;
+    _event_list = new cl_event[_num_events];
+    _event_list[0] = event_init_weight;
+    _event_list[1] = event_init_bias;
+    for (int i = 0; i < num_events_in_list; i++) {
+        _event_list[i + 2] = event_wait_list[i];
     }
 
     cl_mem bufferMean = clCreateBuffer(context, CL_MEM_READ_WRITE,
@@ -115,7 +135,7 @@ cl_int LayerNorm::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
     size_t localReductionSize[1] = {WORK_GROUP_SIZE};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_mean, 1, nullptr, globalReductionSize,
                                  localReductionSize,
-                                 num_events_in_list, event_wait_list, &event1);
+                                 _num_events, _event_list, &event1);
     CHECK_ERROR(err);
 
 //    clWaitForEvents(1, &event1);
@@ -157,6 +177,8 @@ cl_int LayerNorm::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
     clReleaseMemObject(bufferVariance);
     clReleaseEvent(event1);
     clReleaseEvent(event2);
+
+    delete[] _event_list;
 
     return CL_SUCCESS;
 }

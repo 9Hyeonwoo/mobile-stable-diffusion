@@ -14,9 +14,12 @@
 class LayerNorm {
 public:
     LayerNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-              AAssetManager *assetManager, const char *weight_name, const char *bias_name);
+              AAssetManager *assetManager, size_t dim,
+              const char *weight_name, const char *bias_name);
 
     ~LayerNorm();
+
+    void init();
 
     cl_int forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                    const cl_event *event_wait_list, cl_event *event);
@@ -32,6 +35,12 @@ private:
     cl_kernel kernel_mean;
     cl_kernel kernel_var;
     cl_kernel kernel_norm;
+
+    cl_event event_init_weight;
+    cl_event event_init_bias;
+
+    const char *weight_name;
+    const char *bias_name;
 };
 
 

@@ -75,6 +75,7 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
     }
 
     ln_final = new LayerNorm(context, cmdQueue, deviceId, assetManager,
+                             EMBEDDING_SIZE,
                              "encoder/ln_final_weight_fp32.npy",
                              "encoder/ln_final_bias_fp32.npy");
 }

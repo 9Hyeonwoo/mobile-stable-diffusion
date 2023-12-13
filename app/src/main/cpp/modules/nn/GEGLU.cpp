@@ -29,7 +29,7 @@ GEGLU::GEGLU(
     cl_int err;
 
     linear = new Linear(context, cmdQueue, deviceId, assetManager,
-                        in_features, out_features,
+                        in_features, out_features * 2,
                         linear_weight_name, linear_bias_name);
 
     weightShape = linear->weightShape;

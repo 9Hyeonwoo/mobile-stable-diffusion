@@ -43,9 +43,9 @@ ResidualAttentionBlock::ResidualAttentionBlock(
 ) : context(context),
     cmdQueue(cmdQueue) {
     cl_int err;
-    ln_1 = new LayerNorm(context, cmdQueue, deviceId, assetManager,
+    ln_1 = new LayerNorm(context, cmdQueue, deviceId, assetManager, d_model,
                          ln_1_weight_name, ln_1_bias_name);
-    ln_2 = new LayerNorm(context, cmdQueue, deviceId, assetManager,
+    ln_2 = new LayerNorm(context, cmdQueue, deviceId, assetManager, d_model,
                          ln_2_weight_name, ln_2_bias_name);
 
     attn = new MultiHeadAttention(context, cmdQueue, deviceId, assetManager,
