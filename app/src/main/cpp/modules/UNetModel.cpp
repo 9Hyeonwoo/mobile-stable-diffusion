@@ -42,9 +42,9 @@ UNetModel::UNetModel(
 
 void UNetModel::initInputBlock0() {
     input_block_0_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+                                      4, 320, 3, 1, 1,
                                       "unet/input_block/0/input_block_0_conv2d_weight.npy",
-                                      "unet/input_block/0/input_block_0_conv2d_bias.npy",
-                                      1, 1);
+                                      "unet/input_block/0/input_block_0_conv2d_bias.npy");
 }
 
 void UNetModel::initInputBlock1() {
@@ -140,9 +140,9 @@ void UNetModel::initInputBlock2() {
 
 void UNetModel::initInputBlock3() {
     input_block_3_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+                                      320, 320, 3, 2, 1,
                                       "unet/input_block/3/input_blocks_3_0_op_weight.npy",
-                                      "unet/input_block/3/input_blocks_3_0_op_bias.npy",
-                                      2, 1);
+                                      "unet/input_block/3/input_blocks_3_0_op_bias.npy");
 }
 
 void UNetModel::initInputBlock4() {
@@ -239,9 +239,9 @@ void UNetModel::initInputBlock5() {
 
 void UNetModel::initInputBlock6() {
     input_block_6_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+                                      640, 640, 3, 2, 1,
                                       "unet/input_block/6/input_blocks_6_0_op_weight.npy",
-                                      "unet/input_block/6/input_blocks_6_0_op_bias.npy",
-                                      2, 1);
+                                      "unet/input_block/6/input_blocks_6_0_op_bias.npy");
 }
 
 void UNetModel::initInputBlock7() {
@@ -337,9 +337,9 @@ void UNetModel::initInputBlock8() {
 
 void UNetModel::initInputBlock9() {
     input_block_9_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+                                      1280, 1280, 3, 2, 1,
                                       "unet/input_block/9/input_blocks_9_0_op_weight.npy",
-                                      "unet/input_block/9/input_blocks_9_0_op_bias.npy",
-                                      2, 1);
+                                      "unet/input_block/9/input_blocks_9_0_op_bias.npy");
 }
 
 void UNetModel::initInputBlock10() {
@@ -922,9 +922,9 @@ void UNetModel::initOut() {
                                    "unet/out/out_group_norm_bias.npy");
 
     out_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+                            320, 4, 3, 1, 1,
                             "unet/out/out_conv2d_weight.npy",
-                            "unet/out/out_conv2d_bias.npy",
-                            1, 1);
+                            "unet/out/out_conv2d_bias.npy");
 }
 
 UNetModel::~UNetModel() {

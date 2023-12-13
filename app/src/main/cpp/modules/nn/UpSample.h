@@ -17,15 +17,16 @@
 class UpSample {
 public:
     UpSample(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-             AAssetManager *assetManager, const char *weight_name, const char *bias_name,
-             int stride,
-             int padding);
+             AAssetManager *assetManager,
+             size_t in_channel, size_t out_channel, size_t kernel_size, int stride, int padding,
+             const char *weight_name, const char *bias_name);
 
     ~UpSample();
 
     cl_int forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                    const cl_event *event_wait_list, cl_event *event);
 
+    void init();
 private:
     cl_context context;
     cl_command_queue cmdQueue;

@@ -25,13 +25,14 @@
 UpSample::UpSample(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager,
-        const char *weight_name, const char *bias_name,
-        int stride, int padding
+        size_t in_channel, size_t out_channel, size_t kernel_size, int stride, int padding,
+        const char *weight_name, const char *bias_name
 ) : context(context), cmdQueue(cmdQueue), scale(2) {
     cl_int err;
 
     conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
-                        weight_name, bias_name, stride, padding);
+                        in_channel, out_channel, kernel_size, stride, padding,
+                        weight_name, bias_name);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/up_sample.cl");
@@ -45,6 +46,10 @@ UpSample::UpSample(
 UpSample::~UpSample() {
     clReleaseKernel(kernel_up_sample);
     delete conv2d;
+}
+
+void UpSample::init() {
+    conv2d->init();
 }
 
 cl_int UpSample::forward(

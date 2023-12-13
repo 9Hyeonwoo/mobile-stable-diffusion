@@ -35,19 +35,22 @@ ResBlock::ResBlock(
     cl_int err;
     in_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, in_channels, 1e-5,
                                   in_group_norm_weight_name, in_group_norm_bias_name);
-    in_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager, in_conv2d_weight_name,
-                           in_conv2d_bias_name, 1, 1);
+    in_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+                           in_channels, out_channels, 3, 1, 1,
+                           in_conv2d_weight_name, in_conv2d_bias_name);
     embed_linear = new Linear(context, cmdQueue, deviceId, assetManager,
                               embed_linear_weight_name, embed_linear_bias_name);
     out_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, out_channels,
                                    1e-5,
                                    out_group_norm_weight_name, out_group_norm_bias_name);
-    out_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager, out_conv2d_weight_name,
-                            out_conv2d_bias_name, 1, 1);
+    out_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+                            out_channels, out_channels, 3, 1, 1,
+                            out_conv2d_weight_name, out_conv2d_bias_name);
 
     if (in_channels != out_channels) {
-        skip_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager, skip_conv2d_weight_name,
-                                 skip_conv2d_bias_name, 1, 0);
+        skip_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+                                 in_channels, out_channels, 1, 1, 0,
+                                 skip_conv2d_weight_name, skip_conv2d_bias_name);
     } else {
         skip_conv2d = nullptr;
     }
@@ -75,6 +78,14 @@ ResBlock::~ResBlock() {
     clReleaseKernel(kernel_silu);
     clReleaseKernel(kernel_chunk_add);
     clReleaseKernel(kernel_elem_add);
+}
+
+void ResBlock::init() {
+    in_conv2d->init();
+    out_conv2d->init();
+    if (skip_conv2d != nullptr) {
+        skip_conv2d->init();
+    }
 }
 
 cl_int ResBlock::forward(
