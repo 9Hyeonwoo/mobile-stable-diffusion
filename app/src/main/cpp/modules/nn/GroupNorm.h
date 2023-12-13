@@ -20,6 +20,8 @@ public:
 
     ~GroupNorm();
 
+    void init();
+
     cl_int forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                    const cl_event *event_wait_list, cl_event *event);
 
@@ -38,6 +40,12 @@ private:
     cl_kernel kernel_mean;
     cl_kernel kernel_var;
     cl_kernel kernel_norm;
+
+    cl_event event_init_weight;
+    cl_event event_init_bias;
+
+    const char *weight_name;
+    const char *bias_name;
 };
 
 

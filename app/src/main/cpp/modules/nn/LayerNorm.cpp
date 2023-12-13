@@ -24,7 +24,7 @@
 LayerNorm::LayerNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
                      AAssetManager *assetManager, size_t dim, const char *weight_name,
                      const char *bias_name)
-        : context(context), cmdQueue(cmdQueue), weight_name(weight_name), bias_name(bias_name) {
+        : context(context), cmdQueue(cmdQueue), weight_name(weight_name), bias_name(bias_name), event_init_weight(nullptr), event_init_bias(nullptr) {
     cl_int err;
     weightSize = dim;
     biasSize = dim;

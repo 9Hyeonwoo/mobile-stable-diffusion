@@ -30,7 +30,6 @@ public:
 private:
     size_t getOutputSize(size_t inputSize);
 
-    cl_context context;
     std::vector<size_t> biasShape;
     cl_command_queue cmdQueue;
 

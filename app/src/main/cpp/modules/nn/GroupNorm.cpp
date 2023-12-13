@@ -29,15 +29,10 @@ GroupNorm::GroupNorm(
         size_t num_groups, size_t num_channels, float eps,
         const char *weight_name, const char *bias_name
 ) : context(context), cmdQueue(cmdQueue), num_groups(num_groups), num_channels(num_channels),
-    eps(eps) {
+    eps(eps), weight_name(weight_name), bias_name(bias_name), event_init_weight(nullptr), event_init_bias(nullptr) {
     cl_int err;
-    auto weight = util::load_npy_file(weight_name);
-    auto bias = util::load_npy_file(bias_name);
-    weightSize = weight.num_vals;
-    biasSize = bias.num_vals;
-    if (weightSize != biasSize) {
-        throw std::runtime_error("weight.shape[0] != bias.shape[0]");
-    }
+    weightSize = num_channels;
+    biasSize = num_channels;
 
     bufferWeight = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                   sizeof(float) * weightSize,
@@ -47,14 +42,6 @@ GroupNorm::GroupNorm(
     bufferBias = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                 sizeof(float) * biasSize,
                                 nullptr, &err);
-    CHECK_ERROR_THROW(err);
-
-    err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_FALSE, 0,
-                               sizeof(float) * weightSize,
-                               weight.data<float>(), 0, nullptr, nullptr);
-    err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_FALSE, 0,
-                                sizeof(float) * biasSize,
-                                bias.data<float>(), 0, nullptr, nullptr);
     CHECK_ERROR_THROW(err);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
@@ -79,14 +66,36 @@ GroupNorm::~GroupNorm() {
     clReleaseKernel(kernel_norm);
 }
 
+void GroupNorm::init() {
+    cl_int err;
+    auto weight = util::load_npy_file(weight_name);
+    auto bias = util::load_npy_file(bias_name);
+
+    if (weight.num_vals != bias.num_vals) {
+        throw std::runtime_error("weight.shape[0] != bias.shape[0]");
+    }
+
+    if (weight.num_vals != weightSize) {
+        throw std::runtime_error("weight.shape[0] != weightSize");
+    }
+
+    err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_FALSE, 0,
+                               sizeof(float) * weightSize,
+                               weight.data<float>(), 0, nullptr, &event_init_weight);
+    err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_FALSE, 0,
+                                sizeof(float) * biasSize,
+                                bias.data<float>(), 0, nullptr, &event_init_bias);
+    CHECK_ERROR_THROW(err);
+}
+
 cl_int GroupNorm::forward(
         cl_mem input, cl_mem output,
         cl_uint num_events_in_list, const cl_event *event_wait_list, cl_event *event
 ) {
     cl_int err;
-    cl_event event1, event2;
+    cl_event event1, event2, *_event_list;
 
-    size_t input_bytes;
+    size_t input_bytes, _num_events;
     err = clGetMemObjectInfo(input, CL_MEM_SIZE, sizeof(size_t), &input_bytes, nullptr);
     CHECK_ERROR(err);
 
@@ -104,6 +113,14 @@ cl_int GroupNorm::forward(
         __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "groupSize: %ld, WORK_GROUP_SIZE: %d",
                             groupSize, WORK_GROUP_SIZE);
         throw std::runtime_error("groupSize % WORK_GROUP_SIZE != 0");
+    }
+
+    _num_events = num_events_in_list + 2;
+    _event_list = new cl_event[_num_events];
+    _event_list[0] = event_init_weight;
+    _event_list[1] = event_init_bias;
+    for (int i = 0; i < num_events_in_list; i++) {
+        _event_list[i + 2] = event_wait_list[i];
     }
 
     cl_mem bufferMean = clCreateBuffer(context, CL_MEM_READ_WRITE,
@@ -126,7 +143,7 @@ cl_int GroupNorm::forward(
     size_t localReductionSize[1] = {groupSize / reductionSize};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_mean, 1, nullptr, globalReductionSize,
                                  localReductionSize,
-                                 num_events_in_list, event_wait_list, &event1);
+                                 _num_events, _event_list, &event1);
     CHECK_ERROR(err);
 
     err = clSetKernelArg(kernel_var, 0, sizeof(cl_mem), &input);
@@ -162,6 +179,8 @@ cl_int GroupNorm::forward(
     clReleaseMemObject(bufferVariance);
     clReleaseEvent(event1);
     clReleaseEvent(event2);
+
+    delete[] _event_list;
 
     return CL_SUCCESS;
 }
