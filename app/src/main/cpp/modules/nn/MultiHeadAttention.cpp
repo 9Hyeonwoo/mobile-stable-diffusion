@@ -52,7 +52,7 @@ MultiHeadAttention::MultiHeadAttention(
                                          nullptr, &err);
     CHECK_ERROR_THROW(err);
 
-    err = clEnqueueWriteBuffer(cmdQueue, bufferAttentionMask, CL_FALSE, 0,
+    err = clEnqueueWriteBuffer(cmdQueue, bufferAttentionMask, CL_TRUE, 0,
                                attention_mask.num_bytes(),
                                attention_mask.data<float>(), 0, nullptr, nullptr);
     CHECK_ERROR_THROW(err);

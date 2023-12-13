@@ -30,7 +30,7 @@ public:
 
     void init();
 
-    cl_int forward(cl_mem input, cl_mem embed, cl_mem output,
+    cl_int forward(cl_mem &input, cl_mem embed, cl_mem output,
                    cl_uint num_events_embed, const cl_event *event_wait_list_embed,
                    cl_uint num_events_in_list, const cl_event *event_wait_list, cl_event *event);
 

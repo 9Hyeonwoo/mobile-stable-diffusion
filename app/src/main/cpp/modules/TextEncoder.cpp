@@ -39,7 +39,7 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
                                                nullptr, &err);
     CHECK_ERROR(err);
 
-    err = clEnqueueWriteBuffer(cmdQueue, bufferPositionalEmbedding, CL_FALSE, 0,
+    err = clEnqueueWriteBuffer(cmdQueue, bufferPositionalEmbedding, CL_TRUE, 0,
                                positional_embedding.num_bytes(),
                                positional_embedding.data<float>(), 0, nullptr, nullptr);
 
@@ -119,7 +119,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
                                        nullptr, &err);
     CHECK_ERROR(err);
 
-    err = clEnqueueWriteBuffer(cmdQueue, bufferEmbedding, CL_FALSE, 0,
+    err = clEnqueueWriteBuffer(cmdQueue, bufferEmbedding, CL_TRUE, 0,
                                sizeof(float) * token_embedding_result.size(),
                                token_embedding_result.data(), 0, nullptr, nullptr);
     CHECK_ERROR(err);
@@ -204,7 +204,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     // max diff: 0.00002861022949218750
     // util::testBuffer(cmdQueue, outBuffer, "encoder/test/ln_final_test_fp32.npy");
     auto result = std::vector<float>(token_embedding_result.size());
-    err = clEnqueueReadBuffer(cmdQueue, outBuffer, CL_FALSE, 0,
+    err = clEnqueueReadBuffer(cmdQueue, outBuffer, CL_TRUE, 0,
                               sizeof(float) * token_embedding_result.size(),
                               result.data(), 1, &event5, &event6);
 
