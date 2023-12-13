@@ -83,6 +83,14 @@ ResidualAttentionBlock::~ResidualAttentionBlock() {
     clReleaseKernel(kernel_gelu);
 }
 
+void ResidualAttentionBlock::init() {
+    ln_1->init();
+    ln_2->init();
+    attn->init();
+    mlp_c_fc->init();
+    mlp_c_proj->init();
+}
+
 cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                        const cl_event *event_wait_list, cl_event *event) {
     cl_int err;

@@ -74,6 +74,15 @@ BasicTransformerBlock::BasicTransformerBlock(
     clReleaseProgram(program);
 }
 
+void BasicTransformerBlock::init() {
+    layerNorm1->init();
+    layerNorm2->init();
+    layerNorm3->init();
+    crossAttention1->init();
+    crossAttention2->init();
+    feedForward->init();
+}
+
 BasicTransformerBlock::~BasicTransformerBlock() {
     delete layerNorm1;
     delete layerNorm2;

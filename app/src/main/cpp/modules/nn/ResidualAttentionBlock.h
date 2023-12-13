@@ -35,6 +35,8 @@ public:
     cl_int forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                    const cl_event *event_wait_list, cl_event *event);
 
+    void init();
+
 private:
     LayerNorm *ln_1;
     LayerNorm *ln_2;

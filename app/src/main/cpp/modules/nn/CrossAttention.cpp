@@ -90,6 +90,13 @@ CrossAttention::~CrossAttention() {
     clReleaseKernel(kernel_softmax);
 }
 
+void CrossAttention::init() {
+    toQLinear->init();
+    toKLinear->init();
+    toVLinear->init();
+    toOutLinear->init();
+}
+
 cl_int
 CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint num_events_in_list,
                         const cl_event *event_wait_list, cl_event *event) {

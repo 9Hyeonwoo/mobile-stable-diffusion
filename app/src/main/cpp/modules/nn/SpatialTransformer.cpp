@@ -95,6 +95,13 @@ SpatialTransformer::~SpatialTransformer() {
     clReleaseKernel(kernel_elem_add);
 }
 
+void SpatialTransformer::init() {
+    groupNorm->init();
+    projInLinear->init();
+    transformer->init();
+    projOutLinear->init();
+}
+
 cl_int SpatialTransformer::forward(cl_mem input, cl_mem condition, cl_mem output,
                                    cl_uint num_events_in_list, const cl_event *event_wait_list,
                                    cl_event *event) {

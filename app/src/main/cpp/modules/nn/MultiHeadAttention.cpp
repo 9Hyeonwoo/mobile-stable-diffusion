@@ -91,6 +91,11 @@ MultiHeadAttention::~MultiHeadAttention() {
     clReleaseKernel(kernel_permute3D_1_0_2);
 }
 
+void MultiHeadAttention::init() {
+    attnInProj0->init();
+    attnOutProj0->init();
+}
+
 cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                    const cl_event *event_wait_list, cl_event *event) {
     cl_int err;

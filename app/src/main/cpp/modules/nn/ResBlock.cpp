@@ -82,7 +82,10 @@ ResBlock::~ResBlock() {
 }
 
 void ResBlock::init() {
+    in_group_norm->init();
     in_conv2d->init();
+    embed_linear->init();
+    out_group_norm->init();
     out_conv2d->init();
     if (skip_conv2d != nullptr) {
         skip_conv2d->init();
