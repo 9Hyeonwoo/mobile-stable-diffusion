@@ -24,7 +24,7 @@
 ResBlock::ResBlock(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager,
-        size_t in_channels, size_t out_channels,
+        size_t in_channels, size_t emb_channels, size_t out_channels,
         const char *in_group_norm_weight_name, const char *in_group_norm_bias_name,
         const char *in_conv2d_weight_name, const char *in_conv2d_bias_name,
         const char *embed_linear_weight_name, const char *embed_linear_bias_name,
@@ -39,6 +39,7 @@ ResBlock::ResBlock(
                            in_channels, out_channels, 3, 1, 1,
                            in_conv2d_weight_name, in_conv2d_bias_name);
     embed_linear = new Linear(context, cmdQueue, deviceId, assetManager,
+                              emb_channels, out_channels,
                               embed_linear_weight_name, embed_linear_bias_name);
     out_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, out_channels,
                                    1e-5,

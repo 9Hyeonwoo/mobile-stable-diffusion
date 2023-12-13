@@ -22,15 +22,17 @@
 
 FeedForward::FeedForward(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-        AAssetManager *assetManager,
+        AAssetManager *assetManager, size_t dim,
         const char *geglu_linear_weight_name,
         const char *geglu_linear_bias_name,
         const char *net_linear_weight_name, const char *net_linear_bias_name
 ) : context(context), cmdQueue(cmdQueue) {
 
     geglu = new GEGLU(context, cmdQueue, deviceId, assetManager,
+                      dim, dim * 4,
                       geglu_linear_weight_name, geglu_linear_bias_name);
     netLinear = new Linear(context, cmdQueue, deviceId, assetManager,
+                           dim * 4, dim,
                            net_linear_weight_name, net_linear_bias_name);
 }
 

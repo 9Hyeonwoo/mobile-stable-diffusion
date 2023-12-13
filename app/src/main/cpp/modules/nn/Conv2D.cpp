@@ -28,14 +28,16 @@ Conv2D::Conv2D(
         size_t in_channel, size_t out_channel, size_t kernel_size, int stride, int padding,
         const char *weight_name,
         const char *bias_name
-) : cmdQueue(cmdQueue), stride(stride), padding(padding), weight_name(weight_name), bias_name(bias_name) {
+) : cmdQueue(cmdQueue), stride(stride), padding(padding), weight_name(weight_name),
+    bias_name(bias_name), event_init_weight(nullptr), event_init_bias(nullptr) {
     cl_int err;
 
     weightShape = std::vector<size_t>({out_channel, in_channel, kernel_size, kernel_size});
     biasShape = std::vector<size_t>({out_channel});
 
     bufferWeight = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                                  sizeof(float) * out_channel * in_channel * kernel_size * kernel_size,
+                                  sizeof(float) * out_channel * in_channel * kernel_size *
+                                  kernel_size,
                                   nullptr, &err);
     CHECK_ERROR_THROW(err);
 
@@ -61,7 +63,12 @@ Conv2D::~Conv2D() {
     clReleaseMemObject(bufferWeight);
     clReleaseMemObject(bufferBias);
     clReleaseKernel(kernel);
-    clReleaseEvent(event_init);
+    if (event_init_weight != nullptr) {
+        clReleaseEvent(event_init_weight);
+    }
+    if (event_init_bias != nullptr) {
+        clReleaseEvent(event_init_bias);
+    }
 }
 
 void Conv2D::init() {
@@ -70,34 +77,38 @@ void Conv2D::init() {
     auto bias = util::load_npy_file(bias_name);
 
     if (weight.num_vals != (weightShape[0] * weightShape[1] * weightShape[2] * weightShape[3])) {
-        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Conv2D weight file size != constructor weightShape");
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "Conv2D weight file size != constructor weightShape");
         throw std::runtime_error("Conv2D weight file size != constructor weightShape");
     }
 
     if (bias.num_vals != biasShape[0]) {
-        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Conv2D bias file size != constructor biasShape");
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "Conv2D bias file size != constructor biasShape");
         throw std::runtime_error("Conv2D bias file size != constructor biasShape");
     }
 
     err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_FALSE, 0,
                                sizeof(float) * weight.num_vals,
-                               weight.data<float>(), 0, nullptr, &event_init);
+                               weight.data<float>(), 0, nullptr, &event_init_weight);
     err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_FALSE, 0,
                                 sizeof(float) * bias.num_vals,
-                                bias.data<float>(), 0, nullptr, &event_init);
+                                bias.data<float>(), 0, nullptr, &event_init_bias);
     CHECK_ERROR_THROW(err);
 }
+
 /*
  * Assume square shaped `input` where height = width.
  */
 cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                        const cl_event *event_wait_list, cl_event *event) {
     cl_int err;
-    auto _num_event_list = num_events_in_list + 1;
+    auto _num_event_list = num_events_in_list + 2;
     auto *event_list = new cl_event[_num_event_list];
-    event_list[0] = event_init;
+    event_list[0] = event_init_weight;
+    event_list[1] = event_init_bias;
     for (int i = 0; i < num_events_in_list; i++) {
-        event_list[i + 1] = event_wait_list[i];
+        event_list[i + 2] = event_wait_list[i];
     }
 
     if (input == output) {

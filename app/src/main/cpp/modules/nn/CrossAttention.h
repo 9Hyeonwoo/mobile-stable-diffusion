@@ -14,7 +14,8 @@
 class CrossAttention {
 public:
     CrossAttention(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-                   AAssetManager *assetManager, size_t headSize, size_t headDim,
+                   AAssetManager *assetManager,
+                   size_t query_dim, size_t context_dim, size_t headSize, size_t headDim,
                    const char *q_linear_weight_name,
                    const char *k_linear_weight_name,
                    const char *v_linear_weight_name,

@@ -18,7 +18,7 @@ class ResBlock {
 public:
     ResBlock(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
              AAssetManager *assetManager,
-             size_t in_channels, size_t out_channels,
+             size_t in_channels, size_t emb_channels, size_t out_channels,
              const char *in_group_norm_weight_name, const char *in_group_norm_bias_name,
              const char *in_conv2d_weight_name, const char *in_conv2d_bias_name,
              const char *embed_linear_weight_name, const char *embed_linear_bias_name,

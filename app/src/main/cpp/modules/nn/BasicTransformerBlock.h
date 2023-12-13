@@ -17,7 +17,8 @@
 class BasicTransformerBlock {
 public:
     BasicTransformerBlock(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-                          AAssetManager *assetManager, size_t headSize, size_t headDim,
+                          AAssetManager *assetManager,
+                          size_t dim, size_t context_dim, size_t headSize, size_t headDim,
                           const char *layer_norm_1_weight_name, const char *layer_norm_1_bias_name,
                           const char *layer_norm_2_weight_name, const char *layer_norm_2_bias_name,
                           const char *layer_norm_3_weight_name, const char *layer_norm_3_bias_name,

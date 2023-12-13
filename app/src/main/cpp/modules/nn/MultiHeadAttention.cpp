@@ -27,7 +27,7 @@ MultiHeadAttention::MultiHeadAttention(
         cl_command_queue cmdQueue,
         cl_device_id deviceId,
         AAssetManager *assetManager,
-        size_t numHeads,
+        size_t embed_dim, size_t numHeads,
         const char *in_proj_weight_name,
         const char *in_proj_bias_name,
         const char *out_proj_weight_name,
@@ -38,9 +38,11 @@ MultiHeadAttention::MultiHeadAttention(
     cl_int err;
 
     attnInProj0 = new Linear(context, cmdQueue, deviceId, assetManager,
+                             embed_dim, embed_dim * 3,
                              in_proj_weight_name, in_proj_bias_name);
 
     attnOutProj0 = new Linear(context, cmdQueue, deviceId, assetManager,
+                                embed_dim, embed_dim,
                               out_proj_weight_name, out_proj_bias_name);
 
     auto attention_mask = util::load_npy_file("encoder/attn_mask_fp32.npy");

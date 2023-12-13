@@ -18,6 +18,7 @@ class FeedForward {
 public:
     FeedForward(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
                 AAssetManager *assetManager,
+                size_t dim,
                 const char *geglu_linear_weight_name, const char *geglu_linear_bias_name,
                 const char *net_linear_weight_name, const char *net_linear_bias_name);
 

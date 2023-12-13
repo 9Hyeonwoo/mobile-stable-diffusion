@@ -19,7 +19,7 @@ class SpatialTransformer {
 public:
     SpatialTransformer(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
                        AAssetManager *assetManager,
-                       size_t channels, size_t headSize, size_t headDim,
+                       size_t channels, size_t context_dim, size_t headSize, size_t headDim,
                        const char *group_norm_weight_name, const char *group_norm_bias_name,
                        const char *in_linear_weight_name, const char *in_linear_bias_name,
                        const char *layer_norm_1_weight_name, const char *layer_norm_1_bias_name,

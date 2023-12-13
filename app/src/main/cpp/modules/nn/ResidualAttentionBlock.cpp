@@ -27,7 +27,7 @@ ResidualAttentionBlock::ResidualAttentionBlock(
         cl_command_queue cmdQueue,
         cl_device_id deviceId,
         AAssetManager *assetManager,
-        size_t numHeads,
+        size_t d_model, size_t numHeads,
         const char *ln_1_weight_name,
         const char *ln_1_bias_name,
         const char *ln_2_weight_name,
@@ -48,14 +48,17 @@ ResidualAttentionBlock::ResidualAttentionBlock(
     ln_2 = new LayerNorm(context, cmdQueue, deviceId, assetManager,
                          ln_2_weight_name, ln_2_bias_name);
 
-    attn = new MultiHeadAttention(context, cmdQueue, deviceId, assetManager, numHeads,
+    attn = new MultiHeadAttention(context, cmdQueue, deviceId, assetManager,
+                                  d_model, numHeads,
                                   attn_in_proj_weight_name, attn_in_proj_bias_name,
                                   attn_out_proj_weight_name, attn_out_proj_bias_name);
 
     mlp_c_fc = new Linear(context, cmdQueue, deviceId, assetManager,
+                          d_model, d_model * 4,
                           mlp_c_fc_weight_name, mlp_c_fc_bias_name);
 
     mlp_c_proj = new Linear(context, cmdQueue, deviceId, assetManager,
+                            d_model * 4, d_model,
                             mlp_c_proj_weight_name, mlp_c_proj_bias_name);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,

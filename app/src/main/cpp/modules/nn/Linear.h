@@ -16,20 +16,31 @@
 class Linear {
 public:
     Linear(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-           AAssetManager *assetManager, const char *weight_name, const char *bias_name);
+           AAssetManager *assetManager,
+           size_t in_features, size_t out_features,
+           const char *weight_name, const char *bias_name);
 
     ~Linear();
 
     cl_int forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                    const cl_event *event_wait_list, cl_event *event);
 
+    void init();
+
     std::vector<size_t> weightShape;
 private:
     cl_mem bufferWeight;
     /* bufferBias is nullable */
     cl_mem bufferBias;
+
     cl_command_queue cmdQueue;
     cl_kernel kernel;
+
+    cl_event event_init_weight;
+    cl_event event_init_bias;
+
+    const char *weight_name;
+    const char *bias_name;
 };
 
 

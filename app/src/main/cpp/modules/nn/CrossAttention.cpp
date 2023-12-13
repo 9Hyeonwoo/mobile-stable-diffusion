@@ -24,7 +24,8 @@
 
 CrossAttention::CrossAttention(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-        AAssetManager *assetManager, size_t headSize, size_t headDim,
+        AAssetManager *assetManager,
+        size_t query_dim, size_t context_dim, size_t headSize, size_t headDim,
         const char *q_linear_weight_name,
         const char *k_linear_weight_name,
         const char *v_linear_weight_name,
@@ -34,16 +35,24 @@ CrossAttention::CrossAttention(
 
     scale = 1.f / sqrt(static_cast<float>(headDim));
 
+    if (context_dim <= 0) {
+        context_dim = query_dim;
+    }
+
     toQLinear = new Linear(context, cmdQueue, deviceId, assetManager,
+                           query_dim, headSize * headDim,
                            q_linear_weight_name,
                            nullptr);
     toKLinear = new Linear(context, cmdQueue, deviceId, assetManager,
+                           context_dim, headSize * headDim,
                            k_linear_weight_name,
                            nullptr);
     toVLinear = new Linear(context, cmdQueue, deviceId, assetManager,
+                           context_dim, headSize * headDim,
                            v_linear_weight_name,
                            nullptr);
     toOutLinear = new Linear(context, cmdQueue, deviceId, assetManager,
+                             headSize * headDim, query_dim,
                              out_linear_weight_name,
                              out_linear_bias_name);
 

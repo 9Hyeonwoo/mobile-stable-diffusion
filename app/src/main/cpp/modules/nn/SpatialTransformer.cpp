@@ -25,7 +25,7 @@
 SpatialTransformer::SpatialTransformer(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager,
-        size_t channels, size_t headSize, size_t headDim,
+        size_t channels, size_t context_dim, size_t headSize, size_t headDim,
         const char *group_norm_weight_name, const char *group_norm_bias_name,
         const char *in_linear_weight_name, const char *in_linear_bias_name,
         const char *layer_norm_1_weight_name, const char *layer_norm_1_bias_name,
@@ -44,14 +44,16 @@ SpatialTransformer::SpatialTransformer(
         const char *out_linear_weight_name, const char *out_linear_bias_name
 ) : context(context), cmdQueue(cmdQueue), channels(channels) {
     cl_int err;
+    size_t inner_dim = headSize * headDim;
     groupNorm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, channels, 1e-6,
                               group_norm_weight_name, group_norm_bias_name);
 
     projInLinear = new Linear(context, cmdQueue, deviceId, assetManager,
+                              channels, inner_dim,
                               in_linear_weight_name, in_linear_bias_name);
 
     transformer = new BasicTransformerBlock(context, cmdQueue, deviceId, assetManager,
-                                            headSize, headDim,
+                                            inner_dim, context_dim, headSize, headDim,
                                             layer_norm_1_weight_name, layer_norm_1_bias_name,
                                             layer_norm_2_weight_name, layer_norm_2_bias_name,
                                             layer_norm_3_weight_name, layer_norm_3_bias_name,
@@ -69,6 +71,7 @@ SpatialTransformer::SpatialTransformer(
                                             ff_net_linear_weight_name, ff_net_linear_bias_name);
 
     projOutLinear = new Linear(context, cmdQueue, deviceId, assetManager,
+                               channels, inner_dim,
                                out_linear_weight_name, out_linear_bias_name);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,

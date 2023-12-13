@@ -16,7 +16,7 @@
 class ResidualAttentionBlock {
 public:
     ResidualAttentionBlock(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-                           AAssetManager *assetManager, size_t numHeads,
+                           AAssetManager *assetManager, size_t d_model, size_t numHeads,
                            const char *ln_1_weight_name,
                            const char *ln_1_bias_name,
                            const char *ln_2_weight_name,

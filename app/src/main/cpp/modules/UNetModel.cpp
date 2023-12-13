@@ -9,6 +9,9 @@
 
 #define LOG_TAG "UNET_MODEL"
 #define MODEL_CHANNELS 320
+#define TIME_EMBED_DIM (4 * MODEL_CHANNELS)
+#define CONTEXT_DIM 1024
+#define NUM_HEAD_CHANNELS 64
 
 #define CHECK_ERROR(err) \
     if (err != CL_SUCCESS) { \
@@ -24,10 +27,12 @@ UNetModel::UNetModel(
 ) : context(context), cmdQueue(cmdQueue), deviceId(deviceId), assetManager(assetManager) {
     cl_int err;
     time_embed_0 = new Linear(context, cmdQueue, deviceId, assetManager,
+                              320, 1280,
                               "unet/time_embed/time_embed_0_weight.npy",
                               "unet/time_embed/time_embed_0_bias.npy");
 
     time_embed_2 = new Linear(context, cmdQueue, deviceId, assetManager,
+                              1280, 1280,
                               "unet/time_embed/time_embed_2_weight.npy",
                               "unet/time_embed/time_embed_2_bias.npy");
 
@@ -49,7 +54,7 @@ void UNetModel::initInputBlock0() {
 
 void UNetModel::initInputBlock1() {
     input_block_1_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                           320, 320,
+                                           320, TIME_EMBED_DIM, 320,
                                            "unet/input_block/1/input_block_1_res_block_in_group_norm_weight.npy",
                                            "unet/input_block/1/input_block_1_res_block_in_group_norm_bias.npy",
                                            "unet/input_block/1/input_block_1_res_block_in_conv2d_weight.npy",
@@ -63,7 +68,7 @@ void UNetModel::initInputBlock1() {
                                            nullptr, nullptr);
 
     input_block_1_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                   320, 5, 64,
+                                                   320, CONTEXT_DIM, 5, NUM_HEAD_CHANNELS,
                                                    "unet/input_block/1/input_block_1_spatial_group_norm_weight.npy",
                                                    "unet/input_block/1/input_block_1_spatial_group_norm_bias.npy",
                                                    "unet/input_block/1/input_block_1_spatial_in_linear_weight.npy",
@@ -94,7 +99,7 @@ void UNetModel::initInputBlock1() {
 
 void UNetModel::initInputBlock2() {
     input_block_2_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                           320, 320,
+                                           320, TIME_EMBED_DIM, 320,
                                            "unet/input_block/2/input_blocks_2_0_in_layers_0_weight.npy",
                                            "unet/input_block/2/input_blocks_2_0_in_layers_0_bias.npy",
                                            "unet/input_block/2/input_blocks_2_0_in_layers_2_weight.npy",
@@ -108,7 +113,7 @@ void UNetModel::initInputBlock2() {
                                            nullptr, nullptr);
 
     input_block_2_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                   320, 5, 64,
+                                                   320, CONTEXT_DIM, 5, NUM_HEAD_CHANNELS,
                                                    "unet/input_block/2/input_blocks_2_1_norm_weight.npy",
                                                    "unet/input_block/2/input_blocks_2_1_norm_bias.npy",
                                                    "unet/input_block/2/input_blocks_2_1_proj_in_weight.npy",
@@ -147,7 +152,7 @@ void UNetModel::initInputBlock3() {
 
 void UNetModel::initInputBlock4() {
     input_block_4_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                           320, 640,
+                                           320, TIME_EMBED_DIM, 640,
                                            "unet/input_block/4/input_blocks_4_0_in_layers_0_weight.npy",
                                            "unet/input_block/4/input_blocks_4_0_in_layers_0_bias.npy",
                                            "unet/input_block/4/input_blocks_4_0_in_layers_2_weight.npy",
@@ -162,7 +167,7 @@ void UNetModel::initInputBlock4() {
                                            "unet/input_block/4/input_blocks_4_0_skip_connection_bias.npy");
 
     input_block_4_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                   640, 10, 64,
+                                                   640, CONTEXT_DIM, 10, NUM_HEAD_CHANNELS,
                                                    "unet/input_block/4/input_blocks_4_1_norm_weight.npy",
                                                    "unet/input_block/4/input_blocks_4_1_norm_bias.npy",
                                                    "unet/input_block/4/input_blocks_4_1_proj_in_weight.npy",
@@ -193,7 +198,7 @@ void UNetModel::initInputBlock4() {
 
 void UNetModel::initInputBlock5() {
     input_block_5_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                           640, 640,
+                                           640, TIME_EMBED_DIM, 640,
                                            "unet/input_block/5/input_blocks_5_0_in_layers_0_weight.npy",
                                            "unet/input_block/5/input_blocks_5_0_in_layers_0_bias.npy",
                                            "unet/input_block/5/input_blocks_5_0_in_layers_2_weight.npy",
@@ -207,7 +212,7 @@ void UNetModel::initInputBlock5() {
                                            nullptr, nullptr);
 
     input_block_5_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                   640, 10, 64,
+                                                   640, CONTEXT_DIM, 10, NUM_HEAD_CHANNELS,
                                                    "unet/input_block/5/input_blocks_5_1_norm_weight.npy",
                                                    "unet/input_block/5/input_blocks_5_1_norm_bias.npy",
                                                    "unet/input_block/5/input_blocks_5_1_proj_in_weight.npy",
@@ -246,7 +251,7 @@ void UNetModel::initInputBlock6() {
 
 void UNetModel::initInputBlock7() {
     input_block_7_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                           640, 1280,
+                                           640, TIME_EMBED_DIM, 1280,
                                            "unet/input_block/7/input_blocks_7_0_in_layers_0_weight.npy",
                                            "unet/input_block/7/input_blocks_7_0_in_layers_0_bias.npy",
                                            "unet/input_block/7/input_blocks_7_0_in_layers_2_weight.npy",
@@ -261,7 +266,7 @@ void UNetModel::initInputBlock7() {
                                            "unet/input_block/7/input_blocks_7_0_skip_connection_bias.npy");
 
     input_block_7_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                   1280, 20, 64,
+                                                   1280, CONTEXT_DIM, 20, NUM_HEAD_CHANNELS,
                                                    "unet/input_block/7/input_blocks_7_1_norm_weight.npy",
                                                    "unet/input_block/7/input_blocks_7_1_norm_bias.npy",
                                                    "unet/input_block/7/input_blocks_7_1_proj_in_weight.npy",
@@ -292,7 +297,7 @@ void UNetModel::initInputBlock7() {
 
 void UNetModel::initInputBlock8() {
     input_block_8_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                           1280, 1280,
+                                           1280, TIME_EMBED_DIM, 1280,
                                            "unet/input_block/8/input_blocks_8_0_in_layers_0_weight.npy",
                                            "unet/input_block/8/input_blocks_8_0_in_layers_0_bias.npy",
                                            "unet/input_block/8/input_blocks_8_0_in_layers_2_weight.npy",
@@ -306,7 +311,7 @@ void UNetModel::initInputBlock8() {
                                            nullptr, nullptr);
 
     input_block_8_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                   1280, 20, 64,
+                                                   1280, CONTEXT_DIM, 20, NUM_HEAD_CHANNELS,
                                                    "unet/input_block/8/input_blocks_8_1_norm_weight.npy",
                                                    "unet/input_block/8/input_blocks_8_1_norm_bias.npy",
                                                    "unet/input_block/8/input_blocks_8_1_proj_in_weight.npy",
@@ -344,7 +349,7 @@ void UNetModel::initInputBlock9() {
 
 void UNetModel::initInputBlock10() {
     input_block_10_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                            1280, 1280,
+                                            1280, TIME_EMBED_DIM, 1280,
                                             "unet/input_block/10/input_blocks_10_0_in_layers_0_weight.npy",
                                             "unet/input_block/10/input_blocks_10_0_in_layers_0_bias.npy",
                                             "unet/input_block/10/input_blocks_10_0_in_layers_2_weight.npy",
@@ -360,7 +365,7 @@ void UNetModel::initInputBlock10() {
 
 void UNetModel::initInputBlock11() {
     input_block_11_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                            1280, 1280,
+                                            1280, TIME_EMBED_DIM, 1280,
                                             "unet/input_block/11/input_blocks_11_0_in_layers_0_weight.npy",
                                             "unet/input_block/11/input_blocks_11_0_in_layers_0_bias.npy",
                                             "unet/input_block/11/input_blocks_11_0_in_layers_2_weight.npy",
@@ -377,7 +382,7 @@ void UNetModel::initInputBlock11() {
 
 void UNetModel::initMiddleBlock() {
     middle_block_0_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                            1280, 1280,
+                                            1280, TIME_EMBED_DIM, 1280,
                                             "unet/middle_block/0/middle_block_0_in_layers_0_weight.npy",
                                             "unet/middle_block/0/middle_block_0_in_layers_0_bias.npy",
                                             "unet/middle_block/0/middle_block_0_in_layers_2_weight.npy",
@@ -391,7 +396,7 @@ void UNetModel::initMiddleBlock() {
                                             nullptr, nullptr);
 
     middle_block_1_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                    1280, 20, 64,
+                                                    1280, CONTEXT_DIM, 20, NUM_HEAD_CHANNELS,
                                                     "unet/middle_block/1/middle_block_1_norm_weight.npy",
                                                     "unet/middle_block/1/middle_block_1_norm_bias.npy",
                                                     "unet/middle_block/1/middle_block_1_proj_in_weight.npy",
@@ -420,7 +425,7 @@ void UNetModel::initMiddleBlock() {
                                                     "unet/middle_block/1/middle_block_1_proj_out_bias.npy");
 
     middle_block_2_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                            1280, 1280,
+                                            1280, TIME_EMBED_DIM, 1280,
                                             "unet/middle_block/2/middle_block_2_in_layers_0_weight.npy",
                                             "unet/middle_block/2/middle_block_2_in_layers_0_bias.npy",
                                             "unet/middle_block/2/middle_block_2_in_layers_2_weight.npy",
@@ -436,7 +441,7 @@ void UNetModel::initMiddleBlock() {
 
 void UNetModel::initOutputBlock0() {
     output_block_0_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                            2560, 1280,
+                                            2560, TIME_EMBED_DIM, 1280,
                                             "unet/output_block/0/output_blocks_0_0_in_layers_0_weight.npy",
                                             "unet/output_block/0/output_blocks_0_0_in_layers_0_bias.npy",
                                             "unet/output_block/0/output_blocks_0_0_in_layers_2_weight.npy",
@@ -454,7 +459,7 @@ void UNetModel::initOutputBlock0() {
 
 void UNetModel::initOutputBlock1() {
     output_block_1_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                            2560, 1280,
+                                            2560, TIME_EMBED_DIM, 1280,
                                             "unet/output_block/1/output_blocks_1_0_in_layers_0_weight.npy",
                                             "unet/output_block/1/output_blocks_1_0_in_layers_0_bias.npy",
                                             "unet/output_block/1/output_blocks_1_0_in_layers_2_weight.npy",
@@ -471,7 +476,7 @@ void UNetModel::initOutputBlock1() {
 
 void UNetModel::initOutputBlock2() {
     output_block_2_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                            2560, 1280,
+                                            2560, TIME_EMBED_DIM, 1280,
                                             "unet/output_block/2/output_blocks_2_0_in_layers_0_weight.npy",
                                             "unet/output_block/2/output_blocks_2_0_in_layers_0_bias.npy",
                                             "unet/output_block/2/output_blocks_2_0_in_layers_2_weight.npy",
@@ -486,14 +491,14 @@ void UNetModel::initOutputBlock2() {
                                             "unet/output_block/2/output_blocks_2_0_skip_connection_bias.npy");
 
     output_block_2_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
+                                            1280, 1280, 3, 1, 1,
                                             "unet/output_block/2/output_blocks_2_1_conv_weight.npy",
-                                            "unet/output_block/2/output_blocks_2_1_conv_bias.npy",
-                                            1, 1);
+                                            "unet/output_block/2/output_blocks_2_1_conv_bias.npy");
 }
 
 void UNetModel::initOutputBlock3() {
     output_block_3_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                            2560, 1280,
+                                            2560, TIME_EMBED_DIM, 1280,
                                             "unet/output_block/3/output_blocks_3_0_in_layers_0_weight.npy",
                                             "unet/output_block/3/output_blocks_3_0_in_layers_0_bias.npy",
                                             "unet/output_block/3/output_blocks_3_0_in_layers_2_weight.npy",
@@ -508,7 +513,7 @@ void UNetModel::initOutputBlock3() {
                                             "unet/output_block/3/output_blocks_3_0_skip_connection_bias.npy");
 
     output_block_3_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                    1280, 20, 64,
+                                                    1280, CONTEXT_DIM, 20, NUM_HEAD_CHANNELS,
                                                     "unet/output_block/3/output_blocks_3_1_norm_weight.npy",
                                                     "unet/output_block/3/output_blocks_3_1_norm_bias.npy",
                                                     "unet/output_block/3/output_blocks_3_1_proj_in_weight.npy",
@@ -539,7 +544,7 @@ void UNetModel::initOutputBlock3() {
 
 void UNetModel::initOutputBlock4() {
     output_block_4_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                            2560, 1280,
+                                            2560, TIME_EMBED_DIM, 1280,
                                             "unet/output_block/4/output_blocks_4_0_in_layers_0_weight.npy",
                                             "unet/output_block/4/output_blocks_4_0_in_layers_0_bias.npy",
                                             "unet/output_block/4/output_blocks_4_0_in_layers_2_weight.npy",
@@ -554,7 +559,7 @@ void UNetModel::initOutputBlock4() {
                                             "unet/output_block/4/output_blocks_4_0_skip_connection_bias.npy");
 
     output_block_4_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                    1280, 20, 64,
+                                                    1280, CONTEXT_DIM, 20, NUM_HEAD_CHANNELS,
                                                     "unet/output_block/4/output_blocks_4_1_norm_weight.npy",
                                                     "unet/output_block/4/output_blocks_4_1_norm_bias.npy",
                                                     "unet/output_block/4/output_blocks_4_1_proj_in_weight.npy",
@@ -585,7 +590,7 @@ void UNetModel::initOutputBlock4() {
 
 void UNetModel::initOutputBlock5() {
     output_block_5_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                            1920, 1280,
+                                            1920, TIME_EMBED_DIM, 1280,
                                             "unet/output_block/5/output_blocks_5_0_in_layers_0_weight.npy",
                                             "unet/output_block/5/output_blocks_5_0_in_layers_0_bias.npy",
                                             "unet/output_block/5/output_blocks_5_0_in_layers_2_weight.npy",
@@ -600,7 +605,7 @@ void UNetModel::initOutputBlock5() {
                                             "unet/output_block/5/output_blocks_5_0_skip_connection_bias.npy");
 
     output_block_5_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                    1280, 20, 64,
+                                                    1280, CONTEXT_DIM, 20, NUM_HEAD_CHANNELS,
                                                     "unet/output_block/5/output_blocks_5_1_norm_weight.npy",
                                                     "unet/output_block/5/output_blocks_5_1_norm_bias.npy",
                                                     "unet/output_block/5/output_blocks_5_1_proj_in_weight.npy",
@@ -629,14 +634,14 @@ void UNetModel::initOutputBlock5() {
                                                     "unet/output_block/5/output_blocks_5_1_proj_out_bias.npy");
 
     output_block_5_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
+                                            1280, 1280, 3, 1, 1,
                                             "unet/output_block/5/output_blocks_5_2_conv_weight.npy",
-                                            "unet/output_block/5/output_blocks_5_2_conv_bias.npy",
-                                            1, 1);
+                                            "unet/output_block/5/output_blocks_5_2_conv_bias.npy");
 }
 
 void UNetModel::initOutputBlock6() {
     output_block_6_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                            1920, 640,
+                                            1920, TIME_EMBED_DIM, 640,
                                             "unet/output_block/6/output_blocks_6_0_in_layers_0_weight.npy",
                                             "unet/output_block/6/output_blocks_6_0_in_layers_0_bias.npy",
                                             "unet/output_block/6/output_blocks_6_0_in_layers_2_weight.npy",
@@ -651,7 +656,7 @@ void UNetModel::initOutputBlock6() {
                                             "unet/output_block/6/output_blocks_6_0_skip_connection_bias.npy");
 
     output_block_6_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                    640, 10, 64,
+                                                    640, CONTEXT_DIM, 10, NUM_HEAD_CHANNELS,
                                                     "unet/output_block/6/output_blocks_6_1_norm_weight.npy",
                                                     "unet/output_block/6/output_blocks_6_1_norm_bias.npy",
                                                     "unet/output_block/6/output_blocks_6_1_proj_in_weight.npy",
@@ -682,7 +687,7 @@ void UNetModel::initOutputBlock6() {
 
 void UNetModel::initOutputBlock7() {
     output_block_7_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                            1280, 640,
+                                            1280, TIME_EMBED_DIM, 640,
                                             "unet/output_block/7/output_blocks_7_0_in_layers_0_weight.npy",
                                             "unet/output_block/7/output_blocks_7_0_in_layers_0_bias.npy",
                                             "unet/output_block/7/output_blocks_7_0_in_layers_2_weight.npy",
@@ -697,7 +702,7 @@ void UNetModel::initOutputBlock7() {
                                             "unet/output_block/7/output_blocks_7_0_skip_connection_bias.npy");
 
     output_block_7_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                    640, 10, 64,
+                                                    640, CONTEXT_DIM, 10, NUM_HEAD_CHANNELS,
                                                     "unet/output_block/7/output_blocks_7_1_norm_weight.npy",
                                                     "unet/output_block/7/output_blocks_7_1_norm_bias.npy",
                                                     "unet/output_block/7/output_blocks_7_1_proj_in_weight.npy",
@@ -728,7 +733,7 @@ void UNetModel::initOutputBlock7() {
 
 void UNetModel::initOutputBlock8() {
     output_block_8_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                            960, 640,
+                                            960, TIME_EMBED_DIM, 640,
                                             "unet/output_block/8/output_blocks_8_0_in_layers_0_weight.npy",
                                             "unet/output_block/8/output_blocks_8_0_in_layers_0_bias.npy",
                                             "unet/output_block/8/output_blocks_8_0_in_layers_2_weight.npy",
@@ -743,7 +748,7 @@ void UNetModel::initOutputBlock8() {
                                             "unet/output_block/8/output_blocks_8_0_skip_connection_bias.npy");
 
     output_block_8_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                    640, 10, 64,
+                                                    640, CONTEXT_DIM, 10, NUM_HEAD_CHANNELS,
                                                     "unet/output_block/8/output_blocks_8_1_norm_weight.npy",
                                                     "unet/output_block/8/output_blocks_8_1_norm_bias.npy",
                                                     "unet/output_block/8/output_blocks_8_1_proj_in_weight.npy",
@@ -772,14 +777,14 @@ void UNetModel::initOutputBlock8() {
                                                     "unet/output_block/8/output_blocks_8_1_proj_out_bias.npy");
 
     output_block_8_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
+                                            640, 640, 3, 1, 1,
                                             "unet/output_block/8/output_blocks_8_2_conv_weight.npy",
-                                            "unet/output_block/8/output_blocks_8_2_conv_bias.npy",
-                                            1, 1);
+                                            "unet/output_block/8/output_blocks_8_2_conv_bias.npy");
 }
 
 void UNetModel::initOutputBlock9() {
     output_block_9_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                            960, 320,
+                                            960, TIME_EMBED_DIM, 320,
                                             "unet/output_block/9/output_blocks_9_0_in_layers_0_weight.npy",
                                             "unet/output_block/9/output_blocks_9_0_in_layers_0_bias.npy",
                                             "unet/output_block/9/output_blocks_9_0_in_layers_2_weight.npy",
@@ -794,7 +799,7 @@ void UNetModel::initOutputBlock9() {
                                             "unet/output_block/9/output_blocks_9_0_skip_connection_bias.npy");
 
     output_block_9_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                    320, 5, 64,
+                                                    320, CONTEXT_DIM, 5, NUM_HEAD_CHANNELS,
                                                     "unet/output_block/9/output_blocks_9_1_norm_weight.npy",
                                                     "unet/output_block/9/output_blocks_9_1_norm_bias.npy",
                                                     "unet/output_block/9/output_blocks_9_1_proj_in_weight.npy",
@@ -825,7 +830,7 @@ void UNetModel::initOutputBlock9() {
 
 void UNetModel::initOutputBlock10() {
     output_block_10_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                             640, 320,
+                                             640, TIME_EMBED_DIM, 320,
                                              "unet/output_block/10/output_blocks_10_0_in_layers_0_weight.npy",
                                              "unet/output_block/10/output_blocks_10_0_in_layers_0_bias.npy",
                                              "unet/output_block/10/output_blocks_10_0_in_layers_2_weight.npy",
@@ -840,7 +845,7 @@ void UNetModel::initOutputBlock10() {
                                              "unet/output_block/10/output_blocks_10_0_skip_connection_bias.npy");
 
     output_block_10_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                     320, 5, 64,
+                                                     320, CONTEXT_DIM, 5, NUM_HEAD_CHANNELS,
                                                      "unet/output_block/10/output_blocks_10_1_norm_weight.npy",
                                                      "unet/output_block/10/output_blocks_10_1_norm_bias.npy",
                                                      "unet/output_block/10/output_blocks_10_1_proj_in_weight.npy",
@@ -871,7 +876,7 @@ void UNetModel::initOutputBlock10() {
 
 void UNetModel::initOutputBlock11() {
     output_block_11_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
-                                             640, 320,
+                                             640, TIME_EMBED_DIM, 320,
                                              "unet/output_block/11/output_blocks_11_0_in_layers_0_weight.npy",
                                              "unet/output_block/11/output_blocks_11_0_in_layers_0_bias.npy",
                                              "unet/output_block/11/output_blocks_11_0_in_layers_2_weight.npy",
@@ -886,7 +891,7 @@ void UNetModel::initOutputBlock11() {
                                              "unet/output_block/11/output_blocks_11_0_skip_connection_bias.npy");
 
     output_block_11_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
-                                                     320, 5, 64,
+                                                     320, CONTEXT_DIM, 5, NUM_HEAD_CHANNELS,
                                                      "unet/output_block/11/output_blocks_11_1_norm_weight.npy",
                                                      "unet/output_block/11/output_blocks_11_1_norm_bias.npy",
                                                      "unet/output_block/11/output_blocks_11_1_proj_in_weight.npy",
