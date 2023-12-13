@@ -101,9 +101,9 @@ cl_int
 CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint num_events_in_list,
                         const cl_event *event_wait_list, cl_event *event) {
     cl_int err;
-    cl_event event0_0, event0_1, event0_2;
+    cl_event event0_0, event0_1[2], event0_2;
     cl_event event1_0;
-    cl_event event2_0, event2_1, event2_2, event2_3;
+    cl_event event2_0, event2_1[2], event2_2, event2_3;
     cl_mem bufferQ, bufferK, bufferV, bufferPermuteQ, bufferPermuteK, bufferPermuteV;
     cl_mem bufferEinsumQK, bufferEinsumV, bufferOut;
 
@@ -202,7 +202,7 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     size_t permuteQGlobalSize[3] = {inputSize / toQLinear->weightShape[1], headSize,
                                     toQLinear->weightShape[0] / headSize};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_1_0_2, 3, nullptr,
-                                 permuteQGlobalSize, nullptr, 1, &event0_0, &event0_1);
+                                 permuteQGlobalSize, nullptr, 1, &event0_0, &event0_1[0]);
     CHECK_ERROR(err);
 
     // max diff: 0.00001204013824462891
@@ -215,7 +215,7 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     size_t permuteKGlobalSize[3] = {conditionSize / toKLinear->weightShape[1], headSize,
                                     toKLinear->weightShape[0] / headSize};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_1_0_2, 3, nullptr,
-                                 permuteKGlobalSize, nullptr, 1, &event1_0, &event0_1);
+                                 permuteKGlobalSize, nullptr, 1, &event1_0, &event0_1[1]);
     CHECK_ERROR(err);
 
     // max diff: 0.00000947713851928711
@@ -228,7 +228,7 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     size_t permuteVGlobalSize[3] = {conditionSize / toVLinear->weightShape[1], headSize,
                                     toVLinear->weightShape[0] / headSize};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_1_0_2, 3, nullptr,
-                                 permuteVGlobalSize, nullptr, 1, &event2_0, &event2_1);
+                                 permuteVGlobalSize, nullptr, 1, &event2_0, &event2_1[0]);
     CHECK_ERROR(err);
 
     size_t kSize = toQLinear->weightShape[0] / headSize;
@@ -242,7 +242,7 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     size_t einsumQKGlobalSize[3] = {headSize, inputSize / toQLinear->weightShape[1],
                                     conditionSize / toKLinear->weightShape[1]};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_einsum_bik_bjk_bij, 3, nullptr,
-                                 einsumQKGlobalSize, nullptr, 2, &event0_1, &event0_2);
+                                 einsumQKGlobalSize, nullptr, 2, event0_1, &event0_2);
     CHECK_ERROR(err);
 
     // max diff: 0.00001931190490722656
@@ -269,7 +269,7 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     };
     size_t softmaxLocalSize[1] = {workGroupSize};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_softmax, 1, nullptr,
-                                 softmaxGlobalSize, softmaxLocalSize, 1, &event0_2, &event2_1);
+                                 softmaxGlobalSize, softmaxLocalSize, 1, &event0_2, &event2_1[1]);
     CHECK_ERROR(err);
 
     // max diff: 0.00000052154064178467
@@ -287,7 +287,7 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     size_t einsumVGlobalSize[3] = {headSize, inputSize / toQLinear->weightShape[1],
                                    toVLinear->weightShape[0] / headSize};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_einsum_bij_bjk_bik, 3, nullptr,
-                                 einsumVGlobalSize, nullptr, 2, &event2_1, &event2_2);
+                                 einsumVGlobalSize, nullptr, 2, event2_1, &event2_2);
     CHECK_ERROR(err);
 
     // max diff: 0.00000193715095520020
@@ -320,11 +320,13 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     // util::testBuffer(cmdQueue, output, "unet/input_block/test/test_cross_to_out.npy");
 
     clReleaseEvent(event0_0);
-    clReleaseEvent(event0_1);
+    clReleaseEvent(event0_1[0]);
+    clReleaseEvent(event0_1[1]);
     clReleaseEvent(event0_2);
     clReleaseEvent(event1_0);
     clReleaseEvent(event2_0);
-    clReleaseEvent(event2_1);
+    clReleaseEvent(event2_1[0]);
+    clReleaseEvent(event2_1[1]);
     clReleaseEvent(event2_2);
     clReleaseEvent(event2_3);
     clReleaseMemObject(bufferQ);

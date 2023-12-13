@@ -995,7 +995,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                       const std::vector<float> &condition) {
     cl_int err;
     cl_event event0_0, event0_1, event0_2, event0_3;
-    cl_event event1_0, event1_1, event1_2, event1_3, event1_4, event1_5, event1_6, event1_7, event1_8, event1_9, event1_10, event1_11;
+    cl_event event1_0, event1_1, event1_2[2], event1_3, event1_4, event1_5, event1_6, event1_7, event1_8, event1_9, event1_10, event1_11;
     cl_event event1_12, event1_13, event1_14, event1_15, event1_16, event1_17, event1_18;
     cl_event event2_0, event2_1, event2_2;
     cl_event event3_0, event3_1, event3_2, event3_3, event3_4, event3_5, event3_6, event3_7, event3_8, event3_9, event3_10, event3_11;
@@ -1090,16 +1090,16 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
 
     err = clEnqueueWriteBuffer(cmdQueue, bufferCondition, CL_FALSE, 0,
                                sizeof(float) * condition.size(),
-                               condition.data(), 0, nullptr, &event1_2);
+                               condition.data(), 0, nullptr, &event1_2[0]);
 
     err = input_block_1_res_block->forward(bufferInput_0, bufferEmbed, bufferInput_1,
                                            1, &event0_3,
-                                           1, &event1_1, &event1_2);
+                                           1, &event1_1, &event1_2[1]);
     CHECK_ERROR(err);
     delete input_block_1_res_block;
 
     err = input_block_1_spatial->forward(bufferInput_1, bufferCondition, bufferInput_1,
-                                         2, &event1_2, &event1_3);
+                                         2, event1_2, &event1_3);
     CHECK_ERROR(err);
     delete input_block_1_spatial;
     /* input_block layer[1] */
@@ -1607,7 +1607,8 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     clReleaseEvent(event0_3);
     clReleaseEvent(event1_0);
     clReleaseEvent(event1_1);
-    clReleaseEvent(event1_2);
+    clReleaseEvent(event1_2[0]);
+    clReleaseEvent(event1_2[1]);
     clReleaseEvent(event1_3);
     clReleaseEvent(event1_4);
     clReleaseEvent(event1_5);

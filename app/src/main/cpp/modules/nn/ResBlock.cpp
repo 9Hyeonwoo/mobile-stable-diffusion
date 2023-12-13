@@ -98,10 +98,10 @@ cl_int ResBlock::forward(
         cl_uint num_events_in_list, const cl_event *event_wait_list, cl_event *event
 ) {
     cl_int err;
-    cl_event event0_0, event0_1, event0_2;
+    cl_event event0_0, event0_1, event0_2[2];
     cl_event event1_0;
     cl_event event2_0;
-    cl_event event3_0, event3_1, event3_2;
+    cl_event event3_0, event3_1, event3_2[2];
     cl_mem bufferInGroupNorm, bufferInConv2d, bufferEmbedTemp, bufferEmbed, bufferOut, bufferSkip;
 
     size_t inputBytes, outSize;
@@ -140,7 +140,7 @@ cl_int ResBlock::forward(
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr, inSILUGlobalSize, nullptr, 1,
                                  &event0_0, &event0_1);
 
-    err = in_conv2d->forward(bufferInGroupNorm, bufferInConv2d, 1, &event0_1, &event0_2);
+    err = in_conv2d->forward(bufferInGroupNorm, bufferInConv2d, 1, &event0_1, &event0_2[0]);
     CHECK_ERROR(err);
 
     // max diff: 0.00000810623168945312
@@ -176,7 +176,7 @@ cl_int ResBlock::forward(
                                  num_events_embed, event_wait_list_embed, &event1_0);
     CHECK_ERROR(err);
 
-    err = embed_linear->forward(bufferEmbedTemp, bufferEmbed, 1, &event1_0, &event0_2);
+    err = embed_linear->forward(bufferEmbedTemp, bufferEmbed, 1, &event1_0, &event0_2[1]);
     CHECK_ERROR(err);
 
     // max diff: 0.00001716613769531250
@@ -193,7 +193,7 @@ cl_int ResBlock::forward(
     size_t chunkAddGlobalSize[1] = {outSize};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_chunk_add, 1, nullptr, chunkAddGlobalSize,
                                  nullptr,
-                                 2, &event0_2, &event2_0);
+                                 2, event0_2, &event2_0);
     CHECK_ERROR(err);
 
     // max diff: 0.00002098083496093750
@@ -221,7 +221,7 @@ cl_int ResBlock::forward(
                                  &event3_0, &event3_1);
     CHECK_ERROR(err);
 
-    err = out_conv2d->forward(bufferInConv2d, bufferOut, 1, &event3_1, &event3_2);
+    err = out_conv2d->forward(bufferInConv2d, bufferOut, 1, &event3_1, &event3_2[0]);
     CHECK_ERROR(err);
 
     // max diff: 0.00000953674316406250
@@ -240,7 +240,7 @@ cl_int ResBlock::forward(
         CHECK_ERROR(err);
 
         err = skip_conv2d->forward(input, bufferSkip, num_events_in_list, event_wait_list,
-                                   &event3_2);
+                                   &event3_2[1]);
         CHECK_ERROR(err);
 
         if (cnt == 2) {
@@ -256,7 +256,7 @@ cl_int ResBlock::forward(
         size_t elemAddGlobalSize[1] = {outSize};
         err = clEnqueueNDRangeKernel(cmdQueue, kernel_elem_add, 1, nullptr, elemAddGlobalSize,
                                      nullptr,
-                                     2, &event3_2, event);
+                                     2, event3_2, event);
         CHECK_ERROR(err);
     } else {
         err = clSetKernelArg(kernel_elem_add, 0, sizeof(cl_mem), &input);
@@ -267,7 +267,7 @@ cl_int ResBlock::forward(
         size_t elemAddGlobalSize[1] = {outSize};
         err = clEnqueueNDRangeKernel(cmdQueue, kernel_elem_add, 1, nullptr, elemAddGlobalSize,
                                      nullptr,
-                                     1, &event3_2, event);
+                                     1, event3_2, event);
         CHECK_ERROR(err);
         // max diff: 0.00000953674316406250
         // util::testBuffer(cmdQueue, output, "unet/input_block/test/test_resblock_skip_connection.npy");
@@ -277,12 +277,14 @@ cl_int ResBlock::forward(
 
     clReleaseEvent(event0_0);
     clReleaseEvent(event0_1);
-    clReleaseEvent(event0_2);
+    clReleaseEvent(event0_2[0]);
+    clReleaseEvent(event0_2[1]);
     clReleaseEvent(event1_0);
     clReleaseEvent(event2_0);
     clReleaseEvent(event3_0);
     clReleaseEvent(event3_1);
-    clReleaseEvent(event3_2);
+    clReleaseEvent(event3_2[0]);
+    clReleaseEvent(event3_2[1]);
     clReleaseMemObject(bufferInGroupNorm);
     clReleaseMemObject(bufferInConv2d);
     clReleaseMemObject(bufferEmbedTemp);
