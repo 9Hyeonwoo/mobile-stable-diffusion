@@ -53,10 +53,6 @@ Conv2D::Conv2D(
     CHECK_ERROR_THROW(err);
 
     clReleaseProgram(program);
-
-    clSetMemObjectDestructorCallback(bufferWeight, [](cl_mem memobj, void *user_data) {
-        __android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "Conv2D release memobj weight");
-    }, nullptr);
 }
 
 Conv2D::~Conv2D() {

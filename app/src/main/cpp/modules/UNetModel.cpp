@@ -1003,11 +1003,11 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     cl_event event3_0, event3_1, event3_2, event3_3, event3_4, event3_5, event3_6, event3_7, event3_8, event3_9, event3_10, event3_11;
     cl_event event3_12, event3_13, event3_14, event3_15, event3_16, event3_17, event3_18, event3_19, event3_20, event3_21, event3_22;
     cl_event event3_23, event3_24, event3_25, event3_26, event3_27, event3_28, event3_29, event3_30, event3_31, event3_32, event3_33;
-    cl_event event3_34, event3_35, event3_36, event3_37, event3_38, event3_39, event3_40, event3_41, event3_42, event3_43, event3_44;
+    cl_event event3_34, event3_35, event3_36, event3_37, event3_38;
     cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed, bufferCondition;
     cl_mem bufferInput, bufferInput_0, bufferInput_1, bufferInput_2, bufferInput_3, bufferInput_4, bufferInput_5, bufferInput_6, bufferInput_7, bufferInput_8, bufferInput_9, bufferInput_10, bufferInput_11;
     cl_mem buffer_640_32, buffer_1280_16, buffer_1280_8;
-    cl_mem buffer_2560_8, buffer_2560_16, buffer_1920_16, buffer_1280_32, buffer_1920_32, buffer_960_32, buffer_640_64, buffer_960_64, buffer_320_64;
+    cl_mem buffer_2560_8, buffer_2560_16, buffer_1920_16, buffer_1280_32, buffer_1920_32, buffer_960_32, buffer_640_64, buffer_960_64, buffer_320_64, buffer_4_64;
 
     /* time_embed layer */
     auto t_emb = timestep_embedding(timestep);
@@ -1656,6 +1656,46 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* output_block layer[11] */
     /* output_block layer */
 
+    /* out */
+    initOut();
+
+    buffer_4_64 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                   sizeof(float) * 4 * 64 * 64,
+                                   nullptr, &err);
+    CHECK_ERROR(err);
+
+    out_group_norm->init();
+    err = out_group_norm->forward(buffer_320_64, buffer_320_64,
+                                  1, &event3_35, &event3_36);
+    CHECK_ERROR(err);
+    delete out_group_norm;
+
+    err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &buffer_320_64);
+    err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &buffer_320_64);
+    CHECK_ERROR(err);
+
+    size_t outSiluSize[1] = {MODEL_CHANNELS * 64 * 64};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr,
+                                 outSiluSize, nullptr, 1, &event3_36, &event3_37);
+    CHECK_ERROR(err);
+
+    out_conv2d->init();
+    err = out_conv2d->forward(buffer_320_64, buffer_4_64,
+                              1, &event3_37, &event3_38);
+    CHECK_ERROR(err);
+    delete out_conv2d;
+
+    // util::testBuffer(cmdQueue, buffer_4_64, "unet/out/test/test_out.npy");
+    /* out */
+
+    /* result */
+    std::vector<float> result(4 * 64 * 64);
+    err = clEnqueueReadBuffer(cmdQueue, buffer_4_64, CL_TRUE, 0,
+                              sizeof(float) * result.size(),
+                              result.data(), 1, &event3_38, nullptr);
+    CHECK_ERROR(err);
+    /* result */
+
     clFinish(cmdQueue);
 
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "Finished");
@@ -1723,6 +1763,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     clReleaseEvent(event3_33);
     clReleaseEvent(event3_34);
     clReleaseEvent(event3_35);
+    clReleaseEvent(event3_36);
+    clReleaseEvent(event3_37);
+    clReleaseEvent(event3_38);
     clReleaseMemObject(bufferTimeEmbed);
     clReleaseMemObject(bufferEmbedTemp);
     clReleaseMemObject(bufferEmbed);
@@ -1752,8 +1795,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     clReleaseMemObject(buffer_960_32);
     clReleaseMemObject(buffer_640_64);
     clReleaseMemObject(buffer_960_64);
+    clReleaseMemObject(buffer_4_64);
 
-    return std::vector<float>();
+    return result;
 }
 
 /*
