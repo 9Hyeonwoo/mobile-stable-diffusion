@@ -30,11 +30,13 @@ UNetModel::UNetModel(
                               320, 1280,
                               "unet/time_embed/time_embed_0_weight.npy",
                               "unet/time_embed/time_embed_0_bias.npy");
+    time_embed_0->init();
 
     time_embed_2 = new Linear(context, cmdQueue, deviceId, assetManager,
                               1280, 1280,
                               "unet/time_embed/time_embed_2_weight.npy",
                               "unet/time_embed/time_embed_2_bias.npy");
+    time_embed_2->init();
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
@@ -1068,6 +1070,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     CHECK_ERROR(err);
 
 
+    input_block_0_conv2d->init();
     err = input_block_0_conv2d->forward(bufferInput, bufferInput_0, 1, &event1_0, &event1_1);
     CHECK_ERROR(err);
     delete input_block_0_conv2d;
@@ -1092,12 +1095,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                sizeof(float) * condition.size(),
                                condition.data(), 0, nullptr, &event1_2[0]);
 
+    input_block_1_res_block->init();
     err = input_block_1_res_block->forward(bufferInput_0, bufferEmbed, bufferInput_1,
                                            1, &event0_3,
                                            1, &event1_1, &event1_2[1]);
     CHECK_ERROR(err);
     delete input_block_1_res_block;
 
+    input_block_1_spatial->init();
     err = input_block_1_spatial->forward(bufferInput_1, bufferCondition, bufferInput_1,
                                          2, event1_2, &event1_3);
     CHECK_ERROR(err);
@@ -1111,12 +1116,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                    nullptr, &err);
     CHECK_ERROR(err);
 
+    input_block_2_res_block->init();
     err = input_block_2_res_block->forward(bufferInput_1, bufferEmbed, bufferInput_2,
                                            1, &event0_3,
                                            1, &event1_3, &event1_4);
     CHECK_ERROR(err);
     delete input_block_2_res_block;
 
+    input_block_2_spatial->init();
     err = input_block_2_spatial->forward(bufferInput_2, bufferCondition, bufferInput_2,
                                          1, &event1_4, &event1_5);
     CHECK_ERROR(err);
@@ -1128,6 +1135,15 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
 
     /* input_block layer[3] */
     initInputBlock3();
+    clSetEventCallback(event1_4, CL_COMPLETE, [](auto event, auto status, auto user_data) {
+        auto unet = (UNetModel *) user_data;
+        unet->input_block_3_conv2d->init();
+        unet->input_block_4_res_block->init();
+        unet->input_block_4_spatial->init();
+        unet->input_block_5_res_block->init();
+        unet->input_block_5_spatial->init();
+        unet->input_block_6_conv2d->init();
+    }, this);
     bufferInput_3 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * MODEL_CHANNELS * 32 * 32,
                                    nullptr, &err);
@@ -1208,6 +1224,11 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
 
     /* input_block layer[7] */
     initInputBlock7();
+    clSetEventCallback(event1_11, CL_COMPLETE, [](auto event, auto status, auto user_data) {
+        auto unet = (UNetModel *) user_data;
+        unet->input_block_7_res_block->init();
+        unet->input_block_7_spatial->init();
+    }, this);
     bufferInput_7 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * 4 * MODEL_CHANNELS * 16 * 16,
                                    nullptr, &err);
@@ -1230,6 +1251,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
 
     /* input_block layer[8] */
     initInputBlock8();
+    clSetEventCallback(event1_11, CL_COMPLETE, [](auto event, auto status, auto user_data) {
+        auto unet = (UNetModel *) user_data;
+        unet->input_block_8_res_block->init();
+        unet->input_block_8_spatial->init();
+        unet->input_block_9_conv2d->init();
+        unet->input_block_10_res_block->init();
+        unet->input_block_11_res_block->init();
+    }, this);
     bufferInput_8 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * 4 * MODEL_CHANNELS * 16 * 16,
                                    nullptr, &err);
@@ -1296,6 +1325,15 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
 
     /* middle_block layer */
     initMiddleBlock();
+    clSetEventCallback(event1_17, CL_COMPLETE, [](auto event, auto status, auto user_data) {
+        auto unet = (UNetModel *) user_data;
+        unet->middle_block_0_res_block->init();
+        unet->middle_block_1_spatial->init();
+        unet->middle_block_2_res_block->init();
+
+        unet->output_block_0_res_block->init();
+        unet->output_block_1_res_block->init();
+    }, this);
     buffer_1280_8 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
                                    nullptr, &err);
@@ -1359,6 +1397,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
 
     /* output_block layer[2] */
     initOutputBlock2();
+    clSetEventCallback(event3_1, CL_COMPLETE, [](auto event, auto status, auto user_data) {
+        auto unet = (UNetModel *) user_data;
+        unet->output_block_2_res_block->init();
+        unet->output_block_2_up_sample->init();
+
+        unet->output_block_3_res_block->init();
+        unet->output_block_3_spatial->init();
+    }, this);
     buffer_1280_16 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                     sizeof(float) * 4 * MODEL_CHANNELS * 16 * 16,
                                     nullptr, &err);
@@ -1409,6 +1455,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
 
     /* output_block layer[4] */
     initOutputBlock4();
+    clSetEventCallback(event3_6, CL_COMPLETE, [](auto event, auto status, auto user_data) {
+        auto unet = (UNetModel *) user_data;
+        unet->output_block_4_res_block->init();
+        unet->output_block_4_spatial->init();
+        unet->output_block_5_res_block->init();
+        unet->output_block_5_spatial->init();
+        unet->output_block_5_up_sample->init();
+    }, this);
 
     concat_buffer(buffer_1280_16, bufferInput_7, buffer_2560_16,
                   1, &event3_9, &event3_10);
@@ -1461,6 +1515,22 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* output_block layer[6] */
     initOutputBlock6();
 
+    clSetEventCallback(event3_12, CL_COMPLETE, [](auto event, auto status, auto user_data) {
+        auto unet = (UNetModel *) user_data;
+        unet->output_block_6_res_block->init();
+        unet->output_block_6_spatial->init();
+        unet->output_block_7_res_block->init();
+        unet->output_block_7_spatial->init();
+        unet->output_block_8_res_block->init();
+        unet->output_block_8_spatial->init();
+        unet->output_block_8_up_sample->init();
+        unet->output_block_9_res_block->init();
+        unet->output_block_9_spatial->init();
+        unet->output_block_10_res_block->init();
+        unet->output_block_10_spatial->init();
+        unet->output_block_11_res_block->init();
+        unet->output_block_11_spatial->init();
+    }, this);
     buffer_1920_32 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                     sizeof(float) * 6 * MODEL_CHANNELS * 32 * 32,
                                     nullptr, &err);

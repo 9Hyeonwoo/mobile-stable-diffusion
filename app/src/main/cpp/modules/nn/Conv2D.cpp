@@ -29,7 +29,7 @@ Conv2D::Conv2D(
         const char *weight_name,
         const char *bias_name
 ) : cmdQueue(cmdQueue), stride(stride), padding(padding), weight_name(weight_name),
-    bias_name(bias_name), event_init_weight(nullptr), event_init_bias(nullptr) {
+    bias_name(bias_name) {
     cl_int err;
 
     weightShape = std::vector<size_t>({out_channel, in_channel, kernel_size, kernel_size});
@@ -44,6 +44,12 @@ Conv2D::Conv2D(
     bufferBias = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                 sizeof(float) * out_channel,
                                 nullptr, &err);
+    CHECK_ERROR_THROW(err);
+
+    event_init_weight = clCreateUserEvent(context, &err);
+    CHECK_ERROR_THROW(err);
+
+    event_init_bias = clCreateUserEvent(context, &err);
     CHECK_ERROR_THROW(err);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
@@ -63,16 +69,13 @@ Conv2D::~Conv2D() {
     clReleaseMemObject(bufferWeight);
     clReleaseMemObject(bufferBias);
     clReleaseKernel(kernel);
-    if (event_init_weight != nullptr) {
-        clReleaseEvent(event_init_weight);
-    }
-    if (event_init_bias != nullptr) {
-        clReleaseEvent(event_init_bias);
-    }
+    clReleaseEvent(event_init_weight);
+    clReleaseEvent(event_init_bias);
 }
 
 void Conv2D::init() {
     cl_int err;
+    cl_event event[2];
     auto weight = util::load_npy_file(weight_name);
     auto bias = util::load_npy_file(bias_name);
 
@@ -90,11 +93,26 @@ void Conv2D::init() {
 
     err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_FALSE, 0,
                                sizeof(float) * weight.num_vals,
-                               weight.data<float>(), 0, nullptr, &event_init_weight);
+                               weight.data<float>(), 0, nullptr, &event[0]);
     err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_FALSE, 0,
                                 sizeof(float) * bias.num_vals,
-                                bias.data<float>(), 0, nullptr, &event_init_bias);
+                                bias.data<float>(), 0, nullptr, &event[1]);
     CHECK_ERROR_THROW(err);
+
+    clSetEventCallback(event[0], CL_COMPLETE,
+                       [](auto event, auto status, void *user_data) {
+                           auto event_user = (cl_event) user_data;
+                           clSetUserEventStatus(event_user, CL_COMPLETE);
+                       }, event_init_weight);
+
+    clSetEventCallback(event[1], CL_COMPLETE,
+                       [](auto event, auto status, void *user_data) {
+                           auto event_user = (cl_event) user_data;
+                           clSetUserEventStatus(event_user, CL_COMPLETE);
+                       }, event_init_bias);
+
+    clReleaseEvent(event[0]);
+    clReleaseEvent(event[1]);
 }
 
 /*

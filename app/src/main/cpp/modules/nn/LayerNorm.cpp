@@ -24,7 +24,8 @@
 LayerNorm::LayerNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
                      AAssetManager *assetManager, size_t dim, const char *weight_name,
                      const char *bias_name)
-        : context(context), cmdQueue(cmdQueue), weight_name(weight_name), bias_name(bias_name), event_init_weight(nullptr), event_init_bias(nullptr) {
+        : context(context), cmdQueue(cmdQueue), weight_name(weight_name), bias_name(bias_name),
+          event_init_weight(nullptr), event_init_bias(nullptr) {
     cl_int err;
     weightSize = dim;
     biasSize = dim;
@@ -37,6 +38,12 @@ LayerNorm::LayerNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id
     bufferBias = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                 sizeof(float) * biasSize,
                                 nullptr, &err);
+    CHECK_ERROR_THROW(err);
+
+    event_init_weight = clCreateUserEvent(context, &err);
+    CHECK_ERROR_THROW(err);
+
+    event_init_bias = clCreateUserEvent(context, &err);
     CHECK_ERROR_THROW(err);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
@@ -65,6 +72,7 @@ LayerNorm::~LayerNorm() {
 
 void LayerNorm::init() {
     cl_int err;
+    cl_event event[2];
     auto weight = util::load_npy_file(weight_name);
     auto bias = util::load_npy_file(bias_name);
     if (weight.num_vals != bias.num_vals) {
@@ -81,11 +89,26 @@ void LayerNorm::init() {
 
     err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_FALSE, 0,
                                sizeof(float) * weightSize,
-                               weight.data<float>(), 0, nullptr, &event_init_weight);
+                               weight.data<float>(), 0, nullptr, &event[0]);
     err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_FALSE, 0,
                                 sizeof(float) * biasSize,
-                                bias.data<float>(), 0, nullptr, &event_init_bias);
+                                bias.data<float>(), 0, nullptr, &event[1]);
     CHECK_ERROR_THROW(err);
+
+    clSetEventCallback(event[0], CL_COMPLETE,
+                       [](auto event, auto status, void *user_data) {
+                           auto event_user = (cl_event) user_data;
+                           clSetUserEventStatus(event_user, CL_COMPLETE);
+                       }, event_init_weight);
+
+    clSetEventCallback(event[1], CL_COMPLETE,
+                       [](auto event, auto status, void *user_data) {
+                           auto event_user = (cl_event) user_data;
+                           clSetUserEventStatus(event_user, CL_COMPLETE);
+                       }, event_init_bias);
+
+    clReleaseEvent(event[0]);
+    clReleaseEvent(event[1]);
 }
 
 cl_int LayerNorm::forward(

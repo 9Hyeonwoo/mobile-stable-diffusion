@@ -25,8 +25,7 @@ Linear::Linear(
         AAssetManager *assetManager,
         size_t in_features, size_t out_features,
         const char *weight_name, const char *bias_name
-) : cmdQueue(cmdQueue), weight_name(weight_name), bias_name(bias_name),
-    event_init_weight(nullptr), event_init_bias(nullptr) {
+) : cmdQueue(cmdQueue), weight_name(weight_name), bias_name(bias_name) {
     cl_int err;
     weightShape = std::vector<size_t>({out_features, in_features});
 
@@ -36,13 +35,19 @@ Linear::Linear(
                                     nullptr, &err);
         CHECK_ERROR_THROW(err);
 
+        event_init_bias = clCreateUserEvent(context, &err);
+        CHECK_ERROR_THROW(err);
     } else {
         bufferBias = nullptr;
+        event_init_bias = nullptr;
     }
 
     bufferWeight = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                   sizeof(float) * out_features * in_features,
                                   nullptr, &err);
+    CHECK_ERROR_THROW(err);
+
+    event_init_weight = clCreateUserEvent(context, &err);
     CHECK_ERROR_THROW(err);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
@@ -58,9 +63,7 @@ Linear::~Linear() {
     clReleaseMemObject(bufferWeight);
     clReleaseMemObject(bufferBias);
     clReleaseKernel(kernel);
-    if (event_init_weight != nullptr) {
-        clReleaseEvent(event_init_weight);
-    }
+    clReleaseEvent(event_init_weight);
     if (event_init_bias != nullptr) {
         clReleaseEvent(event_init_bias);
     }
@@ -68,6 +71,7 @@ Linear::~Linear() {
 
 void Linear::init() {
     cl_int err;
+    cl_event event[2];
     auto weight = util::load_npy_file(weight_name);
 
     if (weight.num_vals != (weightShape[0] * weightShape[1])) {
@@ -78,8 +82,16 @@ void Linear::init() {
     }
     err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_FALSE, 0,
                                sizeof(float) * weight.num_vals,
-                               weight.data<float>(), 0, nullptr, &event_init_weight);
+                               weight.data<float>(), 0, nullptr, &event[0]);
     CHECK_ERROR_THROW(err);
+
+    clSetEventCallback(event[0], CL_COMPLETE,
+                       [](auto event, auto status, void *user_data) {
+                           auto event_user = (cl_event) user_data;
+                           clSetUserEventStatus(event_user, CL_COMPLETE);
+                       }, event_init_weight);
+
+    clReleaseEvent(event[0]);
 
     if (bufferBias != nullptr) {
         auto bias = util::load_npy_file(bias_name);
@@ -92,8 +104,16 @@ void Linear::init() {
 
         err = clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_FALSE, 0,
                                    sizeof(float) * bias.num_vals,
-                                   bias.data<float>(), 0, nullptr, &event_init_bias);
+                                   bias.data<float>(), 0, nullptr, &event[1]);
         CHECK_ERROR_THROW(err);
+
+        clSetEventCallback(event[1], CL_COMPLETE,
+                           [](auto event, auto status, void *user_data) {
+                               auto event_user = (cl_event) user_data;
+                               clSetUserEventStatus(event_user, CL_COMPLETE);
+                           }, event_init_bias);
+
+        clReleaseEvent(event[1]);
     }
 }
 

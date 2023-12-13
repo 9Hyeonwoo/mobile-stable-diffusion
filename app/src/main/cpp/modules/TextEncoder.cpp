@@ -176,6 +176,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
         std::swap(inBuffer, outBuffer);
         std::swap(inEvent, outEvent);
 
+        block->init();
         err = block->forward(inBuffer, outBuffer, 1, &inEvent, &outEvent);
         CHECK_ERROR(err);
     }
@@ -196,6 +197,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     CHECK_ERROR(err);
 
     /* ln_final(x) */
+    ln_final->init();
     err = ln_final->forward(inBuffer, outBuffer, 1, &event4, &event5);
     CHECK_ERROR(err);
 
