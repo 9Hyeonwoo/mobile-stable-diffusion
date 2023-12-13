@@ -1660,8 +1660,8 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     initOut();
 
     buffer_4_64 = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                   sizeof(float) * 4 * 64 * 64,
-                                   nullptr, &err);
+                                 sizeof(float) * 4 * 64 * 64,
+                                 nullptr, &err);
     CHECK_ERROR(err);
 
     out_group_norm->init();
@@ -1856,8 +1856,8 @@ UNetModel::concat_buffer(
 void
 UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<float> &condition) {
     cl_int err;
-    cl_event event0, event1, event2, event3;
-    cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed, bufferCondition, bufferInput, buffer_320_64;
+    cl_event event0, event1, event2, event3, event4, event5;
+    cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed, bufferCondition, bufferInput, buffer_320_64, buffer_4_64;
 
     auto t_emb = timestep_embedding(timestep);
 
@@ -1884,6 +1884,11 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
     buffer_320_64 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * MODEL_CHANNELS * 64 * 64,
                                    nullptr, &err);
+    CHECK_ERROR(err);
+
+    buffer_4_64 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                 sizeof(float) * 4 * 64 * 64,
+                                 nullptr, &err);
     CHECK_ERROR(err);
 
     err = clEnqueueWriteBuffer(cmdQueue, bufferTimeEmbed, CL_FALSE, 0,
@@ -1921,19 +1926,27 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
     err = time_embed_2->forward(bufferEmbedTemp, bufferEmbed, 1, &event1, &event2);
     CHECK_ERROR(err);
 
-    /*
-    err = output_block_11_res_block->forward(bufferInput, bufferEmbed, buffer_320_64,
-                                             1, &event2,
-                                             0, nullptr,
-                                             &event3);
+    initOut();
+    out_group_norm->init();
+    err = out_group_norm->forward(bufferInput, buffer_320_64, 0, nullptr, &event3);
     CHECK_ERROR(err);
 
-    err = output_block_11_spatial->forward(buffer_320_64, bufferCondition, buffer_320_64,
-                                           1, &event3, nullptr);
     CHECK_ERROR(err);
-    */
 
-    // util::testBuffer(cmdQueue, buffer_320_64, "unet/output_block/test/test_output_block_11.npy");
+    err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &buffer_320_64);
+    err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &buffer_320_64);
+    CHECK_ERROR(err);
+
+    size_t outSiluSize[1] = {MODEL_CHANNELS * 64 * 64};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr,
+                                 outSiluSize, nullptr, 1, &event3, &event4);
+    CHECK_ERROR(err);
+
+    out_conv2d->init();
+    err = out_conv2d->forward(buffer_320_64, buffer_4_64,
+                              1, &event4, nullptr);
+    CHECK_ERROR(err);
+    util::testBuffer(cmdQueue, buffer_4_64, "unet/out/test/test_out.npy");
 
     // test_output_block_0 max diff: 0.00002098083496093750
     // test_output_block_1.npy max diff: 0.00002479553222656250
@@ -1947,14 +1960,17 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
     // test_output_block_9.npy max diff: 0.00001406669616699219
     // test_output_block_10.npy max diff: 0.00000619888305664062
     // test_output_block_11.npy max diff: 0.00001430511474609375
+    // test_out.npy max diff: 0.00000190734863281250
     clReleaseEvent(event0);
     clReleaseEvent(event1);
     clReleaseEvent(event2);
     clReleaseEvent(event3);
+    clReleaseEvent(event4);
     clReleaseMemObject(bufferTimeEmbed);
     clReleaseMemObject(bufferEmbedTemp);
     clReleaseMemObject(bufferEmbed);
     clReleaseMemObject(bufferInput);
     clReleaseMemObject(bufferCondition);
     clReleaseMemObject(buffer_320_64);
+    clReleaseMemObject(buffer_4_64);
 }
