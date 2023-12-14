@@ -17,18 +17,18 @@ class ResidualAttentionBlock {
 public:
     ResidualAttentionBlock(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
                            AAssetManager *assetManager, size_t d_model, size_t numHeads,
-                           const char *ln_1_weight_name,
-                           const char *ln_1_bias_name,
-                           const char *ln_2_weight_name,
-                           const char *ln_2_bias_name,
-                           const char *attn_in_proj_weight_name,
-                           const char *attn_in_proj_bias_name,
-                           const char *attn_out_proj_weight_name,
-                           const char *attn_out_proj_bias_name,
-                           const char *mlp_c_fc_weight_name,
-                           const char *mlp_c_fc_bias_name,
-                           const char *mlp_c_proj_weight_name,
-                           const char *mlp_c_proj_bias_name);
+                           const std::string &ln_1_weight_name,
+                           const std::string &ln_1_bias_name,
+                           const std::string &ln_2_weight_name,
+                           const std::string &ln_2_bias_name,
+                           const std::string &attn_in_proj_weight_name,
+                           const std::string &attn_in_proj_bias_name,
+                           const std::string &attn_out_proj_weight_name,
+                           const std::string &attn_out_proj_bias_name,
+                           const std::string &mlp_c_fc_weight_name,
+                           const std::string &mlp_c_fc_bias_name,
+                           const std::string &mlp_c_proj_weight_name,
+                           const std::string &mlp_c_proj_bias_name);
 
     ~ResidualAttentionBlock();
 

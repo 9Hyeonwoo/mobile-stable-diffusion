@@ -10,6 +10,7 @@
 #include "nn/Conv2D.h"
 #include "nn/ResBlock.h"
 #include "nn/AttnBlock.h"
+#include "nn/UpSample.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -27,7 +28,6 @@ public:
 private:
     cl_context context;
     cl_command_queue cmdQueue;
-    cl_device_id deviceId;
 
     Conv2D *post_quant_conv2d;
 
@@ -39,6 +39,9 @@ private:
 
     ResBlock *mid_res_block_2;
 
+    ResBlock *up_3_res_blocks[3]{};
+
+    UpSample *up_3_up_sample;
 };
 
 

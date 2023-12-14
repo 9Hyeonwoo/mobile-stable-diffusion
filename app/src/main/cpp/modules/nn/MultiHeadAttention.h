@@ -14,10 +14,10 @@ class MultiHeadAttention {
 public:
     MultiHeadAttention(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
                        AAssetManager *assetManager, size_t embed_dim, size_t numHeads,
-                       const char *in_proj_weight_name,
-                       const char *in_proj_bias_name,
-                       const char *out_proj_weight_name,
-                       const char *out_proj_bias_name);
+                       const std::string &in_proj_weight_name,
+                       const std::string &in_proj_bias_name,
+                       const std::string &out_proj_weight_name,
+                       const std::string &out_proj_bias_name);
 
     ~MultiHeadAttention();
 

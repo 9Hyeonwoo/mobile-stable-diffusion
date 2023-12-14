@@ -24,13 +24,13 @@ Linear::Linear(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager,
         size_t in_features, size_t out_features,
-        const char *weight_name, const char *bias_name
+        const std::string &weight_name, const std::string &bias_name
 ) : cmdQueue(cmdQueue), weight_name(weight_name), bias_name(bias_name), event_init_weight(nullptr),
     event_init_bias(nullptr) {
     cl_int err;
     weightShape = std::vector<size_t>({out_features, in_features});
 
-    if (bias_name != nullptr) {
+    if (!bias_name.empty()) {
         bufferBias = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                     sizeof(float) * out_features,
                                     nullptr, &err);

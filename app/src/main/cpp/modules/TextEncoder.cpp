@@ -62,15 +62,15 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
         auto mlp_c_proj_bias_name = folder_prefix + "_mlp_c_proj_bias_fp32.npy";
         resBlocks.push_back(
                 new ResidualAttentionBlock(context, cmdQueue, deviceId, assetManager, EMBEDDING_SIZE, NUM_HEADS,
-                                           ln_1_weight_name.c_str(), ln_1_bias_name.c_str(),
-                                           ln_2_weight_name.c_str(), ln_2_bias_name.c_str(),
-                                           attn_in_proj_weight_name.c_str(),
-                                           attn_in_proj_bias_name.c_str(),
-                                           attn_out_proj_weight_name.c_str(),
-                                           attn_out_proj_bias_name.c_str(),
-                                           mlp_c_fc_weight_name.c_str(), mlp_c_fc_bias_name.c_str(),
-                                           mlp_c_proj_weight_name.c_str(),
-                                           mlp_c_proj_bias_name.c_str())
+                                           ln_1_weight_name, ln_1_bias_name,
+                                           ln_2_weight_name, ln_2_bias_name,
+                                           attn_in_proj_weight_name,
+                                           attn_in_proj_bias_name,
+                                           attn_out_proj_weight_name,
+                                           attn_out_proj_bias_name,
+                                           mlp_c_fc_weight_name, mlp_c_fc_bias_name,
+                                           mlp_c_proj_weight_name,
+                                           mlp_c_proj_bias_name)
         );
     }
 

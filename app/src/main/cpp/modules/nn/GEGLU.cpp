@@ -24,7 +24,7 @@ GEGLU::GEGLU(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager,
         size_t in_features, size_t out_features,
-        const char *linear_weight_name, const char *linear_bias_name
+        const std::string &linear_weight_name, const std::string &linear_bias_name
 ) : context(context), cmdQueue(cmdQueue) {
     cl_int err;
 

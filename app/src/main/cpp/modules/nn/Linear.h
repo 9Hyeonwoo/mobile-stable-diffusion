@@ -12,13 +12,14 @@
 #include "CL/opencl.h"
 
 #include <vector>
+#include <string>
 
 class Linear {
 public:
     Linear(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
            AAssetManager *assetManager,
            size_t in_features, size_t out_features,
-           const char *weight_name, const char *bias_name);
+           const std::string &weight_name, const std::string &bias_name);
 
     ~Linear();
 
@@ -39,8 +40,8 @@ private:
     cl_event event_init_weight;
     cl_event event_init_bias;
 
-    const char *weight_name;
-    const char *bias_name;
+    const std::string weight_name;
+    const std::string bias_name;
 };
 
 

@@ -67,7 +67,7 @@ void UNetModel::initInputBlock1() {
                                            "unet/input_block/1/input_block_1_res_block_out_group_norm_bias.npy",
                                            "unet/input_block/1/input_block_1_res_block_out_conv2d_weight.npy",
                                            "unet/input_block/1/input_block_1_res_block_out_conv2d_bias.npy",
-                                           nullptr, nullptr);
+                                           "", "");
 
     input_block_1_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
                                                    320, CONTEXT_DIM, 5, NUM_HEAD_CHANNELS,
@@ -112,7 +112,7 @@ void UNetModel::initInputBlock2() {
                                            "unet/input_block/2/input_blocks_2_0_out_layers_0_bias.npy",
                                            "unet/input_block/2/input_blocks_2_0_out_layers_3_weight.npy",
                                            "unet/input_block/2/input_blocks_2_0_out_layers_3_bias.npy",
-                                           nullptr, nullptr);
+                                           "", "");
 
     input_block_2_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
                                                    320, CONTEXT_DIM, 5, NUM_HEAD_CHANNELS,
@@ -211,7 +211,7 @@ void UNetModel::initInputBlock5() {
                                            "unet/input_block/5/input_blocks_5_0_out_layers_0_bias.npy",
                                            "unet/input_block/5/input_blocks_5_0_out_layers_3_weight.npy",
                                            "unet/input_block/5/input_blocks_5_0_out_layers_3_bias.npy",
-                                           nullptr, nullptr);
+                                           "", "");
 
     input_block_5_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
                                                    640, CONTEXT_DIM, 10, NUM_HEAD_CHANNELS,
@@ -310,7 +310,7 @@ void UNetModel::initInputBlock8() {
                                            "unet/input_block/8/input_blocks_8_0_out_layers_0_bias.npy",
                                            "unet/input_block/8/input_blocks_8_0_out_layers_3_weight.npy",
                                            "unet/input_block/8/input_blocks_8_0_out_layers_3_bias.npy",
-                                           nullptr, nullptr);
+                                           "", "");
 
     input_block_8_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
                                                    1280, CONTEXT_DIM, 20, NUM_HEAD_CHANNELS,
@@ -362,7 +362,7 @@ void UNetModel::initInputBlock10() {
                                             "unet/input_block/10/input_blocks_10_0_out_layers_0_bias.npy",
                                             "unet/input_block/10/input_blocks_10_0_out_layers_3_weight.npy",
                                             "unet/input_block/10/input_blocks_10_0_out_layers_3_bias.npy",
-                                            nullptr, nullptr);
+                                            "", "");
 }
 
 void UNetModel::initInputBlock11() {
@@ -378,7 +378,7 @@ void UNetModel::initInputBlock11() {
                                             "unet/input_block/11/input_blocks_11_0_out_layers_0_bias.npy",
                                             "unet/input_block/11/input_blocks_11_0_out_layers_3_weight.npy",
                                             "unet/input_block/11/input_blocks_11_0_out_layers_3_bias.npy",
-                                            nullptr, nullptr);
+                                            "", "");
 }
 
 
@@ -395,7 +395,7 @@ void UNetModel::initMiddleBlock() {
                                             "unet/middle_block/0/middle_block_0_out_layers_0_bias.npy",
                                             "unet/middle_block/0/middle_block_0_out_layers_3_weight.npy",
                                             "unet/middle_block/0/middle_block_0_out_layers_3_bias.npy",
-                                            nullptr, nullptr);
+                                            "", "");
 
     middle_block_1_spatial = new SpatialTransformer(context, cmdQueue, deviceId, assetManager,
                                                     1280, CONTEXT_DIM, 20, NUM_HEAD_CHANNELS,
@@ -438,7 +438,7 @@ void UNetModel::initMiddleBlock() {
                                             "unet/middle_block/2/middle_block_2_out_layers_0_bias.npy",
                                             "unet/middle_block/2/middle_block_2_out_layers_3_weight.npy",
                                             "unet/middle_block/2/middle_block_2_out_layers_3_bias.npy",
-                                            nullptr, nullptr);
+                                            "", "");
 }
 
 void UNetModel::initOutputBlock0() {

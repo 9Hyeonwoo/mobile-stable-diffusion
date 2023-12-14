@@ -10,13 +10,14 @@
 #include "CL/opencl.h"
 
 #include <android/asset_manager_jni.h>
+#include <string>
 
 class GroupNorm {
 public:
     GroupNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
               AAssetManager *assetManager,
               size_t num_groups, size_t num_channels, float eps,
-              const char *weight_name, const char *bias_name);
+              const std::string &weight_name, const std::string &bias_name);
 
     ~GroupNorm();
 
@@ -44,8 +45,8 @@ private:
     cl_event event_init_weight;
     cl_event event_init_bias;
 
-    const char *weight_name;
-    const char *bias_name;
+    const std::string weight_name;
+    const std::string bias_name;
 };
 
 

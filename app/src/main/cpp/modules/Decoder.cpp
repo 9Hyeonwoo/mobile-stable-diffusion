@@ -20,7 +20,7 @@
 Decoder::Decoder(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager
-) : context(context), cmdQueue(cmdQueue), deviceId(deviceId) {
+) : context(context), cmdQueue(cmdQueue) {
     cl_int err;
 
     post_quant_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
@@ -39,12 +39,12 @@ Decoder::Decoder(
                                    "decoder/mid/decoder_mid_block_1_norm1_bias.npy",
                                    "decoder/mid/decoder_mid_block_1_conv1_weight.npy",
                                    "decoder/mid/decoder_mid_block_1_conv1_bias.npy",
-                                   nullptr, nullptr,
+                                   "", "",
                                    "decoder/mid/decoder_mid_block_1_norm2_weight.npy",
                                    "decoder/mid/decoder_mid_block_1_norm2_bias.npy",
                                    "decoder/mid/decoder_mid_block_1_conv2_weight.npy",
                                    "decoder/mid/decoder_mid_block_1_conv2_bias.npy",
-                                   nullptr, nullptr);
+                                   "", "");
 
     mid_attn_block = new AttnBlock(context, cmdQueue, deviceId, assetManager,
                                    512,
@@ -65,12 +65,42 @@ Decoder::Decoder(
                                    "decoder/mid/decoder_mid_block_2_norm1_bias.npy",
                                    "decoder/mid/decoder_mid_block_2_conv1_weight.npy",
                                    "decoder/mid/decoder_mid_block_2_conv1_bias.npy",
-                                   nullptr, nullptr,
+                                   "", "",
                                    "decoder/mid/decoder_mid_block_2_norm2_weight.npy",
                                    "decoder/mid/decoder_mid_block_2_norm2_bias.npy",
                                    "decoder/mid/decoder_mid_block_2_conv2_weight.npy",
                                    "decoder/mid/decoder_mid_block_2_conv2_bias.npy",
-                                   nullptr, nullptr);
+                                   "", "");
+
+    for (int i = 0; i < 3; i++) {
+        auto folder_prefix =
+                "decoder/up/3/decoder_up_3_block_" + std::to_string(i);
+        auto in_group_norm_weight_name = folder_prefix + "_norm1_weight.npy";
+        auto in_group_norm_bias_name = folder_prefix + "_norm1_bias.npy";
+        auto in_conv2d_weight_name = folder_prefix + "_conv1_weight.npy";
+        auto in_conv2d_bias_name = folder_prefix + "_conv1_bias.npy";
+        auto out_group_norm_weight_name = folder_prefix + "_norm2_weight.npy";
+        auto out_group_norm_bias_name = folder_prefix + "_norm2_bias.npy";
+        auto out_conv2d_weight_name = folder_prefix + "_conv2_weight.npy";
+        auto out_conv2d_bias_name = folder_prefix + "_conv2_bias.npy";
+        up_3_res_blocks[i] = new ResBlock(context, cmdQueue, deviceId, assetManager,
+                                          512, 0, 512,
+                                          in_group_norm_weight_name,
+                                          in_group_norm_bias_name,
+                                          in_conv2d_weight_name,
+                                          in_conv2d_bias_name,
+                                          "", "",
+                                          out_group_norm_weight_name,
+                                          out_group_norm_bias_name,
+                                          out_conv2d_weight_name,
+                                          out_conv2d_bias_name,
+                                          "", "");
+    }
+
+    up_3_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
+                                  512, 512, 3, 1, 1,
+                                  "decoder/up/3/decoder_up_3_upsample_conv_weight.npy",
+                                  "decoder/up/3/decoder_up_3_upsample_conv_bias.npy");
 }
 
 Decoder::~Decoder() {
@@ -79,6 +109,10 @@ Decoder::~Decoder() {
     delete mid_res_block_1;
     delete mid_attn_block;
     delete mid_res_block_2;
+    for (auto &block: up_3_res_blocks) {
+        delete block;
+    }
+    delete up_3_up_sample;
 }
 
 std::vector<float> Decoder::decode(const std::vector<float> &x) {
@@ -88,8 +122,8 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     }
 
     cl_int err;
-    cl_event event[6];
-    cl_mem bufferX, buffer_4_64, buffer_512_64;
+    cl_event event[10];
+    cl_mem bufferX, buffer_4_64, buffer_512_64, buffer_512_128;
 
     bufferX = clCreateBuffer(context, CL_MEM_READ_ONLY,
                              sizeof(float) * x.size(),
@@ -123,6 +157,7 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     // test_conv_in.npy max diff: 0.00000238418579101562
     // util::testBuffer(cmdQueue, buffer_512_64, "decoder/test/test_conv_in.npy");
 
+    /* mid */
     mid_res_block_1->init();
     err = mid_res_block_1->forward(buffer_512_64, nullptr, buffer_512_64,
                                    0, nullptr,
@@ -147,6 +182,35 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
 
     // test_mid_block_2.npy max diff: 0.00003004074096679688
     // util::testBuffer(cmdQueue, buffer_512_64, "decoder/test/test_mid_block_2.npy");
+    /* mid */
+
+    /* up */
+    /* up[3] */
+    buffer_512_128 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                    sizeof(float) * 512 * 128 * 128,
+                                    nullptr, &err);
+    CHECK_ERROR_THROW(err);
+
+    int event_idx = 5;
+    for (auto &block: up_3_res_blocks) {
+        block->init();
+        err = block->forward(buffer_512_64, nullptr, buffer_512_64,
+                             0, nullptr,
+                             1, &event[event_idx], &event[event_idx + 1]);
+        CHECK_ERROR_THROW(err);
+
+        event_idx++;
+    }
+
+    up_3_up_sample->init();
+    err = up_3_up_sample->forward(buffer_512_64, buffer_512_128,
+                                  1, &event[8], &event[9]);
+    CHECK_ERROR_THROW(err);
+
+    // test_up_3.npy max diff: 0.00012969970703125000
+    // util::testBuffer(cmdQueue, buffer_512_128, "decoder/test/test_up_3.npy");
+    /* up[3] */
+    /* up */
     /* Decoder */
 
     for (auto &e: event) {
@@ -155,6 +219,7 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     clReleaseMemObject(bufferX);
     clReleaseMemObject(buffer_4_64);
     clReleaseMemObject(buffer_512_64);
+    clReleaseMemObject(buffer_512_128);
     return y;
 }
 

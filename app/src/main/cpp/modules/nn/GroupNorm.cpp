@@ -27,7 +27,7 @@ GroupNorm::GroupNorm(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager,
         size_t num_groups, size_t num_channels, float eps,
-        const char *weight_name, const char *bias_name
+        const std::string &weight_name, const std::string &bias_name
 ) : context(context), cmdQueue(cmdQueue), num_groups(num_groups), num_channels(num_channels),
     eps(eps), weight_name(weight_name), bias_name(bias_name), event_init_weight(nullptr),
     event_init_bias(nullptr) {

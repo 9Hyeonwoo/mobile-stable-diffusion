@@ -10,12 +10,13 @@
 #define CL_TARGET_OPENCL_VERSION 200
 
 #include <CL/opencl.h>
+#include <string>
 
 class LayerNorm {
 public:
     LayerNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
               AAssetManager *assetManager, size_t dim,
-              const char *weight_name, const char *bias_name);
+              const std::string &weight_name, const std::string &bias_name);
 
     ~LayerNorm();
 
@@ -39,8 +40,8 @@ private:
     cl_event event_init_weight;
     cl_event event_init_bias;
 
-    const char *weight_name;
-    const char *bias_name;
+    const std::string weight_name;
+    const std::string bias_name;
 };
 
 

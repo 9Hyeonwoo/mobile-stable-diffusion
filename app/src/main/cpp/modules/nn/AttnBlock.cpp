@@ -28,11 +28,11 @@ AttnBlock::AttnBlock(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager,
         size_t in_channels,
-        const char *group_norm_weight, const char *group_norm_bias,
-        const char *q_conv2d_weight_name, const char *q_conv2d_bias_name,
-        const char *k_conv2d_weight_name, const char *k_conv2d_bias_name,
-        const char *v_conv2d_weight_name, const char *v_conv2d_bias_name,
-        const char *out_conv2d_weight_name, const char *out_conv2d_bias_name
+        const std::string &group_norm_weight, const std::string &group_norm_bias,
+        const std::string &q_conv2d_weight_name, const std::string &q_conv2d_bias_name,
+        const std::string &k_conv2d_weight_name, const std::string &k_conv2d_bias_name,
+        const std::string &v_conv2d_weight_name, const std::string &v_conv2d_bias_name,
+        const std::string &out_conv2d_weight_name, const std::string &out_conv2d_bias_name
 ) : context(context), cmdQueue(cmdQueue), in_channels(in_channels) {
     cl_int err;
 

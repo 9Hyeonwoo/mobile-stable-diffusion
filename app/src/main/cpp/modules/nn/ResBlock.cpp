@@ -25,12 +25,12 @@ ResBlock::ResBlock(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager,
         size_t in_channels, size_t emb_channels, size_t out_channels,
-        const char *in_group_norm_weight_name, const char *in_group_norm_bias_name,
-        const char *in_conv2d_weight_name, const char *in_conv2d_bias_name,
-        const char *embed_linear_weight_name, const char *embed_linear_bias_name,
-        const char *out_group_norm_weight_name, const char *out_group_norm_bias_name,
-        const char *out_conv2d_weight_name, const char *out_conv2d_bias_name,
-        const char *skip_conv2d_weight_name, const char *skip_conv2d_bias_name
+        const std::string &in_group_norm_weight_name, const std::string &in_group_norm_bias_name,
+        const std::string &in_conv2d_weight_name, const std::string &in_conv2d_bias_name,
+        const std::string& embed_linear_weight_name, const std::string& embed_linear_bias_name,
+        const std::string &out_group_norm_weight_name, const std::string &out_group_norm_bias_name,
+        const std::string &out_conv2d_weight_name, const std::string &out_conv2d_bias_name,
+        const std::string& skip_conv2d_weight_name, const std::string& skip_conv2d_bias_name
 ) : context(context), cmdQueue(cmdQueue), in_channels(in_channels), out_channels(out_channels) {
     cl_int err;
     in_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, in_channels, 1e-5,
@@ -38,7 +38,7 @@ ResBlock::ResBlock(
     in_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
                            in_channels, out_channels, 3, 1, 1,
                            in_conv2d_weight_name, in_conv2d_bias_name);
-    if (emb_channels <= 0) {
+    if (emb_channels <= 0 || embed_linear_weight_name.empty() || embed_linear_bias_name.empty()) {
         embed_linear = nullptr;
     } else {
         embed_linear = new Linear(context, cmdQueue, deviceId, assetManager,
@@ -52,7 +52,7 @@ ResBlock::ResBlock(
                             out_channels, out_channels, 3, 1, 1,
                             out_conv2d_weight_name, out_conv2d_bias_name);
 
-    if (in_channels != out_channels) {
+    if (in_channels != out_channels && !skip_conv2d_weight_name.empty() && !skip_conv2d_bias_name.empty()) {
         skip_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
                                  in_channels, out_channels, 1, 1, 0,
                                  skip_conv2d_weight_name, skip_conv2d_bias_name);

@@ -22,9 +22,7 @@ namespace util {
                                                     AAssetManager *assetManager,
                                                     const char *file_name);
 
-    cnpy::NpyArray load_npy_file(AAssetManager *assetManager, const char *filename);
-
-    cnpy::NpyArray load_npy_file(const char *filename);
+    cnpy::NpyArray load_npy_file(const std::string &filename);
 
     void testBuffer(cl_command_queue cmdQueue, cl_mem buffer, const char *filename);
 

@@ -26,8 +26,8 @@ Conv2D::Conv2D(
         cl_device_id deviceId,
         AAssetManager *assetManager,
         size_t in_channel, size_t out_channel, size_t kernel_size, int stride, int padding,
-        const char *weight_name,
-        const char *bias_name
+        const std::string &weight_name,
+        const std::string &bias_name
 ) : cmdQueue(cmdQueue), stride(stride), padding(padding), weight_name(weight_name),
     bias_name(bias_name), event_init_weight(nullptr), event_init_bias(nullptr) {
     cl_int err;
