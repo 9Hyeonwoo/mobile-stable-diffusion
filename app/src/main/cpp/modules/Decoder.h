@@ -9,6 +9,7 @@
 #include <vector>
 #include "nn/Conv2D.h"
 #include "nn/ResBlock.h"
+#include "nn/AttnBlock.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 #include "CL/opencl.h"
@@ -32,6 +33,8 @@ private:
     Conv2D *in_conv2d;
 
     ResBlock *mid_res_block_1;
+
+    AttnBlock *mid_attn_block;
 };
 
 

@@ -46,7 +46,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         modules/nn/FeedForward.cpp
         modules/nn/GEGLU.cpp
         modules/nn/UpSample.cpp
-        modules/Decoder.cpp)
+        modules/Decoder.cpp
+        modules/nn/AttnBlock.cpp)
 
 # add libraries for OpenCL
 include_directories( ${CMAKE_SOURCE_DIR}/include )

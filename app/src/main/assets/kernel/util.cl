@@ -147,3 +147,25 @@ __kernel void softmax(
         output[index] = cache[index - globalOffset] / reductionSums[0];
     }
 }
+
+__kernel void batch_matmul(__global float *A,
+                        __global float *B,
+                        __global float *output,
+                        const size_t K,
+                        const float scale)
+{
+    int batch_size = get_global_size(0);
+    int M = get_global_size(1);
+    int N = get_global_size(2);
+
+    int batch = get_global_id(0);
+    int i = get_global_id(1);
+    int j = get_global_id(2);
+
+    float sum = 0.0f;
+    for (int k = 0; k < K; k++) {
+        // A(M, K) * B(K, N) = C(M, N)
+        sum += A[batch * M * K + i * K + k] * B[batch * K * N + k * N + j];
+    }
+    output[batch * M * N + i * N + j] = sum * scale;
+}
