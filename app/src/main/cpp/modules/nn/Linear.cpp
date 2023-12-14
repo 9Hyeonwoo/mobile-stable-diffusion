@@ -36,7 +36,7 @@ Linear::Linear(
                                     nullptr, &err);
         CHECK_ERROR_THROW(err);
     } else {
-        event_init_bias = nullptr;
+        bufferBias = nullptr;
     }
 
     bufferWeight = clCreateBuffer(context, CL_MEM_READ_ONLY,
@@ -55,7 +55,9 @@ Linear::Linear(
 
 Linear::~Linear() {
     clReleaseMemObject(bufferWeight);
-    clReleaseMemObject(bufferBias);
+    if (bufferBias != nullptr) {
+        clReleaseMemObject(bufferBias);
+    }
     clReleaseKernel(kernel);
     if (event_init_weight != nullptr) {
         clReleaseEvent(event_init_weight);

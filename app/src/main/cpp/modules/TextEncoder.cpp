@@ -72,12 +72,14 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
                                            mlp_c_proj_weight_name,
                                            mlp_c_proj_bias_name)
         );
+        resBlocks[i]->init();
     }
 
     ln_final = new LayerNorm(context, cmdQueue, deviceId, assetManager,
                              EMBEDDING_SIZE,
                              "encoder/ln_final_weight_fp32.npy",
                              "encoder/ln_final_bias_fp32.npy");
+    ln_final->init();
 }
 
 TextEncoder::~TextEncoder() {
@@ -176,7 +178,6 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
         std::swap(inBuffer, outBuffer);
         std::swap(inEvent, outEvent);
 
-        block->init();
         err = block->forward(inBuffer, outBuffer, 1, &inEvent, &outEvent);
         CHECK_ERROR(err);
     }
@@ -197,7 +198,6 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     CHECK_ERROR(err);
 
     /* ln_final(x) */
-    ln_final->init();
     err = ln_final->forward(inBuffer, outBuffer, 1, &event4, &event5);
     CHECK_ERROR(err);
 
