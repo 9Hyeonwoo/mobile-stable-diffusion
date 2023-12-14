@@ -11,6 +11,7 @@
 #include "nn/ResBlock.h"
 #include "nn/AttnBlock.h"
 #include "nn/UpSample.h"
+#include "nn/GroupNorm.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -30,6 +31,8 @@ public:
 private:
     cl_context context;
     cl_command_queue cmdQueue;
+
+    cl_kernel kernel_silu;
 
     Conv2D *post_quant_conv2d;
 
@@ -51,6 +54,9 @@ private:
     UpSample *up_1_up_sample;
 
     ResBlock *up_0_res_blocks[3]{};
+
+    GroupNorm *out_group_norm;
+    Conv2D *out_conv2d;
 };
 
 

@@ -204,6 +204,23 @@ Decoder::Decoder(
                                           out_conv2d_weight_name, out_conv2d_bias_name,
                                           in_skip_conv2d_weight_name, in_skip_conv2d_bias_name);
     }
+
+    out_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager,
+                                   32, 128, 1e-6,
+                                   "decoder/out/decoder_norm_out_weight.npy",
+                                   "decoder/out/decoder_norm_out_bias.npy");
+
+    out_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+                            128, 3, 3, 1, 1,
+                            "decoder/out/decoder_conv_out_weight.npy",
+                            "decoder/out/decoder_conv_out_bias.npy");
+
+    auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
+                                                              "kernel/util.cl");
+    kernel_silu = clCreateKernel(program, "silu", &err);
+    CHECK_ERROR_THROW(err);
+
+    clReleaseProgram(program);
 }
 
 Decoder::~Decoder() {
@@ -227,6 +244,9 @@ Decoder::~Decoder() {
     for (auto &block: up_0_res_blocks) {
         delete block;
     }
+    delete out_group_norm;
+    delete out_conv2d;
+    clReleaseKernel(kernel_silu);
 }
 
 std::vector<float> Decoder::decode(const std::vector<float> &x) {
@@ -236,8 +256,8 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     }
 
     cl_int err;
-    cl_event event[21];
-    cl_mem bufferX, buffer_4_64, buffer_512_64, buffer_512_128, buffer_512_256, buffer_256_256, buffer_256_512, buffer_128_512;
+    cl_event event[24];
+    cl_mem bufferX, buffer_4_64, buffer_512_64, buffer_512_128, buffer_512_256, buffer_256_256, buffer_256_512, buffer_128_512, buffer_3_512;
 
     bufferX = clCreateBuffer(context, CL_MEM_READ_ONLY,
                              sizeof(float) * x.size(),
@@ -417,7 +437,47 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     // util::testBuffer(cmdQueue, buffer_128_512, "decoder/test/test_up_0.npy");
     /* up[0] */
     /* up */
+
+    /* out */
+    buffer_3_512 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                  sizeof(float) * 3 * 512 * 512,
+                                  nullptr, &err);
+    CHECK_ERROR_THROW(err);
+
+    out_group_norm->init();
+    err = out_group_norm->forward(buffer_128_512, buffer_128_512,
+                                  1, &event[20], &event[21]);
+    CHECK_ERROR_THROW(err);
+
+    err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &buffer_128_512);
+    err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &buffer_128_512);
+    CHECK_ERROR_THROW(err);
+
+    size_t outWorkSize[3] = {128 * 512 * 512};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr,
+                                 outWorkSize, nullptr,
+                                 1, &event[21], &event[22]);
+    CHECK_ERROR_THROW(err);
+
+    out_conv2d->init();
+    err = out_conv2d->forward(buffer_128_512, buffer_3_512,
+                              1, &event[22], &event[23]);
+    CHECK_ERROR_THROW(err);
+
+    // test_out.npy max diff: 0.00000357627868652344
+    // util::testBuffer(cmdQueue, buffer_3_512, "decoder/test/test_out.npy");
+    /* out */
     /* Decoder */
+
+    /* result */
+    std::vector<float> result(3 * 512 * 512);
+    err = clEnqueueReadBuffer(cmdQueue, buffer_3_512, CL_FALSE, 0,
+                              sizeof(float) * result.size(), result.data(),
+                              1, &event[23], nullptr);
+    CHECK_ERROR_THROW(err);
+    /* result */
+
+    clFinish(cmdQueue);
 
     for (auto &e: event) {
         clReleaseEvent(e);
@@ -430,13 +490,13 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     clReleaseMemObject(buffer_256_256);
     clReleaseMemObject(buffer_256_512);
     clReleaseMemObject(buffer_128_512);
-    return y;
+    return result;
 }
 
 void Decoder::test(const std::vector<float> &x) {
     cl_int err;
     cl_event event[4];
-    cl_mem bufferX, buffer_128_512;
+    cl_mem bufferX, buffer_128_512, buffer_3_512;
 
     bufferX = clCreateBuffer(context, CL_MEM_READ_ONLY,
                              sizeof(float) * x.size(),
@@ -453,31 +513,39 @@ void Decoder::test(const std::vector<float> &x) {
                                     nullptr, &err);
     CHECK_ERROR_THROW(err);
 
-    /* test logic */
-    up_0_res_blocks[0]->init();
-    err = up_0_res_blocks[0]->forward(bufferX, nullptr, buffer_128_512,
-                                      0, nullptr,
-                                      1, &event[0], &event[1]);
+    buffer_3_512 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                  sizeof(float) * 3 * 512 * 512,
+                                  nullptr, &err);
     CHECK_ERROR_THROW(err);
 
-    int event_idx = 1;
-    for (int i = 1; i < 3; i++) {
-        auto block = up_0_res_blocks[i];
-        block->init();
-        err = block->forward(buffer_128_512, nullptr, buffer_128_512,
-                             0, nullptr,
-                             1, &event[event_idx], &event[event_idx + 1]);
-        CHECK_ERROR_THROW(err);
+    /* test logic */
+    out_group_norm->init();
+    err = out_group_norm->forward(bufferX, buffer_128_512,
+                                  1, &event[0], &event[1]);
+    CHECK_ERROR_THROW(err);
 
-        event_idx++;
-    }
+    err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &buffer_128_512);
+    err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &buffer_128_512);
+    CHECK_ERROR_THROW(err);
+
+    size_t globalWorkSize[3] = {128 * 512 * 512};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr,
+                                 globalWorkSize, nullptr,
+                                 1, &event[1], &event[2]);
+    CHECK_ERROR_THROW(err);
+
+    out_conv2d->init();
+    err = out_conv2d->forward(buffer_128_512, buffer_3_512,
+                              1, &event[2], &event[3]);
+    CHECK_ERROR_THROW(err);
     /* test logic */
 
-    util::testBuffer(cmdQueue, buffer_128_512, "decoder/test/test_up_0.npy");
+    util::testBuffer(cmdQueue, buffer_3_512, "decoder/test/test_out.npy");
 
     for (auto &e: event) {
         clReleaseEvent(e);
     }
     clReleaseMemObject(bufferX);
     clReleaseMemObject(buffer_128_512);
+    clReleaseMemObject(buffer_3_512);
 }
