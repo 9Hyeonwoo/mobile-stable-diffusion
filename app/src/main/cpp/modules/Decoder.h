@@ -49,6 +49,8 @@ private:
 
     ResBlock *up_1_res_blocks[3]{};
     UpSample *up_1_up_sample;
+
+    ResBlock *up_0_res_blocks[3]{};
 };
 
 

@@ -170,6 +170,40 @@ Decoder::Decoder(
                                   256, 256, 3, 1, 1,
                                   "decoder/up/1/decoder_up_1_upsample_conv_weight.npy",
                                   "decoder/up/1/decoder_up_1_upsample_conv_bias.npy");
+
+    for (int i = 0; i < 3; i++) {
+        auto folder_prefix =
+                "decoder/up/0/decoder_up_0_block_" + std::to_string(i);
+        auto in_group_norm_weight_name = folder_prefix + "_norm1_weight.npy";
+        auto in_group_norm_bias_name = folder_prefix + "_norm1_bias.npy";
+        auto in_conv2d_weight_name = folder_prefix + "_conv1_weight.npy";
+        auto in_conv2d_bias_name = folder_prefix + "_conv1_bias.npy";
+        auto out_group_norm_weight_name = folder_prefix + "_norm2_weight.npy";
+        auto out_group_norm_bias_name = folder_prefix + "_norm2_bias.npy";
+        auto out_conv2d_weight_name = folder_prefix + "_conv2_weight.npy";
+        auto out_conv2d_bias_name = folder_prefix + "_conv2_bias.npy";
+        size_t in_channel, out_channel;
+        std::string in_skip_conv2d_weight_name, in_skip_conv2d_bias_name;
+        if (i == 0) {
+            in_channel = 256;
+            out_channel = 128;
+            in_skip_conv2d_weight_name = "decoder/up/0/decoder_up_0_block_0_nin_shortcut_weight.npy";
+            in_skip_conv2d_bias_name = "decoder/up/0/decoder_up_0_block_0_nin_shortcut_bias.npy";
+        } else {
+            in_channel = 128;
+            out_channel = 128;
+            in_skip_conv2d_weight_name = "";
+            in_skip_conv2d_bias_name = "";
+        }
+        up_0_res_blocks[i] = new ResBlock(context, cmdQueue, deviceId, assetManager,
+                                          in_channel, 0, out_channel,
+                                          in_group_norm_weight_name, in_group_norm_bias_name,
+                                          in_conv2d_weight_name, in_conv2d_bias_name,
+                                          "", "",
+                                          out_group_norm_weight_name, out_group_norm_bias_name,
+                                          out_conv2d_weight_name, out_conv2d_bias_name,
+                                          in_skip_conv2d_weight_name, in_skip_conv2d_bias_name);
+    }
 }
 
 Decoder::~Decoder() {
@@ -190,6 +224,9 @@ Decoder::~Decoder() {
         delete block;
     }
     delete up_1_up_sample;
+    for (auto &block: up_0_res_blocks) {
+        delete block;
+    }
 }
 
 std::vector<float> Decoder::decode(const std::vector<float> &x) {
@@ -199,8 +236,8 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     }
 
     cl_int err;
-    cl_event event[18];
-    cl_mem bufferX, buffer_4_64, buffer_512_64, buffer_512_128, buffer_512_256, buffer_256_256, buffer_256_512;
+    cl_event event[21];
+    cl_mem bufferX, buffer_4_64, buffer_512_64, buffer_512_128, buffer_512_256, buffer_256_256, buffer_256_512, buffer_128_512;
 
     bufferX = clCreateBuffer(context, CL_MEM_READ_ONLY,
                              sizeof(float) * x.size(),
@@ -351,6 +388,34 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     // test_up_1.npy max diff: 0.00213623046875000000
     // util::testBuffer(cmdQueue, buffer_256_512, "decoder/test/test_up_1.npy");
     /* up[1] */
+
+    /* up[0] */
+    buffer_128_512 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                    sizeof(float) * 128 * 512 * 512,
+                                    nullptr, &err);
+    CHECK_ERROR_THROW(err);
+
+    up_0_res_blocks[0]->init();
+    err = up_0_res_blocks[0]->forward(buffer_256_512, nullptr, buffer_128_512,
+                                      0, nullptr,
+                                      1, &event[17], &event[18]);
+    CHECK_ERROR_THROW(err);
+
+    event_idx = 18;
+    for (int i = 1; i < 3; i++) {
+        auto block = up_0_res_blocks[i];
+        block->init();
+        err = block->forward(buffer_128_512, nullptr, buffer_128_512,
+                             0, nullptr,
+                             1, &event[event_idx], &event[event_idx + 1]);
+        CHECK_ERROR_THROW(err);
+
+        event_idx++;
+    }
+
+    // test_up_0.npy max diff: 0.00390625000000000000
+    // util::testBuffer(cmdQueue, buffer_128_512, "decoder/test/test_up_0.npy");
+    /* up[0] */
     /* up */
     /* Decoder */
 
@@ -364,13 +429,14 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     clReleaseMemObject(buffer_512_256);
     clReleaseMemObject(buffer_256_256);
     clReleaseMemObject(buffer_256_512);
+    clReleaseMemObject(buffer_128_512);
     return y;
 }
 
 void Decoder::test(const std::vector<float> &x) {
     cl_int err;
-    cl_event event[5];
-    cl_mem bufferX, buffer_256_256, buffer_256_512;
+    cl_event event[4];
+    cl_mem bufferX, buffer_128_512;
 
     bufferX = clCreateBuffer(context, CL_MEM_READ_ONLY,
                              sizeof(float) * x.size(),
@@ -382,45 +448,36 @@ void Decoder::test(const std::vector<float> &x) {
                                0, nullptr, &event[0]);
     CHECK_ERROR_THROW(err);
 
-    buffer_256_256 = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                    sizeof(float) * 256 * 256 * 256,
+    buffer_128_512 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                    sizeof(float) * 128 * 512 * 512,
                                     nullptr, &err);
     CHECK_ERROR_THROW(err);
 
-    buffer_256_512 = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                    sizeof(float) * 256 * 512 * 512,
-                                    nullptr, &err);
-    CHECK_ERROR_THROW(err);
-
-    up_1_res_blocks[0]->init();
-    err = up_1_res_blocks[0]->forward(bufferX, nullptr, buffer_256_256,
+    /* test logic */
+    up_0_res_blocks[0]->init();
+    err = up_0_res_blocks[0]->forward(bufferX, nullptr, buffer_128_512,
                                       0, nullptr,
                                       1, &event[0], &event[1]);
     CHECK_ERROR_THROW(err);
 
     int event_idx = 1;
     for (int i = 1; i < 3; i++) {
-        auto block = up_1_res_blocks[i];
+        auto block = up_0_res_blocks[i];
         block->init();
-        err = block->forward(buffer_256_256, nullptr, buffer_256_256,
+        err = block->forward(buffer_128_512, nullptr, buffer_128_512,
                              0, nullptr,
                              1, &event[event_idx], &event[event_idx + 1]);
         CHECK_ERROR_THROW(err);
 
         event_idx++;
     }
+    /* test logic */
 
-    up_1_up_sample->init();
-    err = up_1_up_sample->forward(buffer_256_256, buffer_256_512,
-                                  1, &event[3], &event[4]);
-    CHECK_ERROR_THROW(err);
-
-    util::testBuffer(cmdQueue, buffer_256_512, "decoder/test/test_up_1.npy");
+    util::testBuffer(cmdQueue, buffer_128_512, "decoder/test/test_up_0.npy");
 
     for (auto &e: event) {
         clReleaseEvent(e);
     }
     clReleaseMemObject(bufferX);
-    clReleaseMemObject(buffer_256_256);
-    clReleaseMemObject(buffer_256_512);
+    clReleaseMemObject(buffer_128_512);
 }
