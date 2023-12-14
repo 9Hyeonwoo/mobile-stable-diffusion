@@ -61,8 +61,12 @@ LayerNorm::~LayerNorm() {
     clReleaseKernel(kernel_mean);
     clReleaseKernel(kernel_var);
     clReleaseKernel(kernel_norm);
-    clReleaseEvent(event_init_weight);
-    clReleaseEvent(event_init_bias);
+    if (event_init_weight != nullptr) {
+        clReleaseEvent(event_init_weight);
+    }
+    if (event_init_bias != nullptr) {
+        clReleaseEvent(event_init_bias);
+    }
 }
 
 void LayerNorm::init() {

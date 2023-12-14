@@ -57,7 +57,9 @@ Linear::~Linear() {
     clReleaseMemObject(bufferWeight);
     clReleaseMemObject(bufferBias);
     clReleaseKernel(kernel);
-    clReleaseEvent(event_init_weight);
+    if (event_init_weight != nullptr) {
+        clReleaseEvent(event_init_weight);
+    }
     if (event_init_bias != nullptr) {
         clReleaseEvent(event_init_bias);
     }

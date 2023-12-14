@@ -59,8 +59,12 @@ Conv2D::~Conv2D() {
     clReleaseMemObject(bufferWeight);
     clReleaseMemObject(bufferBias);
     clReleaseKernel(kernel);
-    clReleaseEvent(event_init_weight);
-    clReleaseEvent(event_init_bias);
+    if (event_init_weight != nullptr) {
+        clReleaseEvent(event_init_weight);
+    }
+    if (event_init_bias != nullptr) {
+        clReleaseEvent(event_init_bias);
+    }
 }
 
 void Conv2D::init() {
