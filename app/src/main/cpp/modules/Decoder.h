@@ -25,6 +25,8 @@ public:
 
     std::vector<float> decode(const std::vector<float> &x);
 
+    void test(const std::vector<float> &x);
+
 private:
     cl_context context;
     cl_command_queue cmdQueue;
@@ -44,6 +46,9 @@ private:
 
     ResBlock *up_2_res_blocks[3]{};
     UpSample *up_2_up_sample;
+
+    ResBlock *up_1_res_blocks[3]{};
+    UpSample *up_1_up_sample;
 };
 
 
