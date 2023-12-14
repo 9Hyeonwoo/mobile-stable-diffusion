@@ -1,8 +1,8 @@
 package com.example.myopencl
 
-import android.content.Context
 import android.content.res.AssetManager
-import android.graphics.BitmapFactory
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.Bundle
 import android.os.Environment
 import android.util.Log
@@ -11,11 +11,13 @@ import com.example.myopencl.databinding.ActivityMainBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import org.pytorch.IValue
 import org.pytorch.Module
 import org.pytorch.Tensor
 import java.util.Random
+import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
@@ -26,12 +28,7 @@ class MainActivity : AppCompatActivity() {
         tokenize("a professional photograph of an astronaut riding a horse")
     }
 
-    private var encodeResult: FloatArray? = null
-    private var ptlEncoderResult: FloatArray? = null
-
     private var initialized = false
-
-    private var torchUNet: Module? = null
 
     val scope = CoroutineScope(Job() + Dispatchers.IO)
 
@@ -42,123 +39,153 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         binding.encodeButton.setOnClickListener {
-            scope.launch {
+            thread(start = true) {
+//            scope.launch {
+//                MainScope().launch {
+//                    binding.progressBar.visibility = View.VISIBLE
+//                }
                 if (!initialized) {
                     // about 1m 40s
                     Log.d("__TEST__", "start initOpenCL")
                     initOpenCL(assets)
                     Log.d("__TEST__", "end initOpenCL")
+                    val result = decode()
+                    MainScope().launch {
+                        drawImage(result)
+                    }
+//                    val result = sample(FloatArray(77 * 1024))
                     initialized = true
                 }
-                encodeResult = encode(token)
+//                encodeResult = encode(token)
                 destroyOpenCL()
                 initialized = false
+//                MainScope().launch {
+//                    binding.progressBar.visibility = View.GONE
+//                }
             }
         }
 
         binding.encodePytorchButton.setOnClickListener {
-             run {
+            initOpenCL(assets)
+            val token = token
+            val condition: FloatArray
+            val start = System.currentTimeMillis()
+            run {
                 // about 8s
                 Log.d("__TEST__", "start torchEncoder")
                 val torchEncoder = Module.load(mediaFilePath("encoder/text_encoder.ptl"))
-                Log.d("__TEST__", "end torchEncoder")
 
-                 val tensor = Tensor.fromBlob(token, longArrayOf(1, token.size.toLong()))
-                 Log.d("__TEST__", "start encode")
-                 // output shape = (batch_size=1, context_length=77, 1024)
-                 ptlEncoderResult = torchEncoder.forward(IValue.from(tensor)).toTensor().dataAsFloatArray
-                 Log.d("__TEST__", "end encode")
-                 torchEncoder.destroy()
+                val tensor = Tensor.fromBlob(token, longArrayOf(1, token.size.toLong()))
+                Log.d("__TEST__", "start encode")
+                // output shape = (batch_size=1, context_length=77, 1024)
+
+                condition =
+                    torchEncoder.forward(IValue.from(tensor)).toTensor().dataAsFloatArray
+                torchEncoder.destroy()
+                Log.d("__TEST__", "end torchEncoder")
             }
             val latent: FloatArray
             run {
+                val random = Random(45)
+                // val condition = FloatArray(77 * 1024) { random.nextGaussian().toFloat() }
                 // about 21s
-                Log.d("__TEST__", "start torchUNetInput")
+                Log.d("__TEST__", "start torch UNet")
                 val torchUNetInput = Module.load(mediaFilePath("unet/unet_input.ptl"))
-                Log.d("__TEST__", "end torchUNetInput")
 
                 Log.d("__TEST__", "start unet_input")
-//                latent = sample(ptlEncoderResult!!)
-                val random = Random(45)
                 val x = FloatArray(4 * 64 * 64) { random.nextGaussian().toFloat() }
-                val condition = FloatArray(77 * 1024) { random.nextGaussian().toFloat() }
-                val hs_input = unet(torchUNetInput, x, longArrayOf(1, 4, 64, 64), 1, condition)
-                Log.d("__TEST__", "end unet")
+                val hsInput = unet(torchUNetInput, x, longArrayOf(1, 4, 64, 64), 981, condition)
+                Log.d("__TEST__", "end unet_input")
                 torchUNetInput.destroy()
 
                 val torchUNetMid = Module.load(mediaFilePath("unet/unet_mid.ptl"))
                 Log.d("__TEST__", "start unet_mid")
-
-                val hs_mid = unet(torchUNetMid, hs_input, longArrayOf(1), 1, condition)
-                Log.d("__TEST__", "end unet_mid")
+                val hsMid =
+                    unet(torchUNetMid, hsInput, longArrayOf(hsInput.size.toLong()), 1, condition)
                 torchUNetMid.destroy()
+                Log.d("__TEST__", "start unet_mid")
 
-                val torchUNetOutput = Module.load(mediaFilePath("unet/unet_out.ptl"))
-                Log.d("__TEST__", "start unet_out")
-                latent = unet(torchUNetOutput, hs_mid, longArrayOf(1), 1, condition)
-                Log.d("__TEST__", "end unet_out")
-                torchUNetOutput.destroy()
+                //  val hs_mid = NpyFile.read(Path(mediaFilePath("unet/unet_mid_result.npy"))).asFloatArray()
+                val torchUNetOutput0_3 = Module.load(mediaFilePath("unet/unet_out0_3.ptl"))
+                val hs_out_0_3 = unet(
+                    torchUNetOutput0_3,
+                    hsMid,
+                    longArrayOf(hsMid.size.toLong()),
+                    981,
+                    condition
+                )
+                Log.d("__TEST__", "end unet_out_0_3")
+                torchUNetOutput0_3.destroy()
+
+                //  val hs_out_0_3 = FloatArray(6389760) { random.nextGaussian().toFloat() }
+                val torchUNetOutput4_11 = Module.load(mediaFilePath("unet/unet_out4_11.ptl"))
+                latent = unet(
+                    torchUNetOutput4_11,
+                    hs_out_0_3,
+                    longArrayOf(hs_out_0_3.size.toLong()),
+                    981,
+                    condition
+                )
+                Log.d("__TEST__", "end unet_out_4_11")
+                torchUNetOutput4_11.destroy()
+                Log.d("__TEST__", "end torch UNet")
             }
+            val img: FloatArray
             run {
+                // val latent =
+                //    NpyFile.read(Path(mediaFilePath("decoder/test/test_seed_45_step_50_sample.npy")))
                 Log.d("__TEST__", "start torchDecoder")
                 val torchDecoder = Module.load(mediaFilePath("decoder/decoder.ptl"))
                 Log.d("__TEST__", "end torchDecoder")
 
+
                 Log.d("__TEST__", "start decode")
                 val procLatent = latent.map { x -> 1f / 0.18215f * x }.toFloatArray()
-                val img = torchDecoder.forward(
-                    IValue.from(
-                        Tensor.fromBlob(
-                            procLatent,
-                            longArrayOf(1, 4, 64, 64)
-                        )
+                val tensor = IValue.from(
+                    Tensor.fromBlob(
+                        procLatent,
+                        longArrayOf(1, 4, 64, 64)
                     )
-                ).toTensor().dataAsFloatArray
-                val imgByte =
-                    img.map { x -> (((x + 1f) / 2f).coerceIn(0f, 1f) * 255f).toUInt().toByte() }
+                )
+                img = torchDecoder.forward(tensor).toTensor().dataAsFloatArray
                 Log.d("__TEST__", "end decode")
-
-                BitmapFactory.decodeByteArray(imgByte.toByteArray(), 0, imgByte.size).also {
-                    binding.imageView.setImageBitmap(it)
-                }
                 torchDecoder.destroy()
             }
+            val stop = System.currentTimeMillis()
+            Log.d("__TEST__", "torch unet time: ${stop - start} ms")
+            drawImage(img)
         }
+    }
+
+    private fun drawImage(imageArray: FloatArray) {
+        val height = 512
+        val width = 512
+        val imgByte = imageArray.map { x ->
+            (((x + 1f) / 2f).coerceIn(0f, 1f) * 255f).toUInt().toUByte()
+        }
+
+        val pixels = IntArray(height * width)
+        for (i in 0 until height) {
+            for (j in 0 until width) {
+                val red = imgByte[i * width + j].toInt() and 0xFF
+                val green = imgByte[height * width + i * width + j].toInt() and 0xFF
+                val blue = imgByte[2 * height * width + i * width + j].toInt() and 0xFF
+                Color.rgb(red, green, blue).also {
+                    pixels[i * width + j] = it
+                }
+            }
+        }
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
+
+        binding.imageView.setImageBitmap(bitmap)
     }
 
     override fun onDestroy() {
         super.onDestroy()
 
         destroyOpenCL()
-    }
-
-    private fun compareTextEncoder() {
-        val encodeResult = encodeResult
-        val ptlEncoderResult = ptlEncoderResult
-        if (encodeResult == null || ptlEncoderResult == null) {
-            Log.d("__TEST__", "result is null")
-            return
-        }
-
-        var maxDiff = 0f
-        var num = 0
-        var id = 0
-        encodeResult.forEachIndexed { index, r1 ->
-            val r2 = ptlEncoderResult[index]
-            if (r1 != r2) {
-                num++
-                val diff = Math.abs(r1 - r2)
-                if (diff > maxDiff) {
-                    maxDiff = diff
-                    id = index
-                }
-            }
-        }
-
-        Log.d(
-            "__TEST__",
-            "maxDiff: $maxDiff, num: $num, encodeResult[$id]: ${encodeResult[id]}, ptlEncoderResult[$id]: ${ptlEncoderResult[id]}"
-        )
     }
 
     fun unet(
@@ -186,6 +213,7 @@ class MainActivity : AppCompatActivity() {
     external fun tokenize(text: String): LongArray
     external fun encode(token: LongArray): FloatArray
     external fun sample(condition: FloatArray): FloatArray
+    external fun decode(): FloatArray
     external fun destroyOpenCL()
 
     companion object {
@@ -194,34 +222,8 @@ class MainActivity : AppCompatActivity() {
             System.loadLibrary("myopencl")
         }
 
-        fun assetsFilePath(context: Context, assetName: String): String {
-            val file = context.filesDir.resolve(assetName)
-            if (file.exists() && file.length() > 0) {
-                return file.absolutePath
-            }
-            context.assets.open(assetName).use { inputStream ->
-                file.outputStream().use { outputStream ->
-                    val buffer = ByteArray(4 * 1024)
-                    var read: Int = inputStream.read(buffer)
-                    while (read != -1) {
-                        outputStream.write(buffer, 0, read)
-                        read = inputStream.read(buffer)
-                    }
-                    outputStream.flush()
-                }
-                return file.absolutePath
-            }
-        }
-
-        fun mediaFilePath(name: String): String {
+        private fun mediaFilePath(name: String): String {
             return Environment.getExternalStorageDirectory().absolutePath + "/Android/media/com.example.myopencl/$name"
-        }
-
-        fun readFloatFromAssets(context: Context, assetName: String): Sequence<Float> {
-            context.assets.open(assetName).use { inputStream ->
-                val regex = Regex("-?\\d+.\\d+(e[-|+]\\d+)?")
-                return regex.findAll(inputStream.reader().readText()).map { it.value.toFloat() }
-            }
         }
     }
 }
