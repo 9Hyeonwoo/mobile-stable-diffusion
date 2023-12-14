@@ -40,8 +40,10 @@ private:
     ResBlock *mid_res_block_2;
 
     ResBlock *up_3_res_blocks[3]{};
-
     UpSample *up_3_up_sample;
+
+    ResBlock *up_2_res_blocks[3]{};
+    UpSample *up_2_up_sample;
 };
 
 

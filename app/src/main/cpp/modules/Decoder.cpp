@@ -101,6 +101,36 @@ Decoder::Decoder(
                                   512, 512, 3, 1, 1,
                                   "decoder/up/3/decoder_up_3_upsample_conv_weight.npy",
                                   "decoder/up/3/decoder_up_3_upsample_conv_bias.npy");
+
+    for (int i = 0; i < 3; i++) {
+        auto folder_prefix =
+                "decoder/up/2/decoder_up_2_block_" + std::to_string(i);
+        auto in_group_norm_weight_name = folder_prefix + "_norm1_weight.npy";
+        auto in_group_norm_bias_name = folder_prefix + "_norm1_bias.npy";
+        auto in_conv2d_weight_name = folder_prefix + "_conv1_weight.npy";
+        auto in_conv2d_bias_name = folder_prefix + "_conv1_bias.npy";
+        auto out_group_norm_weight_name = folder_prefix + "_norm2_weight.npy";
+        auto out_group_norm_bias_name = folder_prefix + "_norm2_bias.npy";
+        auto out_conv2d_weight_name = folder_prefix + "_conv2_weight.npy";
+        auto out_conv2d_bias_name = folder_prefix + "_conv2_bias.npy";
+        up_2_res_blocks[i] = new ResBlock(context, cmdQueue, deviceId, assetManager,
+                                          512, 0, 512,
+                                          in_group_norm_weight_name,
+                                          in_group_norm_bias_name,
+                                          in_conv2d_weight_name,
+                                          in_conv2d_bias_name,
+                                          "", "",
+                                          out_group_norm_weight_name,
+                                          out_group_norm_bias_name,
+                                          out_conv2d_weight_name,
+                                          out_conv2d_bias_name,
+                                          "", "");
+    }
+
+    up_2_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
+                                  512, 512, 3, 1, 1,
+                                  "decoder/up/2/decoder_up_2_upsample_conv_weight.npy",
+                                  "decoder/up/2/decoder_up_2_upsample_conv_bias.npy");
 }
 
 Decoder::~Decoder() {
@@ -113,6 +143,10 @@ Decoder::~Decoder() {
         delete block;
     }
     delete up_3_up_sample;
+    for (auto &block: up_2_res_blocks) {
+        delete block;
+    }
+    delete up_2_up_sample;
 }
 
 std::vector<float> Decoder::decode(const std::vector<float> &x) {
@@ -122,8 +156,8 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     }
 
     cl_int err;
-    cl_event event[10];
-    cl_mem bufferX, buffer_4_64, buffer_512_64, buffer_512_128;
+    cl_event event[14];
+    cl_mem bufferX, buffer_4_64, buffer_512_64, buffer_512_128, buffer_512_256;
 
     bufferX = clCreateBuffer(context, CL_MEM_READ_ONLY,
                              sizeof(float) * x.size(),
@@ -210,6 +244,32 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     // test_up_3.npy max diff: 0.00012969970703125000
     // util::testBuffer(cmdQueue, buffer_512_128, "decoder/test/test_up_3.npy");
     /* up[3] */
+
+    /* up[2] */
+    buffer_512_256 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                    sizeof(float) * 512 * 256 * 256,
+                                    nullptr, &err);
+    CHECK_ERROR_THROW(err);
+
+    event_idx = 9;
+    for (auto &block: up_2_res_blocks) {
+        block->init();
+        err = block->forward(buffer_512_128, nullptr, buffer_512_128,
+                             0, nullptr,
+                             1, &event[event_idx], &event[event_idx + 1]);
+        CHECK_ERROR_THROW(err);
+
+        event_idx++;
+    }
+
+    up_2_up_sample->init();
+    err = up_2_up_sample->forward(buffer_512_128, buffer_512_256,
+                                  1, &event[12], &event[13]);
+    CHECK_ERROR_THROW(err);
+
+    // test_up_2.npy max diff: 0.00060272216796875000
+    // util::testBuffer(cmdQueue, buffer_512_256, "decoder/test/test_up_2.npy");
+    /* up[2] */
     /* up */
     /* Decoder */
 
@@ -220,6 +280,7 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     clReleaseMemObject(buffer_4_64);
     clReleaseMemObject(buffer_512_64);
     clReleaseMemObject(buffer_512_128);
+    clReleaseMemObject(buffer_512_256);
     return y;
 }
 
