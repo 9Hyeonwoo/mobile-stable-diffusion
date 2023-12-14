@@ -58,6 +58,19 @@ Decoder::Decoder(
                                    "decoder/mid/decoder_mid_attn_1_v_bias.npy",
                                    "decoder/mid/decoder_mid_attn_1_proj_out_weight.npy",
                                    "decoder/mid/decoder_mid_attn_1_proj_out_bias.npy");
+
+    mid_res_block_2 = new ResBlock(context, cmdQueue, deviceId, assetManager,
+                                   512, 0, 512,
+                                   "decoder/mid/decoder_mid_block_2_norm1_weight.npy",
+                                   "decoder/mid/decoder_mid_block_2_norm1_bias.npy",
+                                   "decoder/mid/decoder_mid_block_2_conv1_weight.npy",
+                                   "decoder/mid/decoder_mid_block_2_conv1_bias.npy",
+                                   nullptr, nullptr,
+                                   "decoder/mid/decoder_mid_block_2_norm2_weight.npy",
+                                   "decoder/mid/decoder_mid_block_2_norm2_bias.npy",
+                                   "decoder/mid/decoder_mid_block_2_conv2_weight.npy",
+                                   "decoder/mid/decoder_mid_block_2_conv2_bias.npy",
+                                   nullptr, nullptr);
 }
 
 Decoder::~Decoder() {
@@ -65,6 +78,7 @@ Decoder::~Decoder() {
     delete in_conv2d;
     delete mid_res_block_1;
     delete mid_attn_block;
+    delete mid_res_block_2;
 }
 
 std::vector<float> Decoder::decode(const std::vector<float> &x) {
@@ -74,7 +88,7 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     }
 
     cl_int err;
-    cl_event event[5];
+    cl_event event[6];
     cl_mem bufferX, buffer_4_64, buffer_512_64;
 
     bufferX = clCreateBuffer(context, CL_MEM_READ_ONLY,
@@ -124,6 +138,15 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
 
     // test_mid_attn_1.npy max diff: 0.00001525878906250000
     // util::testBuffer(cmdQueue, buffer_512_64, "decoder/test/test_mid_attn_1.npy");
+
+    mid_res_block_2->init();
+    err = mid_res_block_2->forward(buffer_512_64, nullptr, buffer_512_64,
+                                   0, nullptr,
+                                   1, &event[4], &event[5]);
+    CHECK_ERROR_THROW(err);
+
+    // test_mid_block_2.npy max diff: 0.00003004074096679688
+    // util::testBuffer(cmdQueue, buffer_512_64, "decoder/test/test_mid_block_2.npy");
     /* Decoder */
 
     for (auto &e: event) {

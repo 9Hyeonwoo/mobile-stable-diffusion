@@ -12,6 +12,7 @@
 #include "nn/AttnBlock.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
+
 #include "CL/opencl.h"
 
 class Decoder {
@@ -35,6 +36,9 @@ private:
     ResBlock *mid_res_block_1;
 
     AttnBlock *mid_attn_block;
+
+    ResBlock *mid_res_block_2;
+
 };
 
 
