@@ -26,7 +26,6 @@ cl_command_queue cmdQueue;
 cl_device_id deviceId;
 
 DDIMSampler *sampler;
-UNetModel *unet;
 AAssetManager *assetManager;
 
 extern "C" JNIEXPORT void JNICALL
@@ -65,7 +64,6 @@ Java_com_example_myopencl_MainActivity_initOpenCL(
     // auto x_vec = x.as_vec<float>();
     // sampler->sample(&x_vec, 50, shape, tmp_c);
 
-//    unet = new UNetModel(assetManager, context, cmdQueue, deviceId);
     /* test unet */
 //    auto x = util::load_npy_file("sampler/test/test_seed_45_img.npy").as_vec<float>();
 //    auto c = util::load_npy_file("encoder/test/ln_final_test_fp32.npy").as_vec<float>();
@@ -175,10 +173,11 @@ Java_com_example_myopencl_MainActivity_sample(JNIEnv *env, jobject thiz, jfloatA
 //    int shape[3] = {4, 64, 64};
 //    auto result = sampler->sample(&x_vec, 50, shape, condition);
 
+    auto unet = UNetModel(assetManager, context, cmdQueue, deviceId);
     auto x = util::load_npy_file("sampler/test/test_seed_45_img.npy").as_vec<float>();
     auto c = util::load_npy_file("encoder/test/ln_final_test_fp32.npy").as_vec<float>();
     auto start = std::chrono::high_resolution_clock::now();
-    auto result = unet->forward(x, 981, c);
+    auto result = unet.forward(x, 981, c);
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "u-net exec time: %lld ms", duration.count());
@@ -210,7 +209,6 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_myopencl_MainActivity_destroyOpenCL(JNIEnv *env, jobject thiz) {
     delete sampler;
-    delete unet;
 
     clReleaseCommandQueue(cmdQueue);
     clReleaseContext(context);

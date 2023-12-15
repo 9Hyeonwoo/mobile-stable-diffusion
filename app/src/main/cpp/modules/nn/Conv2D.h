@@ -32,9 +32,12 @@ private:
     size_t getOutputSize(size_t inputSize);
 
     std::vector<size_t> biasShape;
+    cl_context context;
     cl_command_queue cmdQueue;
 
     cl_kernel kernel;
+    cl_kernel kernel_im2col;
+    cl_kernel kernel_conv2d_matmul;
 
     cl_mem bufferWeight;
     cl_mem bufferBias;

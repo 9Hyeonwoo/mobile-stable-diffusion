@@ -60,15 +60,15 @@ GroupNorm::GroupNorm(
 }
 
 GroupNorm::~GroupNorm() {
-    clReleaseMemObject(bufferWeight);
-    clReleaseMemObject(bufferBias);
     clReleaseKernel(kernel_mean);
     clReleaseKernel(kernel_var);
     clReleaseKernel(kernel_norm);
     if (event_init_weight != nullptr) {
+        clReleaseMemObject(bufferWeight);
         clReleaseEvent(event_init_weight);
     }
     if (event_init_bias != nullptr) {
+        clReleaseMemObject(bufferBias);
         clReleaseEvent(event_init_bias);
     }
 }

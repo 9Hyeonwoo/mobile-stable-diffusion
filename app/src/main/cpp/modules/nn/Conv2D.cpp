@@ -8,6 +8,8 @@
 
 #define LOG_TAG "CONV2D"
 
+#define WORK_GROUP_SIZE (64 * 14)
+
 #define CHECK_ERROR(err) \
     if (err != CL_SUCCESS) { \
       __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "[%s:%d] OpenCL error %d\n", __FILE__, __LINE__, err); \
@@ -28,8 +30,9 @@ Conv2D::Conv2D(
         size_t in_channel, size_t out_channel, size_t kernel_size, int stride, int padding,
         const std::string &weight_name,
         const std::string &bias_name
-) : cmdQueue(cmdQueue), stride(stride), padding(padding), weight_name(weight_name),
-    bias_name(bias_name), event_init_weight(nullptr), event_init_bias(nullptr) {
+) : context(context), cmdQueue(cmdQueue), stride(stride), padding(padding),
+    weight_name(weight_name), bias_name(bias_name),
+    event_init_weight(nullptr), event_init_bias(nullptr) {
     cl_int err;
 
     weightShape = std::vector<size_t>({out_channel, in_channel, kernel_size, kernel_size});
@@ -52,17 +55,25 @@ Conv2D::Conv2D(
     kernel = clCreateKernel(program, "conv2d", &err);
     CHECK_ERROR_THROW(err);
 
+    kernel_im2col = clCreateKernel(program, "im2col", &err);
+    CHECK_ERROR_THROW(err);
+
+    kernel_conv2d_matmul = clCreateKernel(program, "conv2d_matmul", &err);
+    CHECK_ERROR_THROW(err);
+
     clReleaseProgram(program);
 }
 
 Conv2D::~Conv2D() {
-    clReleaseMemObject(bufferWeight);
-    clReleaseMemObject(bufferBias);
     clReleaseKernel(kernel);
+    clReleaseKernel(kernel_im2col);
+    clReleaseKernel(kernel_conv2d_matmul);
     if (event_init_weight != nullptr) {
+        clReleaseMemObject(bufferWeight);
         clReleaseEvent(event_init_weight);
     }
     if (event_init_bias != nullptr) {
+        clReleaseMemObject(bufferBias);
         clReleaseEvent(event_init_bias);
     }
 }
@@ -101,6 +112,8 @@ void Conv2D::init() {
 cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                        const cl_event *event_wait_list, cl_event *event) {
     cl_int err;
+    cl_mem bufferCol;
+    cl_event _event[1];
     auto _num_event_list = num_events_in_list + 2;
     auto *event_list = new cl_event[_num_event_list];
     event_list[0] = event_init_weight;
@@ -124,6 +137,7 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
 
     auto outputSize = getOutputSize(inputSize);
 
+    /*
     err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &bufferWeight);
     err |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &bufferBias);
@@ -140,7 +154,62 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  _num_event_list, event_list, event);
     CHECK_ERROR(err);
 
+    */
+    /* im2col version */
+    size_t kernel_size = weightShape[2];
+    size_t in_channel = weightShape[1];
+    bufferCol = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                               sizeof(float) * (in_channel * kernel_size * kernel_size) *
+                               (outputSize * outputSize),
+                               nullptr, &err);
+    CHECK_ERROR(err);
+
+    size_t num_kernels = in_channel * outputSize * outputSize;
+    int im_offset = 0;
+    int col_offset = 0;
+    err = clSetKernelArg(kernel_im2col, 0, sizeof(size_t), &num_kernels);
+    err |= clSetKernelArg(kernel_im2col, 1, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel_im2col, 2, sizeof(int), &im_offset);
+    err |= clSetKernelArg(kernel_im2col, 3, sizeof(size_t), &inputSize);
+    err |= clSetKernelArg(kernel_im2col, 4, sizeof(size_t), &inputSize);
+    err |= clSetKernelArg(kernel_im2col, 5, sizeof(size_t), &kernel_size);
+    err |= clSetKernelArg(kernel_im2col, 6, sizeof(int), &padding);
+    err |= clSetKernelArg(kernel_im2col, 7, sizeof(int), &stride);
+    err |= clSetKernelArg(kernel_im2col, 8, sizeof(size_t), &outputSize);
+    err |= clSetKernelArg(kernel_im2col, 9, sizeof(size_t), &outputSize);
+    err |= clSetKernelArg(kernel_im2col, 10, sizeof(cl_mem), &bufferCol);
+    err |= clSetKernelArg(kernel_im2col, 11, sizeof(int), &col_offset);
+    CHECK_ERROR(err);
+
+    size_t globalSize_im2col[1] = {WORK_GROUP_SIZE};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_im2col, 1, nullptr, globalSize_im2col, nullptr,
+                                 _num_event_list, event_list, &_event[0]);
+    CHECK_ERROR(err);
+
+    size_t out_channel = weightShape[0];
+    size_t N = outputSize * outputSize;
+    size_t K = in_channel * kernel_size * kernel_size;
+    err = clSetKernelArg(kernel_conv2d_matmul, 0, sizeof(cl_mem), &bufferWeight);
+    err |= clSetKernelArg(kernel_conv2d_matmul, 1, sizeof(cl_mem), &bufferBias);
+    err |= clSetKernelArg(kernel_conv2d_matmul, 2, sizeof(cl_mem), &bufferCol);
+    err |= clSetKernelArg(kernel_conv2d_matmul, 3, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel_conv2d_matmul, 4, sizeof(size_t), &out_channel);
+    err |= clSetKernelArg(kernel_conv2d_matmul, 5, sizeof(size_t), &N);
+    err |= clSetKernelArg(kernel_conv2d_matmul, 6, sizeof(size_t), &K);
+    CHECK_ERROR(err);
+
+    size_t globalSize_conv2d_matmul[1] = {WORK_GROUP_SIZE};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_conv2d_matmul, 1, nullptr,
+                                 globalSize_conv2d_matmul, nullptr,
+                                 1, &_event[0], event);
+    CHECK_ERROR(err);
+
     delete[] event_list;
+    for (auto &e: _event) {
+        clReleaseEvent(e);
+    }
+
+    clReleaseMemObject(bufferCol);
 
     return CL_SUCCESS;
 }
