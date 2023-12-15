@@ -8,7 +8,7 @@
 
 #define LOG_TAG "CONV2D"
 
-#define WORK_GROUP_SIZE (64 * 14)
+#define WORK_GROUP_SIZE (64 * 64)
 
 #define CHECK_ERROR(err) \
     if (err != CL_SUCCESS) { \
@@ -135,8 +135,16 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     inputSize /= weightShape[1];
     inputSize = static_cast<size_t>(sqrt(static_cast<float>(inputSize)));
 
+    if (inputSize * inputSize * weightShape[1] != inputBytes / sizeof(float)) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "Conv2D inputSize * inputSize * weightShape[1] != inputBytes / sizeof(float)");
+        throw std::runtime_error(
+                "Conv2D inputSize * inputSize * weightShape[1] != inputBytes / sizeof(float)");
+    }
+
     auto outputSize = getOutputSize(inputSize);
 
+    /* naive */
     /*
     err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &bufferWeight);
@@ -153,8 +161,9 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     err = clEnqueueNDRangeKernel(cmdQueue, kernel, 3, nullptr, globalSize, nullptr,
                                  _num_event_list, event_list, event);
     CHECK_ERROR(err);
-
     */
+    /* naive */
+
     /* im2col version */
     size_t kernel_size = weightShape[2];
     size_t in_channel = weightShape[1];
@@ -186,9 +195,11 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  _num_event_list, event_list, &_event[0]);
     CHECK_ERROR(err);
 
+
     size_t out_channel = weightShape[0];
     size_t N = outputSize * outputSize;
     size_t K = in_channel * kernel_size * kernel_size;
+
     err = clSetKernelArg(kernel_conv2d_matmul, 0, sizeof(cl_mem), &bufferWeight);
     err |= clSetKernelArg(kernel_conv2d_matmul, 1, sizeof(cl_mem), &bufferBias);
     err |= clSetKernelArg(kernel_conv2d_matmul, 2, sizeof(cl_mem), &bufferCol);
@@ -204,12 +215,14 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  1, &_event[0], event);
     CHECK_ERROR(err);
 
-    delete[] event_list;
+
     for (auto &e: _event) {
         clReleaseEvent(e);
     }
 
     clReleaseMemObject(bufferCol);
+
+    delete[] event_list;
 
     return CL_SUCCESS;
 }

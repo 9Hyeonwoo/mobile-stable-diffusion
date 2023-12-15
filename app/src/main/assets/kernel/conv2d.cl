@@ -74,7 +74,7 @@ __kernel void im2col(
             int w_im = w_offset + j;
             *data_col_ptr =
                 (h_im >= 0 && w_im >= 0 && h_im < height && w_im < width) ?
-                    data_im_ptr[i * width + j] : 0;
+                    data_im_ptr[i * width + j] : 0.0f;
             data_col_ptr += height_col * width_col;
           }
         }
@@ -100,7 +100,7 @@ __kernel void conv2d_matmul(
         float sum = 0.0f;
         for (int k = 0; k < K; k++) {
             // weight(M, K) * input_col(K, N) = output(M, N)
-            sum += weight[i * K + k] * input_col[k * N + j];
+            sum = weight[i * K + k] * input_col[k * N + j] + sum;
         }
         output[index] = sum + bias[i];
     }

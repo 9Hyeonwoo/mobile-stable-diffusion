@@ -1856,8 +1856,9 @@ UNetModel::concat_buffer(
 void
 UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<float> &condition) {
     cl_int err;
-    cl_event event0, event1, event2, event3, event4, event5;
-    cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed, bufferCondition, bufferInput, buffer_320_64, buffer_4_64;
+    cl_event event[6];
+    cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed, bufferCondition, bufferInput;
+    cl_mem buffer_1280_16, buffer_1280_32;
 
     auto t_emb = timestep_embedding(timestep);
 
@@ -1881,27 +1882,17 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
                                  nullptr, &err);
     CHECK_ERROR(err);
 
-    buffer_320_64 = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                   sizeof(float) * MODEL_CHANNELS * 64 * 64,
-                                   nullptr, &err);
-    CHECK_ERROR(err);
-
-    buffer_4_64 = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                 sizeof(float) * 4 * 64 * 64,
-                                 nullptr, &err);
-    CHECK_ERROR(err);
-
-    err = clEnqueueWriteBuffer(cmdQueue, bufferTimeEmbed, CL_FALSE, 0,
+    err = clEnqueueWriteBuffer(cmdQueue, bufferTimeEmbed, CL_TRUE, 0,
                                sizeof(float) * t_emb.size(),
                                t_emb.data(), 0, nullptr, nullptr);
     CHECK_ERROR(err);
 
-    err = clEnqueueWriteBuffer(cmdQueue, bufferCondition, CL_FALSE, 0,
+    err = clEnqueueWriteBuffer(cmdQueue, bufferCondition, CL_TRUE, 0,
                                sizeof(float) * condition.size(),
                                condition.data(), 0, nullptr, nullptr);
     CHECK_ERROR(err);
 
-    err = clEnqueueWriteBuffer(cmdQueue, bufferInput, CL_FALSE, 0,
+    err = clEnqueueWriteBuffer(cmdQueue, bufferInput, CL_TRUE, 0,
                                sizeof(float) * x.size(),
                                x.data(), 0, nullptr, nullptr);
     CHECK_ERROR(err);
@@ -1911,7 +1902,7 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
                                      nullptr, &err);
     CHECK_ERROR(err);
 
-    err = time_embed_0->forward(bufferTimeEmbed, bufferEmbedTemp, 0, nullptr, &event0);
+    err = time_embed_0->forward(bufferTimeEmbed, bufferEmbedTemp, 0, nullptr, &event[0]);
     CHECK_ERROR(err);
 
     err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &bufferEmbedTemp);
@@ -1920,33 +1911,57 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
 
     size_t embedWorkSize[1] = {MODEL_CHANNELS * 4};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr,
-                                 embedWorkSize, nullptr, 1, &event0, &event1);
+                                 embedWorkSize, nullptr, 1, &event[0], &event[1]);
     CHECK_ERROR(err);
 
-    err = time_embed_2->forward(bufferEmbedTemp, bufferEmbed, 1, &event1, &event2);
+    err = time_embed_2->forward(bufferEmbedTemp, bufferEmbed, 1, &event[1], &event[2]);
     CHECK_ERROR(err);
 
-    initOut();
-    out_group_norm->init();
-    err = out_group_norm->forward(bufferInput, buffer_320_64, 0, nullptr, &event3);
+    /* test section */
+    /* output_block layer[5] */
+    initOutputBlock5();
+
+    buffer_1280_16 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                    sizeof(float) * 4 * MODEL_CHANNELS * 16 * 16,
+                                    nullptr, &err);
     CHECK_ERROR(err);
 
+    buffer_1280_32 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                    sizeof(float) * 4 * MODEL_CHANNELS * 32 * 32,
+                                    nullptr, &err);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &buffer_320_64);
-    err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &buffer_320_64);
+    output_block_5_res_block->init();
+    err = output_block_5_res_block->forward(bufferInput, bufferEmbed, buffer_1280_16,
+                                            1, &event[2],
+                                            0, nullptr, &event[3]);
     CHECK_ERROR(err);
+    delete output_block_5_res_block;
 
-    size_t outSiluSize[1] = {MODEL_CHANNELS * 64 * 64};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr,
-                                 outSiluSize, nullptr, 1, &event3, &event4);
+    output_block_5_spatial->init();
+    err = output_block_5_spatial->forward(buffer_1280_16, bufferCondition, buffer_1280_16,
+                                          1, &event[3], &event[4]);
     CHECK_ERROR(err);
+    delete output_block_5_spatial;
 
-    out_conv2d->init();
-    err = out_conv2d->forward(buffer_320_64, buffer_4_64,
-                              1, &event4, nullptr);
+    output_block_5_up_sample->init();
+    err = output_block_5_up_sample->forward(buffer_1280_16, buffer_1280_32,
+                                            1, &event[4], &event[5]);
     CHECK_ERROR(err);
-    util::testBuffer(cmdQueue, buffer_4_64, "unet/out/test/test_out.npy");
+    delete output_block_5_up_sample;
+    /* output_block layer[5] */
+
+    /* output_block layer[6] */
+    initOutputBlock6();
+
+    output_block_6_res_block->init();
+    delete output_block_6_res_block;
+
+    output_block_6_spatial->init();
+    delete output_block_6_spatial;
+    /* output_block layer[6] */
+
+    /* test section */
 
     // test_output_block_0 max diff: 0.00002098083496093750
     // test_output_block_1.npy max diff: 0.00002479553222656250
@@ -1961,16 +1976,14 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
     // test_output_block_10.npy max diff: 0.00000619888305664062
     // test_output_block_11.npy max diff: 0.00001430511474609375
     // test_out.npy max diff: 0.00000190734863281250
-    clReleaseEvent(event0);
-    clReleaseEvent(event1);
-    clReleaseEvent(event2);
-    clReleaseEvent(event3);
-    clReleaseEvent(event4);
+    for (auto &e : event) {
+        clReleaseEvent(e);
+    }
     clReleaseMemObject(bufferTimeEmbed);
     clReleaseMemObject(bufferEmbedTemp);
     clReleaseMemObject(bufferEmbed);
     clReleaseMemObject(bufferInput);
     clReleaseMemObject(bufferCondition);
-    clReleaseMemObject(buffer_320_64);
-    clReleaseMemObject(buffer_4_64);
+    clReleaseMemObject(buffer_1280_16);
+    clReleaseMemObject(buffer_1280_32);
 }

@@ -89,7 +89,9 @@ void GroupNorm::init() {
     err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_TRUE, 0,
                                sizeof(float) * weightSize,
                                weight.data<float>(), 0, nullptr, &event_init_weight);
-    err |= clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_TRUE, 0,
+    CHECK_ERROR_THROW(err);
+
+    err = clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_TRUE, 0,
                                 sizeof(float) * biasSize,
                                 bias.data<float>(), 0, nullptr, &event_init_bias);
     CHECK_ERROR_THROW(err);

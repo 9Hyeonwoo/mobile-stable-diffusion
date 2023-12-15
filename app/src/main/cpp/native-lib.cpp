@@ -68,8 +68,6 @@ Java_com_example_myopencl_MainActivity_initOpenCL(
 //    auto x = util::load_npy_file("sampler/test/test_seed_45_img.npy").as_vec<float>();
 //    auto c = util::load_npy_file("encoder/test/ln_final_test_fp32.npy").as_vec<float>();
 //    unet->forward(x, 981, c);
-//    auto x = util::load_npy_file("unet/output_block/test/test_output_block_11.npy").as_vec<float>();
-//    unet->test(x, 981, c);
 
     /* test decoder */
 //    auto x = util::load_npy_file("decoder/test/test_up_0.npy").as_vec<float>();
@@ -181,6 +179,9 @@ Java_com_example_myopencl_MainActivity_sample(JNIEnv *env, jobject thiz, jfloatA
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "u-net exec time: %lld ms", duration.count());
+
+//    auto result = util::load_npy_file("unet/output_block/test/test_output_block_5_input.npy").as_vec<float>();
+//    unet.test(result, 981, c);
 
     jfloatArray resultArray = env->NewFloatArray(static_cast<int>(result.size()));
     env->SetFloatArrayRegion(resultArray, 0, static_cast<int>(result.size()), result.data());
