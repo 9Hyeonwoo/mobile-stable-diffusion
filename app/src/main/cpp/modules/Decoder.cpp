@@ -275,8 +275,10 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     CHECK_ERROR_THROW(err);
 
     post_quant_conv2d->init();
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process 0");
     err = post_quant_conv2d->forward(bufferX, buffer_4_64, 1, &event[0], &event[1]);
     CHECK_ERROR_THROW(err);
+    delete post_quant_conv2d;
 
     /* Decoder */
     buffer_512_64 = clCreateBuffer(context, CL_MEM_READ_WRITE,
@@ -285,34 +287,42 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     CHECK_ERROR_THROW(err);
 
     in_conv2d->init();
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process 1");
     err = in_conv2d->forward(buffer_4_64, buffer_512_64, 1, &event[1], &event[2]);
     CHECK_ERROR_THROW(err);
+    delete in_conv2d;
 
     // test_conv_in.npy max diff: 0.00000238418579101562
     // util::testBuffer(cmdQueue, buffer_512_64, "decoder/test/test_conv_in.npy");
 
     /* mid */
     mid_res_block_1->init();
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process 2");
     err = mid_res_block_1->forward(buffer_512_64, nullptr, buffer_512_64,
                                    0, nullptr,
                                    1, &event[2], &event[3]);
     CHECK_ERROR_THROW(err);
+    delete mid_res_block_1;
 
     // test_mid_block_1.npy max diff: 0.00001192092895507812
     // util::testBuffer(cmdQueue, buffer_512_64, "decoder/test/test_mid_block_1.npy");
 
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process 3");
     err = mid_attn_block->forward(buffer_512_64, buffer_512_64,
                                   1, &event[3], &event[4]);
     CHECK_ERROR_THROW(err);
+    delete mid_attn_block;
 
     // test_mid_attn_1.npy max diff: 0.00001525878906250000
     // util::testBuffer(cmdQueue, buffer_512_64, "decoder/test/test_mid_attn_1.npy");
 
     mid_res_block_2->init();
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process 4");
     err = mid_res_block_2->forward(buffer_512_64, nullptr, buffer_512_64,
                                    0, nullptr,
                                    1, &event[4], &event[5]);
     CHECK_ERROR_THROW(err);
+    delete mid_res_block_2;
 
     // test_mid_block_2.npy max diff: 0.00003004074096679688
     // util::testBuffer(cmdQueue, buffer_512_64, "decoder/test/test_mid_block_2.npy");
@@ -328,18 +338,22 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     int event_idx = 5;
     for (auto &block: up_3_res_blocks) {
         block->init();
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process %d", event_idx);
         err = block->forward(buffer_512_64, nullptr, buffer_512_64,
                              0, nullptr,
                              1, &event[event_idx], &event[event_idx + 1]);
         CHECK_ERROR_THROW(err);
+        delete block;
 
         event_idx++;
     }
 
     up_3_up_sample->init();
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process 8");
     err = up_3_up_sample->forward(buffer_512_64, buffer_512_128,
                                   1, &event[8], &event[9]);
     CHECK_ERROR_THROW(err);
+    delete up_3_up_sample;
 
     // test_up_3.npy max diff: 0.00012969970703125000
     // util::testBuffer(cmdQueue, buffer_512_128, "decoder/test/test_up_3.npy");
@@ -354,18 +368,22 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     event_idx = 9;
     for (auto &block: up_2_res_blocks) {
         block->init();
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process %d", event_idx);
         err = block->forward(buffer_512_128, nullptr, buffer_512_128,
                              0, nullptr,
                              1, &event[event_idx], &event[event_idx + 1]);
         CHECK_ERROR_THROW(err);
+        delete block;
 
         event_idx++;
     }
 
     up_2_up_sample->init();
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process 12");
     err = up_2_up_sample->forward(buffer_512_128, buffer_512_256,
                                   1, &event[12], &event[13]);
     CHECK_ERROR_THROW(err);
+    delete up_2_up_sample;
 
     // test_up_2.npy max diff: 0.00060272216796875000
     // util::testBuffer(cmdQueue, buffer_512_256, "decoder/test/test_up_2.npy");
@@ -383,27 +401,33 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     CHECK_ERROR_THROW(err);
 
     up_1_res_blocks[0]->init();
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process 13");
     err = up_1_res_blocks[0]->forward(buffer_512_256, nullptr, buffer_256_256,
                                       0, nullptr,
                                       1, &event[13], &event[14]);
     CHECK_ERROR_THROW(err);
+    delete up_1_res_blocks[0];
 
     event_idx = 14;
     for (int i = 1; i < 3; i++) {
         auto block = up_1_res_blocks[i];
         block->init();
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process %d", event_idx);
         err = block->forward(buffer_256_256, nullptr, buffer_256_256,
                              0, nullptr,
                              1, &event[event_idx], &event[event_idx + 1]);
         CHECK_ERROR_THROW(err);
+        delete block;
 
         event_idx++;
     }
 
     up_1_up_sample->init();
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process 16");
     err = up_1_up_sample->forward(buffer_256_256, buffer_256_512,
                                   1, &event[16], &event[17]);
     CHECK_ERROR_THROW(err);
+    delete up_1_up_sample;
 
     // test_up_1.npy max diff: 0.00213623046875000000
     // util::testBuffer(cmdQueue, buffer_256_512, "decoder/test/test_up_1.npy");
@@ -416,15 +440,18 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     CHECK_ERROR_THROW(err);
 
     up_0_res_blocks[0]->init();
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process 17");
     err = up_0_res_blocks[0]->forward(buffer_256_512, nullptr, buffer_128_512,
                                       0, nullptr,
                                       1, &event[17], &event[18]);
     CHECK_ERROR_THROW(err);
+    delete up_0_res_blocks[0];
 
     event_idx = 18;
     for (int i = 1; i < 3; i++) {
         auto block = up_0_res_blocks[i];
         block->init();
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process %d", event_idx);
         err = block->forward(buffer_128_512, nullptr, buffer_128_512,
                              0, nullptr,
                              1, &event[event_idx], &event[event_idx + 1]);
@@ -445,9 +472,11 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     CHECK_ERROR_THROW(err);
 
     out_group_norm->init();
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process 20");
     err = out_group_norm->forward(buffer_128_512, buffer_128_512,
                                   1, &event[20], &event[21]);
     CHECK_ERROR_THROW(err);
+    delete out_group_norm;
 
     err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &buffer_128_512);
     err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &buffer_128_512);
@@ -460,9 +489,11 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     CHECK_ERROR_THROW(err);
 
     out_conv2d->init();
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process 21");
     err = out_conv2d->forward(buffer_128_512, buffer_3_512,
                               1, &event[22], &event[23]);
     CHECK_ERROR_THROW(err);
+    delete out_conv2d;
 
     // test_out.npy max diff: 0.00000357627868652344
     // util::testBuffer(cmdQueue, buffer_3_512, "decoder/test/test_out.npy");
