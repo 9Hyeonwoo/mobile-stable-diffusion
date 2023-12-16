@@ -52,6 +52,7 @@ Conv2D::Conv2D(
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/conv2d.cl");
 
+    /*
     kernel = clCreateKernel(program, "conv2d", &err);
     CHECK_ERROR_THROW(err);
 
@@ -60,14 +61,25 @@ Conv2D::Conv2D(
 
     kernel_conv2d_matmul = clCreateKernel(program, "conv2d_matmul", &err);
     CHECK_ERROR_THROW(err);
+    */
+
+    kernel_im2win = clCreateKernel(program, "im2win", &err);
+    CHECK_ERROR_THROW(err);
+
+    kernel_im2win_matmul = clCreateKernel(program, "im2win_matmul", &err);
+    CHECK_ERROR_THROW(err);
 
     clReleaseProgram(program);
 }
 
 Conv2D::~Conv2D() {
+    /*
     clReleaseKernel(kernel);
     clReleaseKernel(kernel_im2col);
     clReleaseKernel(kernel_conv2d_matmul);
+    */
+    clReleaseKernel(kernel_im2win);
+    clReleaseKernel(kernel_im2win_matmul);
     if (event_init_weight != nullptr) {
         clReleaseMemObject(bufferWeight);
         clReleaseEvent(event_init_weight);
@@ -112,7 +124,7 @@ void Conv2D::init() {
 cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                        const cl_event *event_wait_list, cl_event *event) {
     cl_int err;
-    cl_mem bufferCol;
+    cl_mem bufferCol, bufferWin;
     cl_event _event[1];
     auto _num_event_list = num_events_in_list + 2;
     auto *event_list = new cl_event[_num_event_list];
@@ -165,6 +177,7 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     /* naive */
 
     /* im2col version */
+    /*
     size_t kernel_size = weightShape[2];
     size_t in_channel = weightShape[1];
     bufferCol = clCreateBuffer(context, CL_MEM_READ_WRITE,
@@ -214,12 +227,70 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  1, &_event[0], event);
     CHECK_ERROR(err);
 
+    clReleaseMemObject(bufferCol);
+    */
+    /* im2col version */
+
+    /* im2win version */
+    size_t kernel_size = weightShape[2];
+    size_t in_channel = weightShape[1];
+    size_t width_pad = (inputSize + 2 * padding);
+    bufferWin = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                               sizeof(float) * (in_channel * outputSize) *
+                               (width_pad * kernel_size),
+                               nullptr, &err);
+    CHECK_ERROR(err);
+
+    int im_offset = 0;
+    int col_offset = 0;
+    size_t num_windows = in_channel * outputSize * width_pad;
+    size_t width_win = width_pad * kernel_size;
+    err = clSetKernelArg(kernel_im2win, 0, sizeof(size_t), &num_windows);
+    err |= clSetKernelArg(kernel_im2win, 1, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel_im2win, 2, sizeof(int), &im_offset);
+    err |= clSetKernelArg(kernel_im2win, 3, sizeof(size_t), &inputSize);
+    err |= clSetKernelArg(kernel_im2win, 4, sizeof(size_t), &inputSize);
+    err |= clSetKernelArg(kernel_im2win, 5, sizeof(size_t), &kernel_size);
+    err |= clSetKernelArg(kernel_im2win, 6, sizeof(int), &padding);
+    err |= clSetKernelArg(kernel_im2win, 7, sizeof(int), &stride);
+    err |= clSetKernelArg(kernel_im2win, 8, sizeof(size_t), &outputSize);
+    err |= clSetKernelArg(kernel_im2win, 9, sizeof(size_t), &width_win);
+    err |= clSetKernelArg(kernel_im2win, 10, sizeof(cl_mem), &bufferWin);
+    err |= clSetKernelArg(kernel_im2win, 11, sizeof(int), &col_offset);
+    CHECK_ERROR(err);
+
+    size_t globalSize_im2win[1] = {num_windows};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_im2win, 1, nullptr, globalSize_im2win, nullptr,
+                                 _num_event_list, event_list, &_event[0]);
+    CHECK_ERROR(err);
+
+    size_t out_channel = weightShape[0];
+    err = clSetKernelArg(kernel_im2win_matmul, 0, sizeof(cl_mem), &bufferWeight);
+    err |= clSetKernelArg(kernel_im2win_matmul, 1, sizeof(cl_mem), &bufferBias);
+    err |= clSetKernelArg(kernel_im2win_matmul, 2, sizeof(cl_mem), &bufferWin);
+    err |= clSetKernelArg(kernel_im2win_matmul, 3, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel_im2win_matmul, 4, sizeof(size_t), &out_channel);
+    err |= clSetKernelArg(kernel_im2win_matmul, 5, sizeof(size_t), &outputSize);
+    err |= clSetKernelArg(kernel_im2win_matmul, 6, sizeof(size_t), &outputSize);
+    err |= clSetKernelArg(kernel_im2win_matmul, 7, sizeof(size_t), &width_win);
+    err |= clSetKernelArg(kernel_im2win_matmul, 8, sizeof(size_t), &in_channel);
+    err |= clSetKernelArg(kernel_im2win_matmul, 9, sizeof(size_t), &kernel_size);
+    err |= clSetKernelArg(kernel_im2win_matmul, 10, sizeof(int), &stride);
+    CHECK_ERROR(err);
+
+    size_t globalSize_im2win_matmul[1] = {out_channel * outputSize * outputSize};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_im2win_matmul, 1, nullptr,
+                                 globalSize_im2win_matmul, nullptr,
+                                 1, &_event[0], event);
+    CHECK_ERROR(err);
+
+    clReleaseMemObject(bufferWin);
+    /* im2win version */
+
 
     for (auto &e: _event) {
         clReleaseEvent(e);
     }
-
-    clReleaseMemObject(bufferCol);
 
     delete[] event_list;
 
