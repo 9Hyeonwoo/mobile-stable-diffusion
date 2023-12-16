@@ -297,7 +297,9 @@ cl_int ResBlock::forward(
     clReleaseEvent(event3_0);
     clReleaseEvent(event3_1);
     clReleaseEvent(event3_2[0]);
-    clReleaseEvent(event3_2[1]);
+    if (in_channels != out_channels) {
+        clReleaseEvent(event3_2[1]);
+    }
     clReleaseMemObject(bufferInGroupNorm);
     clReleaseMemObject(bufferInConv2d);
     clReleaseMemObject(bufferOut);

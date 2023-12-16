@@ -190,11 +190,10 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     err |= clSetKernelArg(kernel_im2col, 11, sizeof(int), &col_offset);
     CHECK_ERROR(err);
 
-    size_t globalSize_im2col[1] = {WORK_GROUP_SIZE};
+    size_t globalSize_im2col[1] = {num_kernels};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_im2col, 1, nullptr, globalSize_im2col, nullptr,
                                  _num_event_list, event_list, &_event[0]);
     CHECK_ERROR(err);
-
 
     size_t out_channel = weightShape[0];
     size_t N = outputSize * outputSize;
@@ -209,7 +208,7 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     err |= clSetKernelArg(kernel_conv2d_matmul, 6, sizeof(size_t), &K);
     CHECK_ERROR(err);
 
-    size_t globalSize_conv2d_matmul[1] = {WORK_GROUP_SIZE};
+    size_t globalSize_conv2d_matmul[1] = {out_channel * N};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_conv2d_matmul, 1, nullptr,
                                  globalSize_conv2d_matmul, nullptr,
                                  1, &_event[0], event);
