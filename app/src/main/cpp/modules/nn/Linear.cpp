@@ -50,11 +50,15 @@ Linear::Linear(
     kernel = clCreateKernel(program, "linear", &err);
     CHECK_ERROR_THROW(err);
 
+    kernel_reg_linear = clCreateKernel(program, "reg_linear", &err);
+    CHECK_ERROR_THROW(err);
+
     clReleaseProgram(program);
 }
 
 Linear::~Linear() {
     clReleaseKernel(kernel);
+    clReleaseKernel(kernel_reg_linear);
     if (event_init_weight != nullptr) {
         clReleaseMemObject(bufferWeight);
         clReleaseEvent(event_init_weight);
@@ -135,6 +139,7 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     auto M = inputSize / weightShape[1];
     auto N = weightShape[0];
     auto K = weightShape[1];
+    /* naive
     err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &bufferWeight);
     err |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &bufferBias);
@@ -145,6 +150,69 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     size_t globalWorkSize[2] = {M, N};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel, 2, nullptr, globalWorkSize, nullptr,
                                  _num_events, _event_list, event);
+    CHECK_ERROR(err);
+     naive */
+
+    size_t reg_size_n = 8;
+    size_t tile_size_n = 128;
+    size_t tile_size_k = 16;
+    size_t tile_size_ms[] = {128, 77, 1};
+    size_t reg_size_ms[] = {8, 7, 1};
+
+
+    int m_index, m_size = 3;
+    for (m_index = 0; m_index < m_size; m_index++) {
+        if (M % (tile_size_ms[m_index]) == 0) {
+            break;
+        }
+    }
+    if (m_index >= m_size) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] M(%ld) %% tile_size_m != 0\n", __FILE__,
+                            __LINE__, M);
+        return CL_INVALID_VALUE;
+    }
+    size_t tile_size_m = tile_size_ms[m_index];
+    size_t reg_size_m = reg_size_ms[m_index];
+    if (K % tile_size_k != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] K(%ld) %% tile_size_k(%ld) != 0\n", __FILE__,
+                            __LINE__, K, tile_size_k);
+        return CL_INVALID_VALUE;
+    }
+    if (N % tile_size_n != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] N(%ld) %% tile_size_n(%ld) != 0\n", __FILE__,
+                            __LINE__, N, tile_size_n);
+        return CL_INVALID_VALUE;
+    }
+    err = clSetKernelArg(kernel_reg_linear, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel_reg_linear, 1, sizeof(cl_mem), &bufferWeight);
+    err |= clSetKernelArg(kernel_reg_linear, 2, sizeof(cl_mem), &bufferBias);
+    err |= clSetKernelArg(kernel_reg_linear, 3, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel_reg_linear, 4, sizeof(int), &M);
+    err |= clSetKernelArg(kernel_reg_linear, 5, sizeof(int), &N);
+    err |= clSetKernelArg(kernel_reg_linear, 6, sizeof(int), &K);
+    err |= clSetKernelArg(kernel_reg_linear, 7, sizeof(size_t), &reg_size_m);
+    err |= clSetKernelArg(kernel_reg_linear, 8, sizeof(size_t), &tile_size_m);
+    err |= clSetKernelArg(kernel_reg_linear, 9, sizeof(float) * tile_size_m * tile_size_k, nullptr);
+    CHECK_ERROR(err);
+
+    size_t globalSize_m, globalSize_n;
+    if (M % (tile_size_m) != 0) {
+        globalSize_m = ((M / tile_size_m) + 1) * tile_size_m;
+    } else {
+        globalSize_m = M;
+    }
+    if (N % (tile_size_n) != 0) {
+        globalSize_n = ((N / tile_size_n) + 1) * tile_size_n;
+    } else {
+        globalSize_n = N;
+    }
+    size_t globalWorkSize_reg_linear[2] = {globalSize_m / reg_size_m, globalSize_n / reg_size_n};
+    size_t localWorkSize_reg_linear[2] = {tile_size_m / reg_size_m, tile_size_n / reg_size_n};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_reg_linear, 2, nullptr, globalWorkSize_reg_linear,
+                                 localWorkSize_reg_linear, _num_events, _event_list, event);
     CHECK_ERROR(err);
 
     delete[] _event_list;

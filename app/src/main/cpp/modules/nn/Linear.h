@@ -36,6 +36,7 @@ private:
 
     cl_command_queue cmdQueue;
     cl_kernel kernel;
+    cl_kernel kernel_reg_linear;
 
     cl_event event_init_weight;
     cl_event event_init_bias;

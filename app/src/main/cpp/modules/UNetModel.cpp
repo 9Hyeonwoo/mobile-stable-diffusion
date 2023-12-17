@@ -1102,12 +1102,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                            1, &event1_1, &event1_2[1]);
     CHECK_ERROR(err);
     delete input_block_1_res_block;
+    input_block_1_res_block = nullptr;
 
     input_block_1_spatial->init();
     err = input_block_1_spatial->forward(bufferInput_1, bufferCondition, bufferInput_1,
                                          2, event1_2, &event1_3);
     CHECK_ERROR(err);
     delete input_block_1_spatial;
+    input_block_1_spatial = nullptr;
     /* input_block layer[1] */
 
     /* input_block layer[2] */
@@ -1123,6 +1125,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                            1, &event1_3, &event1_4);
     CHECK_ERROR(err);
     delete input_block_2_res_block;
+    input_block_2_res_block = nullptr;
 
     // test_input_block_2_res.npy max diff: 0.00001192092895507812
     // util::testBuffer(cmdQueue, bufferInput_2, "unet/input_block/test/test_input_block_2_res.npy");
@@ -1132,6 +1135,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                          1, &event1_4, &event1_5);
     CHECK_ERROR(err);
     delete input_block_2_spatial;
+    input_block_2_spatial = nullptr;
 
     // max diff: 0.00001168251037597656
     // util::testBuffer(cmdQueue, bufferInput_2, "unet/input_block/test/test_input_block_2.npy");
@@ -1149,6 +1153,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                         1, &event1_5, &event1_6);
     CHECK_ERROR(err);
     delete input_block_3_conv2d;
+    input_block_3_conv2d = nullptr;
 
     // max diff: 0.00001525878906250000
     // util::testBuffer(cmdQueue, bufferInput_3, "unet/input_block/test/test_input_block_3.npy");
@@ -1167,6 +1172,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                            1, &event1_6, &event1_7);
     CHECK_ERROR(err);
     delete input_block_4_res_block;
+    input_block_4_res_block = nullptr;
 
     // max diff: 0.00001382827758789062
     // util::testBuffer(cmdQueue, bufferInput_4, "unet/input_block/test/test_input_block_4_res.npy");
@@ -1176,6 +1182,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                          1, &event1_7, &event1_8);
     CHECK_ERROR(err);
     delete input_block_4_spatial;
+    input_block_4_spatial = nullptr;
 
     // max diff: 0.00002956390380859375
     // util::testBuffer(cmdQueue, bufferInput_4, "unet/input_block/test/test_input_block_4.npy");
@@ -1194,12 +1201,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                            1, &event1_8, &event1_9);
     CHECK_ERROR(err);
     delete input_block_5_res_block;
+    input_block_5_res_block = nullptr;
 
     input_block_5_spatial->init();
     err = input_block_5_spatial->forward(bufferInput_5, bufferCondition, bufferInput_5,
                                          1, &event1_9, &event1_10);
     CHECK_ERROR(err);
     delete input_block_5_spatial;
+    input_block_5_spatial = nullptr;
 
     // max diff: 0.00013732910156250000
     // util::testBuffer(cmdQueue, bufferInput_5, "unet/input_block/test/test_input_block_5.npy");
@@ -1218,6 +1227,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                         1, &event1_10, &event1_11);
     CHECK_ERROR(err);
     delete input_block_6_conv2d;
+    input_block_6_conv2d = nullptr;
 
     // max diff: 0.00004652142524719238
     // util::testBuffer(cmdQueue, bufferInput_6, "unet/input_block/test/test_input_block_6.npy");
@@ -1236,12 +1246,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                            1, &event1_11, &event1_12);
     CHECK_ERROR(err);
     delete input_block_7_res_block;
+    input_block_7_res_block = nullptr;
 
     input_block_7_spatial->init();
     err = input_block_7_spatial->forward(bufferInput_7, bufferCondition, bufferInput_7,
                                          1, &event1_12, &event1_13);
     CHECK_ERROR(err);
     delete input_block_7_spatial;
+    input_block_7_spatial = nullptr;
 
     // max diff: 0.00004172325134277344
     // util::testBuffer(cmdQueue, bufferInput_7, "unet/input_block/test/test_input_block_7.npy");
@@ -1260,12 +1272,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                            1, &event1_13, &event1_14);
     CHECK_ERROR(err);
     delete input_block_8_res_block;
+    input_block_8_res_block = nullptr;
 
     input_block_8_spatial->init();
     err = input_block_8_spatial->forward(bufferInput_8, bufferCondition, bufferInput_8,
                                          1, &event1_14, &event1_15);
     CHECK_ERROR(err);
     delete input_block_8_spatial;
+    input_block_8_spatial = nullptr;
 
     // max diff: 0.00004684925079345703
     // util::testBuffer(cmdQueue, bufferInput_8, "unet/input_block/test/test_input_block_8.npy");
@@ -1283,6 +1297,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                         1, &event1_15, &event1_16);
     CHECK_ERROR(err);
     delete input_block_9_conv2d;
+    input_block_9_conv2d = nullptr;
     /* input_block layer[9] */
 
     /* input_block layer[10] */
@@ -1298,6 +1313,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event1_16, &event1_17);
     CHECK_ERROR(err);
     delete input_block_10_res_block;
+    input_block_10_res_block = nullptr;
     /* input_block layer[10] */
 
     /* input_block layer[11] */
@@ -1313,6 +1329,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event1_17, &event1_18);
     CHECK_ERROR(err);
     delete input_block_11_res_block;
+    input_block_11_res_block = nullptr;
 
     // max diff: 0.00013542175292968750
     // util::testBuffer(cmdQueue, buffer_1280_8, "unet/input_block/test/test_input_block_11.npy");
@@ -1332,12 +1349,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event1_18, &event2_0);
     CHECK_ERROR(err);
     delete middle_block_0_res_block;
+    middle_block_0_res_block = nullptr;
 
     middle_block_1_spatial->init();
     err = middle_block_1_spatial->forward(buffer_1280_8, bufferCondition, buffer_1280_8,
                                           1, &event2_0, &event2_1);
     CHECK_ERROR(err);
     delete middle_block_1_spatial;
+    middle_block_1_spatial = nullptr;
 
     middle_block_2_res_block->init();
     err = middle_block_2_res_block->forward(buffer_1280_8, bufferEmbed, buffer_1280_8,
@@ -1345,6 +1364,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event2_1, &event2_2);
     CHECK_ERROR(err);
     delete middle_block_2_res_block;
+    middle_block_2_res_block = nullptr;
 
     // max diff: 0.00013828277587890625
     // util::testBuffer(cmdQueue, buffer_1280_8, "unet/middle_block/test/test_middle_block.npy");
@@ -1367,6 +1387,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event3_0, &event3_1);
     CHECK_ERROR(err);
     delete output_block_0_res_block;
+    output_block_0_res_block = nullptr;
     // test_output_block_0.npy max diff: 0.00009822845458984375
     // util::testBuffer(cmdQueue, buffer_1280_8, "unet/output_block/test/test_output_block_0.npy");
     /* output_block layer[0] */
@@ -1382,6 +1403,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event3_2, &event3_3);
     CHECK_ERROR(err);
     delete output_block_1_res_block;
+    output_block_1_res_block = nullptr;
 
     // test_output_block_1.npy max diff: 0.00010108947753906250
     // util::testBuffer(cmdQueue, buffer_1280_8, "unet/output_block/test/test_output_block_1.npy");
@@ -1403,12 +1425,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event3_4, &event3_5);
     CHECK_ERROR(err);
     delete output_block_2_res_block;
+    output_block_2_res_block = nullptr;
 
     output_block_2_up_sample->init();
     err = output_block_2_up_sample->forward(buffer_1280_8, buffer_1280_16,
                                             1, &event3_5, &event3_6);
     CHECK_ERROR(err);
     delete output_block_2_up_sample;
+    output_block_2_up_sample = nullptr;
 
     // test_output_block_2.npy max diff: 0.00007247924804687500
     // util::testBuffer(cmdQueue, buffer_1280_16, "unet/output_block/test/test_output_block_2.npy");
@@ -1430,12 +1454,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event3_7, &event3_8);
     CHECK_ERROR(err);
     delete output_block_3_res_block;
+    output_block_3_res_block = nullptr;
 
     output_block_3_spatial->init();
     err = output_block_3_spatial->forward(buffer_1280_16, bufferCondition, buffer_1280_16,
                                           1, &event3_8, &event3_9);
     CHECK_ERROR(err);
     delete output_block_3_spatial;
+    output_block_3_spatial = nullptr;
 
     // test_output_block_3.npy max diff: 0.00009536743164062500
     // util::testBuffer(cmdQueue, buffer_1280_16, "unet/output_block/test/test_output_block_3.npy");
@@ -1453,12 +1479,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event3_10, &event3_11);
     CHECK_ERROR(err);
     delete output_block_4_res_block;
+    output_block_4_res_block = nullptr;
 
     output_block_4_spatial->init();
     err = output_block_4_spatial->forward(buffer_1280_16, bufferCondition, buffer_1280_16,
                                           1, &event3_11, &event3_12);
     CHECK_ERROR(err);
     delete output_block_4_spatial;
+    output_block_4_spatial = nullptr;
     /* output_block layer[4] */
 
     /* output_block layer[5] */
@@ -1483,18 +1511,21 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event3_13, &event3_14);
     CHECK_ERROR(err);
     delete output_block_5_res_block;
+    output_block_5_res_block = nullptr;
 
     output_block_5_spatial->init();
     err = output_block_5_spatial->forward(buffer_1280_16, bufferCondition, buffer_1280_16,
                                           1, &event3_14, &event3_15);
     CHECK_ERROR(err);
     delete output_block_5_spatial;
+    output_block_5_spatial = nullptr;
 
     output_block_5_up_sample->init();
     err = output_block_5_up_sample->forward(buffer_1280_16, buffer_1280_32,
                                             1, &event3_15, &event3_16);
     CHECK_ERROR(err);
     delete output_block_5_up_sample;
+    output_block_5_up_sample = nullptr;
     /* output_block layer[5] */
 
     /* output_block layer[6] */
@@ -1518,12 +1549,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event3_17, &event3_18);
     CHECK_ERROR(err);
     delete output_block_6_res_block;
+    output_block_6_res_block = nullptr;
 
     output_block_6_spatial->init();
     err = output_block_6_spatial->forward(buffer_640_32, bufferCondition, buffer_640_32,
                                           1, &event3_18, &event3_19);
     CHECK_ERROR(err);
     delete output_block_6_spatial;
+    output_block_6_spatial = nullptr;
     /* output_block layer[6] */
 
     /* output_block layer[7] */
@@ -1538,12 +1571,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event3_20, &event3_21);
     CHECK_ERROR(err);
     delete output_block_7_res_block;
+    output_block_7_res_block = nullptr;
 
     output_block_7_spatial->init();
     err = output_block_7_spatial->forward(buffer_640_32, bufferCondition, buffer_640_32,
                                           1, &event3_21, &event3_22);
     CHECK_ERROR(err);
     delete output_block_7_spatial;
+    output_block_7_spatial = nullptr;
     /* output_block layer[7] */
 
     /* output_block layer[8] */
@@ -1568,18 +1603,21 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event3_23, &event3_24);
     CHECK_ERROR(err);
     delete output_block_8_res_block;
+    output_block_8_res_block = nullptr;
 
     output_block_8_spatial->init();
     err = output_block_8_spatial->forward(buffer_640_32, bufferCondition, buffer_640_32,
                                           1, &event3_24, &event3_25);
     CHECK_ERROR(err);
     delete output_block_8_spatial;
+    output_block_8_spatial = nullptr;
 
     output_block_8_up_sample->init();
     err = output_block_8_up_sample->forward(buffer_640_32, buffer_640_64,
                                             1, &event3_25, &event3_26);
     CHECK_ERROR(err);
     delete output_block_8_up_sample;
+    output_block_8_up_sample = nullptr;
     /* output_block layer[8] */
 
     /* output_block layer[9] */
@@ -1604,12 +1642,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                             1, &event3_27, &event3_28);
     CHECK_ERROR(err);
     delete output_block_9_res_block;
+    output_block_9_res_block = nullptr;
 
     output_block_9_spatial->init();
     err = output_block_9_spatial->forward(buffer_320_64, bufferCondition, buffer_320_64,
                                           1, &event3_28, &event3_29);
     CHECK_ERROR(err);
     delete output_block_9_spatial;
+    output_block_9_spatial = nullptr;
     /* output_block layer[9] */
 
     /* output_block layer[10] */
@@ -1624,12 +1664,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                              1, &event3_30, &event3_31);
     CHECK_ERROR(err);
     delete output_block_10_res_block;
+    output_block_10_res_block = nullptr;
 
     output_block_10_spatial->init();
     err = output_block_10_spatial->forward(buffer_320_64, bufferCondition, buffer_320_64,
                                            1, &event3_31, &event3_32);
     CHECK_ERROR(err);
     delete output_block_10_spatial;
+    output_block_10_spatial = nullptr;
     /* output_block layer[10] */
 
     /* output_block layer[11] */
@@ -1644,12 +1686,14 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                              1, &event3_33, &event3_34);
     CHECK_ERROR(err);
     delete output_block_11_res_block;
+    output_block_11_res_block = nullptr;
 
     output_block_11_spatial->init();
     err = output_block_11_spatial->forward(buffer_320_64, bufferCondition, buffer_320_64,
                                            1, &event3_34, &event3_35);
     CHECK_ERROR(err);
     delete output_block_11_spatial;
+    output_block_11_spatial = nullptr;
 
     // test_output_block_11.npy max diff: 0.00001716613769531250
     // util::testBuffer(cmdQueue, buffer_320_64, "unet/output_block/test/test_output_block_11.npy");
@@ -1669,6 +1713,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                   1, &event3_35, &event3_36);
     CHECK_ERROR(err);
     delete out_group_norm;
+    out_group_norm = nullptr;
 
     err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &buffer_320_64);
     err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &buffer_320_64);
@@ -1684,6 +1729,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                               1, &event3_37, &event3_38);
     CHECK_ERROR(err);
     delete out_conv2d;
+    out_conv2d = nullptr;
 
     // util::testBuffer(cmdQueue, buffer_4_64, "unet/out/test/test_out.npy");
     /* out */

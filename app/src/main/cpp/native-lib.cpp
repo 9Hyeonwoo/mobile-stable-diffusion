@@ -121,6 +121,33 @@ Java_com_example_myopencl_MainActivity_initOpenCL(
                           &fpConfig, nullptr);
     CHECK_ERROR(err);
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "CL_DEVICE_SINGLE_FP_CONFIG: %ld", fpConfig);
+
+    cl_device_local_mem_type localMemType;
+    err = clGetDeviceInfo(deviceId, CL_DEVICE_LOCAL_MEM_TYPE, sizeof(cl_device_local_mem_type),
+                          &localMemType, nullptr);
+    CHECK_ERROR(err);
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "CL_DEVICE_LOCAL_MEM_TYPE(CL_GLOBAL): %u", localMemType);
+
+    cl_uint maxComputeUnits;
+    err = clGetDeviceInfo(deviceId, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint),
+                          &maxComputeUnits, nullptr);
+    CHECK_ERROR(err);
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "CL_DEVICE_MAX_COMPUTE_UNITS(14): %u",
+                        maxComputeUnits);
+
+    size_t maxGlobalVariableSize;
+    err = clGetDeviceInfo(deviceId, CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE, sizeof(size_t),
+                          &maxGlobalVariableSize, nullptr);
+    CHECK_ERROR(err);
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE(64KB): %ld",
+                        maxGlobalVariableSize);
+
+    cl_ulong maxGlobalAllocSize;
+    err = clGetDeviceInfo(deviceId, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong),
+                          &maxGlobalAllocSize, nullptr);
+    CHECK_ERROR(err);
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "CL_DEVICE_MAX_MEM_ALLOC_SIZE(5.6GB): %ld",
+                        maxGlobalAllocSize);
 }
 
 extern "C"
@@ -130,7 +157,7 @@ Java_com_example_myopencl_MainActivity_tokenize(JNIEnv *env, jobject thiz, jstri
     const char *text = env->GetStringUTFChars(_text, nullptr);
     auto result = tokenizer.tokenize(text);
     for (const auto i: result) {
-        __android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "encode: %ld", i);
+        //__android_log_print(ANDROID_LOG_DEBUG, "__TEST__", "encode: %ld", i);
     }
     env->ReleaseStringUTFChars(_text, text);
 
@@ -198,7 +225,7 @@ Java_com_example_myopencl_MainActivity_decode(JNIEnv *env, jobject thiz) {
     auto start = std::chrono::high_resolution_clock::now();
     auto result = decoder.decode(x);
     auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "decoder exec time: %lld ms", duration.count());
 
     jfloatArray resultArray = env->NewFloatArray(static_cast<jint>(result.size()));
