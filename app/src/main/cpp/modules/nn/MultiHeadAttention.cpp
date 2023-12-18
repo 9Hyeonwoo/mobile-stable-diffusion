@@ -69,6 +69,11 @@ MultiHeadAttention::MultiHeadAttention(
     kernel_matmul_attention = clCreateKernel(program, "batch_matmul_attention", &err);
     CHECK_ERROR_THROW(err);
 
+    kernel_batch_matmul_mask = clCreateKernel(program, "batch_matmul_mask", &err);
+    CHECK_ERROR_THROW(err);
+
+    kernel_batch_matmul = clCreateKernel(program, "batch_matmul", &err);
+    CHECK_ERROR_THROW(err);
 
     clReleaseProgram(program);
 
@@ -89,6 +94,8 @@ MultiHeadAttention::~MultiHeadAttention() {
     clReleaseKernel(kernel_softmax);
     clReleaseKernel(kernel_matmul_attention);
     clReleaseKernel(kernel_permute3D_1_0_2);
+    clReleaseKernel(kernel_batch_matmul_mask);
+    clReleaseKernel(kernel_batch_matmul);
 }
 
 void MultiHeadAttention::init() {
@@ -102,6 +109,7 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
     size_t inputBytes;
     cl_event event1, event2, event3, event4, event5, event6, event7;
     cl_mem bufferEmbedding, bufferTemp, bufferAttnInProj0, bufferAttnInProj0_QKV, bufferAttentionQK;
+    cl_mem bufferQ, bufferK, bufferV;
 
     err = clGetMemObjectInfo(input, CL_MEM_SIZE, sizeof(size_t), &inputBytes, nullptr);
     CHECK_ERROR(err);
@@ -184,7 +192,22 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
     // util::testBuffer(cmdQueue, bufferAttnInProj0, "encoder/test/resblock_0_attn_in_proj_head_test_fp32.npy");
 
     /* scale dot attention - matmul QxK */
+    cl_buffer_region regionQ = {0, sizeof(float) * numHeads * CONTEXT_LENGTH * head_dim};
+    bufferQ = clCreateSubBuffer(bufferAttnInProj0, CL_MEM_READ_ONLY,
+                                CL_BUFFER_CREATE_TYPE_REGION, &regionQ, &err);
+    CHECK_ERROR(err);
 
+    cl_buffer_region regionK = {sizeof(float) * numHeads * CONTEXT_LENGTH * head_dim, sizeof(float) * numHeads * CONTEXT_LENGTH * head_dim};
+    bufferK = clCreateSubBuffer(bufferAttnInProj0, CL_MEM_READ_ONLY,
+                                CL_BUFFER_CREATE_TYPE_REGION, &regionK, &err);
+    CHECK_ERROR(err);
+
+    cl_buffer_region regionV = {sizeof(float) * numHeads * CONTEXT_LENGTH * head_dim * 2, sizeof(float) * numHeads * CONTEXT_LENGTH * head_dim};
+    bufferV = clCreateSubBuffer(bufferAttnInProj0, CL_MEM_READ_ONLY,
+                                CL_BUFFER_CREATE_TYPE_REGION, &regionV, &err);
+    CHECK_ERROR(err);
+
+    /* naive QxK
     err = clSetKernelArg(kernel_add_matmul_attention, 0, sizeof(cl_mem), &bufferAttnInProj0);
     err |= clSetKernelArg(kernel_add_matmul_attention, 1, sizeof(cl_mem), &bufferAttentionMask);
     err |= clSetKernelArg(kernel_add_matmul_attention, 2, sizeof(cl_mem), &bufferAttentionQK);
@@ -196,6 +219,29 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
                                  nullptr, 3,
                                  &event3,
                                  &event4);
+     naive QxK */
+
+    /* optimized QxK */
+    size_t MN = CONTEXT_LENGTH;
+    size_t reg_size = 7, tile_size = 77;
+    err = clSetKernelArg(kernel_batch_matmul_mask, 0, sizeof(cl_mem), &bufferQ);
+    err |= clSetKernelArg(kernel_batch_matmul_mask, 1, sizeof(cl_mem), &bufferK);
+    err |= clSetKernelArg(kernel_batch_matmul_mask, 2, sizeof(cl_mem), &bufferAttentionMask);
+    err |= clSetKernelArg(kernel_batch_matmul_mask, 3, sizeof(cl_mem), &bufferAttentionQK);
+    err |= clSetKernelArg(kernel_batch_matmul_mask, 4, sizeof(size_t), &MN);
+    err |= clSetKernelArg(kernel_batch_matmul_mask, 5, sizeof(size_t), &MN);
+    err |= clSetKernelArg(kernel_batch_matmul_mask, 6, sizeof(size_t), &head_dim);
+    CHECK_ERROR(err);
+
+    size_t globalSizeQK[3] = {numHeads,MN/reg_size, MN/reg_size};
+    size_t localSizeQK[3] = {1, tile_size/reg_size, tile_size/reg_size};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_batch_matmul_mask, 3, nullptr, globalSizeQK,
+                                 localSizeQK, 3,
+                                 &event3,
+                                 &event4);
+    CHECK_ERROR(err);
+    /* optimized QxK */
+
 
     // util::testBuffer(cmdQueue, bufferAttentionQK, "encoder/test/resblock_0_attn_qk_test_fp32.npy");
 
@@ -218,6 +264,7 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
 
     /* scale dot attention - attention */
 
+    /* naive - QK x V
     size_t context_length = CONTEXT_LENGTH;
     err = clSetKernelArg(kernel_matmul_attention, 0, sizeof(cl_mem), &bufferAttentionQK);
     err |= clSetKernelArg(kernel_matmul_attention, 1, sizeof(cl_mem), &bufferAttnInProj0);
@@ -231,6 +278,26 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
                                  &event5,
                                  &event6);
     CHECK_ERROR(err);
+     naive - QK x V*/
+
+    /* optimized - QK x V */
+    size_t tile_size1 = 64, reg_size1 = 8;
+    err = clSetKernelArg(kernel_batch_matmul, 0, sizeof(cl_mem), &bufferAttentionQK);
+    err |= clSetKernelArg(kernel_batch_matmul, 1, sizeof(cl_mem), &bufferV);
+    err |= clSetKernelArg(kernel_batch_matmul, 2, sizeof(cl_mem), &bufferTemp);
+    err |= clSetKernelArg(kernel_batch_matmul, 3, sizeof(size_t), &MN);
+    err |= clSetKernelArg(kernel_batch_matmul, 4, sizeof(size_t), &head_dim);
+    err |= clSetKernelArg(kernel_batch_matmul, 5, sizeof(size_t), &MN);
+    CHECK_ERROR(err);
+
+    size_t globalSizeMatmul[3] = {numHeads,MN/reg_size, head_dim/reg_size1};
+    size_t localSizeMatmul[3] = {1, tile_size/reg_size, tile_size1/reg_size1};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_batch_matmul, 3, nullptr, globalSizeMatmul,
+                                 localSizeMatmul, 1,
+                                 &event5,
+                                 &event6);
+    CHECK_ERROR(err);
+    /* optimized - QK x V */
 
     // max diff: 0.00000409036874771118
     // util::testBuffer(cmdQueue, bufferTemp, "encoder/test/resblock_0_attn_attention_test_fp32.npy");
@@ -265,6 +332,9 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
     clReleaseMemObject(bufferAttnInProj0);
     clReleaseMemObject(bufferAttnInProj0_QKV);
     clReleaseMemObject(bufferAttentionQK);
+    clReleaseMemObject(bufferQ);
+    clReleaseMemObject(bufferK);
+    clReleaseMemObject(bufferV);
 
     return CL_SUCCESS;
 }

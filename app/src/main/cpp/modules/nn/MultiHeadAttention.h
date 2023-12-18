@@ -38,6 +38,8 @@ private:
     cl_kernel kernel_add_matmul_attention;
     cl_kernel kernel_softmax;
     cl_kernel kernel_matmul_attention;
+    cl_kernel kernel_batch_matmul_mask;
+    cl_kernel kernel_batch_matmul;
 
     cl_mem bufferAttentionMask;
 };
