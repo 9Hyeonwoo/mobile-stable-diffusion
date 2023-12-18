@@ -184,3 +184,124 @@ __kernel void im2win_matmul(
         output[index] = sum + bias[c];
     }
 }
+
+__kernel void im2win_batch_matmul(
+    __global const float *input_win, // input_win = (in_channel, M, width_pad * kernel_size)
+    __global const float *weight, // weight = (C, in_channel, kernel_size, kernel_size)
+    __global const float *bias, // bias = (C)
+    __global float* output,
+    const size_t M,
+    const size_t N,
+    const size_t in_channel,
+    const size_t width_win,
+    const size_t kernel_size, // kernel_size = {1, 3}
+    const int stride, // stride = {1, 2}
+    __local float* input_sub,
+    __local float* weight_sub,
+    const size_t tile_size_n,
+    const size_t tile_size_k
+) {
+
+    // tile_size(batch, m, n) = (1, 1, 128)
+    // reg_size, input_reg[kernel_size^2 + (reg_size_n - 1) * stride * kernel_size]
+    __constant int reg_size_m = 1; // fixed value
+    __constant int reg_size_n = 8;
+    __constant int reg_size_input_max = 3*3 + (reg_size_n-1)*2*3;
+    const int reg_size_input = kernel_size*kernel_size + (reg_size_n-1)*stride*kernel_size;
+    // const int tile_size_k = 16; // in_channel % tile_size_k == 0
+    const int local_m = get_local_id(1);
+    const int local_n = get_local_id(2);
+    const int local_size_m = get_local_size(1);
+    const int local_size_n = get_local_size(2);
+    const int tile_size_m = 1;
+    // const int tile_size_n = 128;
+    const int input_tile_size_n = kernel_size*kernel_size + (tile_size_n -1)*stride*kernel_size;
+    const int input_tile_size = tile_size_k * tile_size_m * input_tile_size_n;
+    const int offset_m = get_group_id(1) * get_local_size(1) * reg_size_m ;
+    const int offset_output_n = get_group_id(2) * get_local_size(2) * reg_size_n;
+    const int offset_input_n = get_group_id(2) * get_local_size(2) * reg_size_n * stride * kernel_size;
+    const int batch = get_global_id(0);
+    const int offset_batch_weight = batch * in_channel * kernel_size * kernel_size;
+    const int offset_batch_output = batch * M * N ;
+
+    // Allocate register space
+    float weight_reg;
+    float input_reg[reg_size_input_max];
+    float acc[reg_size_n];
+
+    // Initialise the accumulation registers
+    for (int w=0; w<reg_size_n; w++) {
+        acc[w] = 0.0f;
+    }
+
+    // Loop over all tiles
+    int numTiles = in_channel/tile_size_k;
+    for (int t=0; t<numTiles; t++) {
+
+        // Load one tile of A and B into local memory
+        for (int id=local_m*local_size_n + local_n; id<input_tile_size; id+=local_size_m*local_size_n) {
+            int n = id % input_tile_size_n;
+            int tmp = id / input_tile_size_n;
+            int m = tmp % tile_size_m;
+            int k = tmp / tile_size_m;
+
+            int sub_index = (k * tile_size_m + m) * input_tile_size_n + (n);
+            int input_index = ((k + t*tile_size_k) * M * width_win) + ((offset_m + m) * width_win) + (offset_input_n + n);
+            if (input_index < in_channel * M * width_win) {
+                input_sub[sub_index] = input_win[input_index];
+            } else {
+                break;
+            }
+        }
+        for (int id=local_m*local_size_n + local_n; id<(tile_size_k * kernel_size * kernel_size); id+=local_size_m*local_size_n) {
+            int n = id % kernel_size;
+            int tmp = id / kernel_size;
+            int m = tmp % kernel_size;
+            int k = tmp / kernel_size;
+
+            int sub_index = (k * kernel_size + m) * kernel_size + (n);
+            int weight_index = ((k + t*tile_size_k) * kernel_size * kernel_size) + (m * kernel_size) + (n);
+            if (weight_index < in_channel * kernel_size * kernel_size) {
+                weight_sub[sub_index] = weight[weight_index + offset_batch_weight];
+            } else {
+                break;
+            }
+        }
+        // global version
+        // __global const float* Asub_global = A + offset_m * K + t * tile_size_k + offset_batch_A;
+        // __global const float* Bsub_global = B + (t * tile_size_k) * N + offset_n + offset_batch_B;
+
+        // Synchronise to make sure the tile is loaded
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        // Loop over the values of a single tile
+        for (int k=0; k<tile_size_k; k++) {
+
+            // Cache the values of input_reg in registers
+            for (int wn=0; wn<reg_size_input; wn++) {
+                int col = (local_n*reg_size_n * stride * kernel_size) + wn;
+                input_reg[wn] = input_sub[k*tile_size_m*input_tile_size_n + col];
+            }
+
+            // Perform the computation
+            for (int kernel_i=0; kernel_i < kernel_size; kernel_i++) {
+                for (int kernel_j=0; kernel_j<kernel_size; kernel_j++) {
+                    weight_reg = weight_sub[k*kernel_size*kernel_size + (kernel_i*kernel_size) + kernel_j];
+                    for (int rn=0; rn<reg_size_n; rn++) {
+                        acc[rn] += weight_reg * input_reg[rn*stride*kernel_size + (kernel_j*kernel_size) + kernel_i];
+                    }
+                }
+            }
+        }
+
+        // Synchronise before loading the next tile
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    // Store the final results in C
+    for (int rn=0; rn<reg_size_n; rn++) {
+        int global_m = offset_m + local_m;
+        int global_n = offset_output_n + local_n * reg_size_n + rn;
+        output[global_m*N + global_n + offset_batch_output] = acc[rn] + bias[batch];
+    }
+}

@@ -69,6 +69,9 @@ Conv2D::Conv2D(
     kernel_im2win_matmul = clCreateKernel(program, "im2win_matmul", &err);
     CHECK_ERROR_THROW(err);
 
+    kernel_im2win_batch_matmul = clCreateKernel(program, "im2win_batch_matmul", &err);
+    CHECK_ERROR_THROW(err);
+
     clReleaseProgram(program);
 }
 
@@ -80,6 +83,7 @@ Conv2D::~Conv2D() {
     */
     clReleaseKernel(kernel_im2win);
     clReleaseKernel(kernel_im2win_matmul);
+    clReleaseKernel(kernel_im2win_batch_matmul);
     if (event_init_weight != nullptr) {
         clReleaseMemObject(bufferWeight);
         clReleaseEvent(event_init_weight);
@@ -268,6 +272,8 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     CHECK_ERROR(err);
 
     size_t out_channel = weightShape[0];
+
+    /* im2win matmul - naive
     err = clSetKernelArg(kernel_im2win_matmul, 0, sizeof(cl_mem), &bufferWeight);
     err |= clSetKernelArg(kernel_im2win_matmul, 1, sizeof(cl_mem), &bufferBias);
     err |= clSetKernelArg(kernel_im2win_matmul, 2, sizeof(cl_mem), &bufferWin);
@@ -284,6 +290,66 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     size_t globalSize_im2win_matmul[1] = {out_channel * outputSize * outputSize};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_im2win_matmul, 1, nullptr,
                                  globalSize_im2win_matmul, nullptr,
+                                 1, &_event[0], event);
+    CHECK_ERROR(err);
+    im2win matmul - naive */
+
+    size_t tile_size_m = 1, reg_size_n = 8;
+    size_t tile_size_ns[] = {128, 64};
+    size_t tile_size_ks[] = {16, 4};
+
+    int n_index, n_size = 2;
+    for (n_index = 0; n_index < n_size; n_index++) {
+        if (outputSize % (tile_size_ns[n_index]) == 0) {
+            break;
+        }
+    }
+
+    int k_index, k_size = 2;
+    for (k_index = 0; k_index < k_size; k_index++) {
+        if (in_channel % (tile_size_ks[k_index]) == 0) {
+            break;
+        }
+    }
+
+    if (n_index >= n_size) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] outputSize(%ld) %% tile_size_n(%ld) != 0\n", __FILE__,
+                            __LINE__, outputSize, tile_size_ns[0]);
+        return CL_INVALID_VALUE;
+    }
+    if (k_index >= n_size) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] in_channel(%ld) %% tile_size_k(%ld) != 0\n", __FILE__,
+                            __LINE__, in_channel, tile_size_ks[0]);
+        return CL_INVALID_VALUE;
+    }
+    size_t tile_size_n = tile_size_ns[n_index];
+    size_t tile_size_k = tile_size_ks[k_index];
+    err = clSetKernelArg(kernel_im2win_batch_matmul, 0, sizeof(cl_mem), &bufferWin);
+    err |= clSetKernelArg(kernel_im2win_batch_matmul, 1, sizeof(cl_mem), &bufferWeight);
+    err |= clSetKernelArg(kernel_im2win_batch_matmul, 2, sizeof(cl_mem), &bufferBias);
+    err |= clSetKernelArg(kernel_im2win_batch_matmul, 3, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel_im2win_batch_matmul, 4, sizeof(size_t), &outputSize);
+    err |= clSetKernelArg(kernel_im2win_batch_matmul, 5, sizeof(size_t), &outputSize);
+    err |= clSetKernelArg(kernel_im2win_batch_matmul, 6, sizeof(size_t), &in_channel);
+    err |= clSetKernelArg(kernel_im2win_batch_matmul, 7, sizeof(size_t), &width_win);
+    err |= clSetKernelArg(kernel_im2win_batch_matmul, 8, sizeof(size_t), &kernel_size);
+    err |= clSetKernelArg(kernel_im2win_batch_matmul, 9, sizeof(int), &stride);
+    err |= clSetKernelArg(kernel_im2win_batch_matmul, 10,
+                          sizeof(float) * tile_size_k * tile_size_m *
+                          (kernel_size * kernel_size + (tile_size_n - 1) * stride * kernel_size),
+                          nullptr);
+    err |= clSetKernelArg(kernel_im2win_batch_matmul, 11,
+                          sizeof(float) * tile_size_k * kernel_size * kernel_size, nullptr);
+    err |= clSetKernelArg(kernel_im2win_batch_matmul, 12, sizeof(size_t), &tile_size_n);
+    err |= clSetKernelArg(kernel_im2win_batch_matmul, 13, sizeof(size_t), &tile_size_k);
+    CHECK_ERROR(err);
+
+    size_t globalSize_im2win_batch_matmul[3] = {out_channel, outputSize, outputSize / reg_size_n};
+    size_t localSize_im2win_batch_matmul[3] = {1, 1, tile_size_n / reg_size_n};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_im2win_batch_matmul, 3, nullptr,
+                                 globalSize_im2win_batch_matmul, localSize_im2win_batch_matmul,
                                  1, &_event[0], event);
     CHECK_ERROR(err);
 

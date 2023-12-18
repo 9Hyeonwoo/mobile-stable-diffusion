@@ -40,6 +40,7 @@ private:
     cl_kernel kernel_conv2d_matmul;
     cl_kernel kernel_im2win;
     cl_kernel kernel_im2win_matmul;
+    cl_kernel kernel_im2win_batch_matmul;
 
     cl_mem bufferWeight;
     cl_mem bufferBias;

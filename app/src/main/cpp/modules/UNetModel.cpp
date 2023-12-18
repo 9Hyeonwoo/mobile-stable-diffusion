@@ -1902,9 +1902,9 @@ UNetModel::concat_buffer(
 void
 UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<float> &condition) {
     cl_int err;
-    cl_event event[6];
+    cl_event event[4];
     cl_mem bufferTimeEmbed, bufferEmbedTemp, bufferEmbed, bufferCondition, bufferInput;
-    cl_mem buffer_1280_16, buffer_1280_32;
+    cl_mem buffer_320_64;
 
     auto t_emb = timestep_embedding(timestep);
 
@@ -1962,57 +1962,20 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
 
     err = time_embed_2->forward(bufferEmbedTemp, bufferEmbed, 1, &event[1], &event[2]);
     CHECK_ERROR(err);
-    util::testBuffer(cmdQueue, bufferEmbed, "unet/time_embed/test/test_time_embed.npy");
-    return;
+
     /* test section */
-    /* output_block layer[5] */
-
-    initOutputBlock5();
-
-    buffer_1280_16 = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                    sizeof(float) * 4 * MODEL_CHANNELS * 16 * 16,
-                                    nullptr, &err);
+    buffer_320_64 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                   sizeof(float) * MODEL_CHANNELS * 64 * 64,
+                                   nullptr, &err);
     CHECK_ERROR(err);
 
-    buffer_1280_32 = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                    sizeof(float) * 4 * MODEL_CHANNELS * 32 * 32,
-                                    nullptr, &err);
+    initInputBlock0();
+    input_block_0_conv2d->init();
+    err = input_block_0_conv2d->forward(bufferInput, buffer_320_64,
+                                        1, &event[2], &event[3]);
     CHECK_ERROR(err);
 
-    output_block_5_res_block->init();
-    err = output_block_5_res_block->forward(bufferInput, bufferEmbed, buffer_1280_16,
-                                            1, &event[2],
-                                            0, nullptr, &event[3]);
-    CHECK_ERROR(err);
-    delete output_block_5_res_block;
-    output_block_5_res_block = nullptr;
-
-    output_block_5_spatial->init();
-    err = output_block_5_spatial->forward(buffer_1280_16, bufferCondition, buffer_1280_16,
-                                          1, &event[3], &event[4]);
-    CHECK_ERROR(err);
-    delete output_block_5_spatial;
-    output_block_5_spatial = nullptr;
-
-    output_block_5_up_sample->init();
-    err = output_block_5_up_sample->forward(buffer_1280_16, buffer_1280_32,
-                                            1, &event[4], &event[5]);
-    CHECK_ERROR(err);
-    delete output_block_5_up_sample;
-    output_block_5_up_sample = nullptr;
-    /* output_block layer[5] */
-
-    /* output_block layer[6] */
-    initOutputBlock6();
-
-    output_block_6_res_block->init();
-    delete output_block_6_res_block;
-    output_block_6_res_block = nullptr;
-
-    output_block_6_spatial->init();
-    delete output_block_6_spatial;
-    output_block_6_spatial = nullptr;
-    /* output_block layer[6] */
+    util::testBuffer(cmdQueue, buffer_320_64, "unet/input_block/test/test_input_block_0_conv2d.npy");
 
     /* test section */
 
@@ -2037,6 +2000,5 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
     clReleaseMemObject(bufferEmbed);
     clReleaseMemObject(bufferInput);
     clReleaseMemObject(bufferCondition);
-    clReleaseMemObject(buffer_1280_16);
-    clReleaseMemObject(buffer_1280_32);
+    clReleaseMemObject(buffer_320_64);
 }

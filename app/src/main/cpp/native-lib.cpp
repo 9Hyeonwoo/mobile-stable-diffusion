@@ -207,7 +207,7 @@ Java_com_example_myopencl_MainActivity_sample(JNIEnv *env, jobject thiz, jfloatA
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "u-net exec time: %lld ms", duration.count());
 
-//    auto result = util::load_npy_file("unet/output_block/test/test_output_block_5_input.npy").as_vec<float>();
+//    auto result = util::load_npy_file("sampler/test/test_seed_45_img.npy").as_vec<float>();
 //    unet.test(result, 981, c);
 
     jfloatArray resultArray = env->NewFloatArray(static_cast<int>(result.size()));
@@ -227,6 +227,9 @@ Java_com_example_myopencl_MainActivity_decode(JNIEnv *env, jobject thiz) {
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "decoder exec time: %lld ms", duration.count());
+
+//    auto result = util::load_npy_file("decoder/test/test_mid_block_1.npy").as_vec<float>();
+//    decoder.test(result);
 
     jfloatArray resultArray = env->NewFloatArray(static_cast<jint>(result.size()));
     env->SetFloatArrayRegion(resultArray, 0, static_cast<jint>(result.size()), result.data());
