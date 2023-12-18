@@ -71,6 +71,9 @@ AttnBlock::AttnBlock(
     kernel_elem_add = clCreateKernel(program, "elemwise_add", &err);
     CHECK_ERROR_THROW(err);
 
+    kernel_batch_matmul_scale = clCreateKernel(program, "batch_matmul_scale", &err);
+    CHECK_ERROR_THROW(err);
+
     clReleaseProgram(program);
 }
 
@@ -84,6 +87,15 @@ AttnBlock::~AttnBlock() {
     clReleaseKernel(kernel_batch_matmul);
     clReleaseKernel(kernel_softmax);
     clReleaseKernel(kernel_elem_add);
+    clReleaseKernel(kernel_batch_matmul_scale);
+}
+
+void AttnBlock::init() {
+    groupNorm->init();
+    to_q_conv2d->init();
+    to_k_conv2d->init();
+    to_v_conv2d->init();
+    out_conv2d->init();
 }
 
 cl_int AttnBlock::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
@@ -159,6 +171,7 @@ cl_int AttnBlock::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
     CHECK_ERROR(err);
 
     float scale = 1.f / sqrtf(static_cast<float>(in_channels));
+    /* naive - batch matmul
     err = clSetKernelArg(kernel_batch_matmul, 0, sizeof(cl_mem), &bufferPermuteQ);
     err |= clSetKernelArg(kernel_batch_matmul, 1, sizeof(cl_mem), &bufferK);
     err |= clSetKernelArg(kernel_batch_matmul, 2, sizeof(cl_mem), &bufferQK);
@@ -170,6 +183,37 @@ cl_int AttnBlock::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_batch_matmul, 3, nullptr,
                                  QKGlobalSize, nullptr, 2, &events[2], &events[4]);
     CHECK_ERROR(err);
+    naive - batch matmul */
+
+    size_t tile_size = 128, reg_size = 8, tile_size_k = 16;
+    /* optimized batch matmul - Q x K */
+    if (heightXwidth % tile_size != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] heightXwidth(%ld) %% tile_size(%ld) != 0\n", __FILE__,
+                            __LINE__, heightXwidth, tile_size);
+        return CL_INVALID_VALUE;
+    }
+    if (in_channels % tile_size_k != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] in_channels(%ld) %% tile_size(16) != 0\n", __FILE__,
+                            __LINE__, in_channels);
+        return CL_INVALID_VALUE;
+    }
+    err = clSetKernelArg(kernel_batch_matmul_scale, 0, sizeof(cl_mem), &bufferPermuteQ);
+    err |= clSetKernelArg(kernel_batch_matmul_scale, 1, sizeof(cl_mem), &bufferK);
+    err |= clSetKernelArg(kernel_batch_matmul_scale, 2, sizeof(cl_mem), &bufferQK);
+    err |= clSetKernelArg(kernel_batch_matmul_scale, 3, sizeof(size_t), &heightXwidth);
+    err |= clSetKernelArg(kernel_batch_matmul_scale, 4, sizeof(size_t), &heightXwidth);
+    err |= clSetKernelArg(kernel_batch_matmul_scale, 5, sizeof(size_t), &in_channels);
+    err |= clSetKernelArg(kernel_batch_matmul_scale, 6, sizeof(float), &scale);
+    CHECK_ERROR(err);
+
+    size_t QxKGlobalSize[3] = {1, heightXwidth/reg_size, heightXwidth/reg_size};
+    size_t QxKLocalSize[3] = {1, tile_size/reg_size, tile_size/reg_size};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_batch_matmul_scale, 3, nullptr,
+                                 QxKGlobalSize, QxKLocalSize, 2, &events[2], &events[4]);
+    CHECK_ERROR(err);
+    /* optimized batch matmul - Q x K */
 
     err = clSetKernelArg(kernel_softmax, 0, sizeof(cl_mem), &bufferQK);
     err |= clSetKernelArg(kernel_softmax, 1, sizeof(cl_mem), &bufferQK);
@@ -188,11 +232,13 @@ cl_int AttnBlock::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
     err |= clSetKernelArg(kernel_permute3D_0_2_1, 1, sizeof(cl_mem), &bufferPermuteQK);
     CHECK_ERROR(err);
 
+    size_t QKGlobalSize[3] = {1, heightXwidth, heightXwidth};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_0_2_1, 3, nullptr,
                                  QKGlobalSize, nullptr, 1, &events[5], &events[6]);
     CHECK_ERROR(err);
 
     float identity = 1.f;
+    /* naive batch matmul - V x QK
     err = clSetKernelArg(kernel_batch_matmul, 0, sizeof(cl_mem), &bufferV);
     err |= clSetKernelArg(kernel_batch_matmul, 1, sizeof(cl_mem), &bufferPermuteQK);
     err |= clSetKernelArg(kernel_batch_matmul, 2, sizeof(cl_mem), &bufferQ);
@@ -204,6 +250,42 @@ cl_int AttnBlock::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_batch_matmul, 3, nullptr,
                                  VQKGlobalSize, nullptr, 2, &events[6], &events[8]);
     CHECK_ERROR(err);
+    naive batch matmul - V x QK */
+
+    /* optimized batch matmul - V x QK*/
+    if (heightXwidth % tile_size != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] heightXwidth(%ld) %% tile_size(%ld) != 0\n", __FILE__,
+                            __LINE__, heightXwidth, tile_size);
+        return CL_INVALID_VALUE;
+    }
+    if (in_channels % tile_size != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] in_channels(%ld) %% tile_size(%ld) != 0\n", __FILE__,
+                            __LINE__, in_channels, tile_size);
+        return CL_INVALID_VALUE;
+    }
+    if (heightXwidth % tile_size_k != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] heightXwidth(%ld) %% tile_size_k(%ld) != 0\n", __FILE__,
+                            __LINE__, heightXwidth, tile_size_k);
+        return CL_INVALID_VALUE;
+    }
+    err = clSetKernelArg(kernel_batch_matmul_scale, 0, sizeof(cl_mem), &bufferV);
+    err |= clSetKernelArg(kernel_batch_matmul_scale, 1, sizeof(cl_mem), &bufferPermuteQK);
+    err |= clSetKernelArg(kernel_batch_matmul_scale, 2, sizeof(cl_mem), &bufferQ);
+    err |= clSetKernelArg(kernel_batch_matmul_scale, 3, sizeof(size_t), &in_channels);
+    err |= clSetKernelArg(kernel_batch_matmul_scale, 4, sizeof(size_t), &heightXwidth);
+    err |= clSetKernelArg(kernel_batch_matmul_scale, 5, sizeof(size_t), &heightXwidth);
+    err |= clSetKernelArg(kernel_batch_matmul_scale, 6, sizeof(float), &identity);
+    CHECK_ERROR(err);
+
+    size_t VQKGlobalSize[3] = {1, in_channels/reg_size, heightXwidth/reg_size};
+    size_t VQKLocalSize[3] = {1, tile_size/reg_size, tile_size/reg_size};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_batch_matmul_scale, 3, nullptr,
+                                 VQKGlobalSize, VQKLocalSize, 2, &events[6], &events[8]);
+    CHECK_ERROR(err);
+    /*optimized batch matmul - V x QK */
 
     out_conv2d->init();
     err = out_conv2d->forward(bufferQ, bufferK, 1, &events[8], &events[9]);

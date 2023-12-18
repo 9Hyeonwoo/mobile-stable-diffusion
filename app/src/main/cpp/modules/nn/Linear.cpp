@@ -70,6 +70,9 @@ Linear::~Linear() {
 }
 
 void Linear::init() {
+    if (event_init_weight != nullptr && event_init_bias != nullptr) {
+        return;
+    }
     cl_int err;
     auto weight = util::load_npy_file(weight_name);
 

@@ -221,6 +221,29 @@ Decoder::Decoder(
     CHECK_ERROR_THROW(err);
 
     clReleaseProgram(program);
+
+    post_quant_conv2d->init();
+    in_conv2d->init();
+    mid_res_block_1->init();
+    mid_attn_block->init();
+    mid_res_block_2->init();
+    for (auto &block: up_3_res_blocks) {
+        block->init();
+    }
+    up_3_up_sample->init();
+    for (auto &block: up_2_res_blocks) {
+        block->init();
+    }
+    up_2_up_sample->init();
+//    for (auto &block: up_1_res_blocks) {
+//        block->init();
+//    }
+//    up_1_up_sample->init();
+//    for (auto &block: up_0_res_blocks) {
+//        block->init();
+//    }
+//    out_group_norm->init();
+//    out_conv2d->init();
 }
 
 Decoder::~Decoder() {
@@ -279,6 +302,7 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     err = post_quant_conv2d->forward(bufferX, buffer_4_64, 1, &event[0], &event[1]);
     CHECK_ERROR_THROW(err);
     delete post_quant_conv2d;
+    post_quant_conv2d = nullptr;
 
     /* Decoder */
     buffer_512_64 = clCreateBuffer(context, CL_MEM_READ_WRITE,
@@ -291,6 +315,7 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     err = in_conv2d->forward(buffer_4_64, buffer_512_64, 1, &event[1], &event[2]);
     CHECK_ERROR_THROW(err);
     delete in_conv2d;
+    in_conv2d = nullptr;
 
     // test_conv_in.npy max diff: 0.00000238418579101562
     // util::testBuffer(cmdQueue, buffer_512_64, "decoder/test/test_conv_in.npy");
@@ -303,15 +328,18 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
                                    1, &event[2], &event[3]);
     CHECK_ERROR_THROW(err);
     delete mid_res_block_1;
+    mid_res_block_1 = nullptr;
 
     // test_mid_block_1.npy max diff: 0.00001192092895507812
     // util::testBuffer(cmdQueue, buffer_512_64, "decoder/test/test_mid_block_1.npy");
 
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process 3");
+    mid_attn_block->init();
     err = mid_attn_block->forward(buffer_512_64, buffer_512_64,
                                   1, &event[3], &event[4]);
     CHECK_ERROR_THROW(err);
     delete mid_attn_block;
+    mid_attn_block = nullptr;
 
     // test_mid_attn_1.npy max diff: 0.00001525878906250000
     // util::testBuffer(cmdQueue, buffer_512_64, "decoder/test/test_mid_attn_1.npy");
@@ -323,6 +351,7 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
                                    1, &event[4], &event[5]);
     CHECK_ERROR_THROW(err);
     delete mid_res_block_2;
+    mid_res_block_2 = nullptr;
 
     // test_mid_block_2.npy max diff: 0.00003004074096679688
     // util::testBuffer(cmdQueue, buffer_512_64, "decoder/test/test_mid_block_2.npy");
@@ -344,6 +373,7 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
                              1, &event[event_idx], &event[event_idx + 1]);
         CHECK_ERROR_THROW(err);
         delete block;
+        block = nullptr;
 
         event_idx++;
     }
@@ -354,6 +384,7 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
                                   1, &event[8], &event[9]);
     CHECK_ERROR_THROW(err);
     delete up_3_up_sample;
+    up_3_up_sample = nullptr;
 
     // test_up_3.npy max diff: 0.00012969970703125000
     // util::testBuffer(cmdQueue, buffer_512_128, "decoder/test/test_up_3.npy");
@@ -374,6 +405,7 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
                              1, &event[event_idx], &event[event_idx + 1]);
         CHECK_ERROR_THROW(err);
         delete block;
+        block = nullptr;
 
         event_idx++;
     }
@@ -384,6 +416,7 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
                                   1, &event[12], &event[13]);
     CHECK_ERROR_THROW(err);
     delete up_2_up_sample;
+    up_2_up_sample = nullptr;
 
     // test_up_2.npy max diff: 0.00060272216796875000
     // util::testBuffer(cmdQueue, buffer_512_256, "decoder/test/test_up_2.npy");
@@ -407,10 +440,11 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
                                       1, &event[13], &event[14]);
     CHECK_ERROR_THROW(err);
     delete up_1_res_blocks[0];
+    up_1_res_blocks[0] = nullptr;
 
     event_idx = 14;
     for (int i = 1; i < 3; i++) {
-        auto block = up_1_res_blocks[i];
+        auto &block = up_1_res_blocks[i];
         block->init();
         __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process %d", event_idx);
         err = block->forward(buffer_256_256, nullptr, buffer_256_256,
@@ -418,6 +452,7 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
                              1, &event[event_idx], &event[event_idx + 1]);
         CHECK_ERROR_THROW(err);
         delete block;
+        block = nullptr;
 
         event_idx++;
     }
@@ -428,6 +463,7 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
                                   1, &event[16], &event[17]);
     CHECK_ERROR_THROW(err);
     delete up_1_up_sample;
+    up_1_up_sample = nullptr;
 
     // test_up_1.npy max diff: 0.00213623046875000000
     // util::testBuffer(cmdQueue, buffer_256_512, "decoder/test/test_up_1.npy");
@@ -446,16 +482,19 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
                                       1, &event[17], &event[18]);
     CHECK_ERROR_THROW(err);
     delete up_0_res_blocks[0];
+    up_0_res_blocks[0] = nullptr;
 
     event_idx = 18;
     for (int i = 1; i < 3; i++) {
-        auto block = up_0_res_blocks[i];
+        auto &block = up_0_res_blocks[i];
         block->init();
         __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "process %d", event_idx);
         err = block->forward(buffer_128_512, nullptr, buffer_128_512,
                              0, nullptr,
                              1, &event[event_idx], &event[event_idx + 1]);
         CHECK_ERROR_THROW(err);
+        delete block;
+        block = nullptr;
 
         event_idx++;
     }
@@ -477,6 +516,7 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
                                   1, &event[20], &event[21]);
     CHECK_ERROR_THROW(err);
     delete out_group_norm;
+    out_group_norm = nullptr;
 
     err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &buffer_128_512);
     err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &buffer_128_512);
@@ -494,6 +534,7 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
                               1, &event[22], &event[23]);
     CHECK_ERROR_THROW(err);
     delete out_conv2d;
+    out_conv2d = nullptr;
 
     // test_out.npy max diff: 0.00000357627868652344
     // util::testBuffer(cmdQueue, buffer_3_512, "decoder/test/test_out.npy");
@@ -526,8 +567,8 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
 
 void Decoder::test(const std::vector<float> &x) {
     cl_int err;
-    cl_event event[4];
-    cl_mem bufferX, buffer_128_512, buffer_3_512;
+    cl_event event[2];
+    cl_mem bufferX, buffer_512_64;
 
     bufferX = clCreateBuffer(context, CL_MEM_READ_ONLY,
                              sizeof(float) * x.size(),
@@ -539,44 +580,23 @@ void Decoder::test(const std::vector<float> &x) {
                                0, nullptr, &event[0]);
     CHECK_ERROR_THROW(err);
 
-    buffer_128_512 = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                    sizeof(float) * 128 * 512 * 512,
-                                    nullptr, &err);
-    CHECK_ERROR_THROW(err);
-
-    buffer_3_512 = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                  sizeof(float) * 3 * 512 * 512,
-                                  nullptr, &err);
+    buffer_512_64 = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                   sizeof(float) * 512 * 64 * 64,
+                                   nullptr, &err);
     CHECK_ERROR_THROW(err);
 
     /* test logic */
-    out_group_norm->init();
-    err = out_group_norm->forward(bufferX, buffer_128_512,
+    mid_attn_block->init();
+    err = mid_attn_block->forward(bufferX, buffer_512_64,
                                   1, &event[0], &event[1]);
     CHECK_ERROR_THROW(err);
-
-    err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &buffer_128_512);
-    err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &buffer_128_512);
-    CHECK_ERROR_THROW(err);
-
-    size_t globalWorkSize[3] = {128 * 512 * 512};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr,
-                                 globalWorkSize, nullptr,
-                                 1, &event[1], &event[2]);
-    CHECK_ERROR_THROW(err);
-
-    out_conv2d->init();
-    err = out_conv2d->forward(buffer_128_512, buffer_3_512,
-                              1, &event[2], &event[3]);
-    CHECK_ERROR_THROW(err);
     /* test logic */
 
-    util::testBuffer(cmdQueue, buffer_3_512, "decoder/test/test_out.npy");
+    util::testBuffer(cmdQueue, buffer_512_64, "decoder/test/test_mid_attn_1.npy");
 
     for (auto &e: event) {
         clReleaseEvent(e);
     }
     clReleaseMemObject(bufferX);
-    clReleaseMemObject(buffer_128_512);
-    clReleaseMemObject(buffer_3_512);
+    clReleaseMemObject(buffer_512_64);
 }

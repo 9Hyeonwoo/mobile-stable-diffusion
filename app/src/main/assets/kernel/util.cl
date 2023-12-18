@@ -169,3 +169,120 @@ __kernel void batch_matmul(__global float *A,
     }
     output[batch * M * N + i * N + j] = sum * scale;
 }
+
+__kernel void batch_matmul_scale(
+    __global const float *A, // A = (M, K)
+    __global const float *B, // B = (K, N)
+    __global float* C,
+    const size_t M,
+    const size_t N,
+    const size_t K,
+    const float scale
+) {
+
+    const int reg_size_m = 8;
+    const int tile_size_m = 128;
+    const int reg_size_n = 8;
+    const int tile_size_n = 128;
+    const int tile_size_k = 16;
+
+    // Thread identifiers
+    const int offset_batch_A = get_global_id(0) * M * K ;
+    const int offset_batch_B = get_global_id(0) * K * N ;
+    const int offset_batch_C = get_global_id(0) * M * N ;
+    const int local_size_m = get_local_size(1);
+    const int local_size_n = get_local_size(2);
+    const int local_m = get_local_id(1);
+    const int local_n = get_local_id(2);
+    const int offset_m = get_group_id(1) * get_local_size(1) * reg_size_m ;
+    const int offset_n = get_group_id(2) * get_local_size(2) * reg_size_n ;
+
+    // Local memory to fit a tile of A and B
+    __local float Asub[tile_size_m * tile_size_k];
+    __local float Bsub[tile_size_k * tile_size_n];
+
+    // Allocate register space
+    float Areg;
+    float Breg[reg_size_n];
+    float acc[reg_size_m][reg_size_n];
+
+    // Initialise the accumulation registers
+    int wm_size = reg_size_m;
+    int wn_size = reg_size_n;
+    for (int wm=0; wm<reg_size_m; wm++) {
+        for (int wn=0; wn<reg_size_n; wn++) {
+            acc[wm][wn] = 0.0f;
+        }
+    }
+
+    // Loop over all tiles
+    int numTiles = K/tile_size_k;
+    for (int t=0; t<numTiles; t++) {
+
+        // Load one tile of A and B into local memory
+        for (int id=local_m*local_size_n + local_n; id<(tile_size_m * tile_size_k); id+=local_size_m*local_size_n) {
+            int m = id / tile_size_k;
+            int k = id % tile_size_k;
+            int tiledIndex = tile_size_k*t + k;
+            // A = (M, K), B = (K, N)
+            int A_index = (offset_m + m)*K + (tiledIndex);
+            if (A_index < M*K) {
+                Asub[m*tile_size_k + k] = A[A_index + offset_batch_A];
+            } else {
+                break;
+            }
+        }
+        for (int id=local_m*local_size_n + local_n; id<(tile_size_n * tile_size_k); id+=local_size_m*local_size_n) {
+            int n = id / tile_size_k;
+            int k = id % tile_size_k;
+            int tiledIndex = tile_size_k*t + k;
+            // A = (M, K), B = (K, N)
+            int B_index = (tiledIndex)*N + (offset_n + n);
+            if (B_index < N*K) {
+                Bsub[k*tile_size_n + n] = B[B_index + offset_batch_B];
+            } else {
+                break;
+            }
+        }
+        // global version
+        // __global const float* Asub_global = A + offset_m * K + t * tile_size_k + offset_batch_A;
+        // __global const float* Bsub_global = B + (t * tile_size_k) * N + offset_n + offset_batch_B;
+
+        // Synchronise to make sure the tile is loaded
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        // Loop over the values of a single tile
+        for (int k=0; k<tile_size_k; k++) {
+
+            // Cache the values of Bsub in registers
+            for (int wn=0; wn<wn_size; wn++) {
+                int col = local_n + wn*local_size_n;
+                Breg[wn] = Bsub[k*tile_size_n + col];
+                //Breg[wn] = Bsub_global[k * N + col];
+            }
+
+            // Perform the computation
+
+            for (int wm=0; wm<wm_size; wm++) {
+                int row = local_m + wm*local_size_m;
+                Areg = Asub[row*tile_size_k + k];
+                //Areg = Asub_global[row*K + k];
+                for (int wn=0; wn<wn_size; wn++) {
+                    acc[wm][wn] += Areg * Breg[wn];
+                }
+            }
+        }
+
+        // Synchronise before loading the next tile
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    // Store the final results in C
+    for (int wm=0; wm<wm_size; wm++) {
+        int global_m = offset_m + local_m + wm*local_size_m;
+        for (int wn=0; wn<wn_size; wn++) {
+            int global_n = offset_n + local_n + wn*local_size_n;
+            C[global_m*N + global_n + offset_batch_C] = acc[wm][wn] * scale;
+        }
+    }
+}

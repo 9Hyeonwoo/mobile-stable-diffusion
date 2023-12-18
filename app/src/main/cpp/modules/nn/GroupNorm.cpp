@@ -74,6 +74,9 @@ GroupNorm::~GroupNorm() {
 }
 
 void GroupNorm::init() {
+    if (event_init_weight != nullptr && event_init_bias != nullptr) {
+        return;
+    }
     cl_int err;
     auto weight = util::load_npy_file(weight_name);
     auto bias = util::load_npy_file(bias_name);

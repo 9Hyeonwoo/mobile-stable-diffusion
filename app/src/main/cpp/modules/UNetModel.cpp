@@ -1962,9 +1962,11 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
 
     err = time_embed_2->forward(bufferEmbedTemp, bufferEmbed, 1, &event[1], &event[2]);
     CHECK_ERROR(err);
-
+    util::testBuffer(cmdQueue, bufferEmbed, "unet/time_embed/test/test_time_embed.npy");
+    return;
     /* test section */
     /* output_block layer[5] */
+
     initOutputBlock5();
 
     buffer_1280_16 = clCreateBuffer(context, CL_MEM_READ_WRITE,
@@ -1983,18 +1985,21 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
                                             0, nullptr, &event[3]);
     CHECK_ERROR(err);
     delete output_block_5_res_block;
+    output_block_5_res_block = nullptr;
 
     output_block_5_spatial->init();
     err = output_block_5_spatial->forward(buffer_1280_16, bufferCondition, buffer_1280_16,
                                           1, &event[3], &event[4]);
     CHECK_ERROR(err);
     delete output_block_5_spatial;
+    output_block_5_spatial = nullptr;
 
     output_block_5_up_sample->init();
     err = output_block_5_up_sample->forward(buffer_1280_16, buffer_1280_32,
                                             1, &event[4], &event[5]);
     CHECK_ERROR(err);
     delete output_block_5_up_sample;
+    output_block_5_up_sample = nullptr;
     /* output_block layer[5] */
 
     /* output_block layer[6] */
@@ -2002,9 +2007,11 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
 
     output_block_6_res_block->init();
     delete output_block_6_res_block;
+    output_block_6_res_block = nullptr;
 
     output_block_6_spatial->init();
     delete output_block_6_spatial;
+    output_block_6_spatial = nullptr;
     /* output_block layer[6] */
 
     /* test section */

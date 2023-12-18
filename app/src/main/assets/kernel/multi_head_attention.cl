@@ -268,8 +268,8 @@ __kernel void batch_matmul(
             }
         }
         // global version
-        __global const float* Asub_global = A + offset_m * K + t * tile_size_k + offset_batch_A;
-        __global const float* Bsub_global = B + (t * tile_size_k) * N + offset_n + offset_batch_B;
+        //__global const float* Asub_global = A + offset_m * K + t * tile_size_k + offset_batch_A;
+        //__global const float* Bsub_global = B + (t * tile_size_k) * N + offset_n + offset_batch_B;
 
         // Synchronise to make sure the tile is loaded
         barrier(CLK_LOCAL_MEM_FENCE);
