@@ -295,10 +295,10 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     im2win matmul - naive */
 
     size_t tile_size_m = 1, reg_size_n = 8;
-    size_t tile_size_ns[] = {128, 64};
+    size_t tile_size_ns[] = {128, 64, 32, 16, 8};
     size_t tile_size_ks[] = {16, 4};
 
-    int n_index, n_size = 2;
+    int n_index, n_size = 5;
     for (n_index = 0; n_index < n_size; n_index++) {
         if (outputSize % (tile_size_ns[n_index]) == 0) {
             break;

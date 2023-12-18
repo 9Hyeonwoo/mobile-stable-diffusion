@@ -33,15 +33,14 @@ __kernel void reg_linear(
     const int K,
     const size_t reg_size_m,
     const size_t tile_size_m,
-    __local float* Asub
-    // const size_t reg_size_n,
-    // const size_t tile_size_n,
+    const size_t tile_size_n,
+    __local float* Asub,
+    __local float* Bsub
     // const size_t tile_size_k
 ) {
 
-    const int reg_size_n = 8;
-    const int tile_size_n = 128;
-    const int tile_size_k = 16;
+    __constant int reg_size_n = 8;
+    __constant int tile_size_k = 16;
 
     // Thread identifiers
     int local_size_m = get_local_size(0);
@@ -53,7 +52,7 @@ __kernel void reg_linear(
 
     // Local memory to fit a tile of A and B
     // __local float Asub[tile_size_m][tile_size_k];
-    __local float Bsub[tile_size_k * tile_size_n];
+    // __local float Bsub[tile_size_k * tile_size_n];
 
     // Allocate register space
     float Areg;
