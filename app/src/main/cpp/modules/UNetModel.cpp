@@ -1074,6 +1074,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     err = input_block_0_conv2d->forward(bufferInput, bufferInput_0, 1, &event1_0, &event1_1);
     CHECK_ERROR(err);
     delete input_block_0_conv2d;
+    input_block_0_conv2d = nullptr;
 
     // x=seed45.npy. timestep=981. max diff: 0.00000059604644775391
     // util::testBuffer(cmdQueue, bufferInput_0, "unet/input_block/test/test_input_block_0_conv2d.npy");

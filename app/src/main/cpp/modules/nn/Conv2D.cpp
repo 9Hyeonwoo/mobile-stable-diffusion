@@ -273,7 +273,7 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
 
     size_t out_channel = weightShape[0];
 
-    /* im2win matmul - naive
+    /* im2win matmul - naive */
     err = clSetKernelArg(kernel_im2win_matmul, 0, sizeof(cl_mem), &bufferWeight);
     err |= clSetKernelArg(kernel_im2win_matmul, 1, sizeof(cl_mem), &bufferBias);
     err |= clSetKernelArg(kernel_im2win_matmul, 2, sizeof(cl_mem), &bufferWin);
@@ -292,9 +292,10 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  globalSize_im2win_matmul, nullptr,
                                  1, &_event[0], event);
     CHECK_ERROR(err);
-    im2win matmul - naive */
+    /* im2win matmul - naive */
 
-    size_t tile_size_m = 1, reg_size_n = 8;
+    /* im2win matmul - register
+    size_t tile_size_m = 1, reg_size_n = 4;
     size_t tile_size_ns[] = {128, 64, 32, 16, 8};
     size_t tile_size_ks[] = {16, 4};
 
@@ -318,7 +319,7 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                             __LINE__, outputSize, tile_size_ns[0]);
         return CL_INVALID_VALUE;
     }
-    if (k_index >= n_size) {
+    if (k_index >= k_size) {
         __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
                             "[%s:%d] in_channel(%ld) %% tile_size_k(%ld) != 0\n", __FILE__,
                             __LINE__, in_channel, tile_size_ks[0]);
@@ -352,6 +353,7 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  globalSize_im2win_batch_matmul, localSize_im2win_batch_matmul,
                                  1, &_event[0], event);
     CHECK_ERROR(err);
+     im2win matmul - register */
 
     clReleaseMemObject(bufferWin);
     /* im2win version */

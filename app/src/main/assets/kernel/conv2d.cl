@@ -205,7 +205,7 @@ __kernel void im2win_batch_matmul(
     // tile_size(batch, m, n) = (1, 1, 128)
     // reg_size, input_reg[kernel_size^2 + (reg_size_n - 1) * stride * kernel_size]
     __constant int reg_size_m = 1; // fixed value
-    __constant int reg_size_n = 8;
+    __constant int reg_size_n = 4;
     __constant int reg_size_input_max = 3*3 + (reg_size_n-1)*2*3;
     const int reg_size_input = kernel_size*kernel_size + (reg_size_n-1)*stride*kernel_size;
     // const int tile_size_k = 16; // in_channel % tile_size_k == 0
@@ -225,8 +225,11 @@ __kernel void im2win_batch_matmul(
     const int offset_batch_output = batch * M * N ;
 
     // Allocate register space
-    float weight_reg;
-    float input_reg[reg_size_input_max];
+    // float weight_reg;
+    // float input_reg[reg_size_input_max];
+
+    float weight_reg[3 * 3];
+    float input_reg;
     float acc[reg_size_n];
 
     // Initialise the accumulation registers
@@ -275,8 +278,8 @@ __kernel void im2win_batch_matmul(
         barrier(CLK_LOCAL_MEM_FENCE);
 
         // Loop over the values of a single tile
+        /*
         for (int k=0; k<tile_size_k; k++) {
-
             // Cache the values of input_reg in registers
             for (int wn=0; wn<reg_size_input; wn++) {
                 int col = (local_n*reg_size_n * stride * kernel_size) + wn;
@@ -293,6 +296,56 @@ __kernel void im2win_batch_matmul(
                 }
             }
         }
+        */
+
+        for (int k=0; k<tile_size_k; k++) {
+            // Cache the values of input_reg in registers
+            /*
+            for (int wn=0; wn < kernel_size*kernel_size; wn++) {
+                // int kernel_i = wn % kernel_size;
+                // int kernel_j = wn / kernel_size;
+                int kernel_j = wn % kernel_size;
+                int kernel_i = wn / kernel_size;
+                weight_reg[wn] = weight_sub[k*kernel_size*kernel_size + (kernel_i*kernel_size) + kernel_j];
+            }
+            */
+
+            /*
+            for (int kernel_i = 0; kernel_i < kernel_size; kernel_i++) {
+                for (int kernel_j = 0; kernel_j < kernel_size; kernel_j++) {
+                    weight_reg[kernel_j * kernel_size + kernel_i] = weight_sub[k*kernel_size*kernel_size + (kernel_i*kernel_size) + kernel_j];
+                }
+            }
+            */
+
+            for (int wn = 0; wn < kernel_size*kernel_size; wn++) {
+                weight_reg[wn] = weight_sub[k*kernel_size*kernel_size + wn];
+            }
+
+            // Perform the computation
+            /*
+            for (int rn=0; rn<reg_size_n; rn++) {
+                for (int wn=0; wn < kernel_size*kernel_size; wn++) {
+                    int kernel_j = wn % kernel_size;
+                    int kernel_i = wn / kernel_size;
+                    int col = (local_n + rn*local_size_n) * stride * kernel_size + kernel_j*kernel_size + kernel_i;
+                    input_reg = input_sub[k*tile_size_m*input_tile_size_n + col];
+                    acc[rn] += weight_reg[kernel_i * kernel_size + kernel_j] * input_reg;
+                }
+            }
+            */
+
+            for (int rn=0; rn<reg_size_n; rn++) {
+                int col_offset = (local_n + rn*local_size_n) * stride * kernel_size;
+                for (int kernel_j=0; kernel_j < kernel_size; kernel_j++) {
+                    for (int kernel_i=0; kernel_i < kernel_size; kernel_i++) {
+                        int col = col_offset + kernel_j*kernel_size + kernel_i;
+                        input_reg = input_sub[k*tile_size_m*input_tile_size_n + col];
+                        acc[rn] += weight_reg[kernel_i * kernel_size + kernel_j] * input_reg;
+                    }
+                }
+            }
+        }
 
         // Synchronise before loading the next tile
         barrier(CLK_LOCAL_MEM_FENCE);
@@ -301,7 +354,7 @@ __kernel void im2win_batch_matmul(
     // Store the final results in C
     for (int rn=0; rn<reg_size_n; rn++) {
         int global_m = offset_m + local_m;
-        int global_n = offset_output_n + local_n * reg_size_n + rn;
+        int global_n = offset_output_n + (local_n +  rn * local_size_n);
         output[global_m*N + global_n + offset_batch_output] = acc[rn] + bias[batch];
     }
 }
