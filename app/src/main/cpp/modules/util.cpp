@@ -96,40 +96,8 @@ cl_program util::create_and_build_program_with_source(cl_context context,
 
 cnpy::NpyArray util::load_npy_file(const std::string &_filename) {
     auto filename = MEDIA_PATH + _filename;
-    std::ifstream file(filename, std::ios::binary);
-
-    if (!file.is_open()) {
-        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to open the file. %s",
-                            filename.data());
-        throw std::runtime_error("Failed to open the file.");
-    }
-
-    file.seekg(0, std::ios::end);
-    std::streampos fileSize = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    // Create a vector to hold the file content
-    std::vector<unsigned char> _buffer(fileSize);
-
-    // Read the file into the buffer
-    file.read(reinterpret_cast<char *>(_buffer.data()), fileSize);
-
-    // Close the file
-    file.close();
-
-    auto buffer = static_cast<const unsigned char *>(_buffer.data());
-
-    std::vector<size_t> shape;
-    size_t word_size;
-    bool fortran_order;
-    cnpy::parse_npy_header(buffer, word_size, shape, fortran_order);
-
-    auto arr = cnpy::NpyArray(shape, word_size, fortran_order);
-    size_t offset = _buffer.size() - arr.num_bytes();
-    memcpy(arr.data<char>(), buffer + offset, arr.num_bytes());
-
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "load_npy_file: %s", _filename.c_str());
-    return arr;
+    return cnpy::npy_load(filename);
 }
 
 void util::testBuffer(
