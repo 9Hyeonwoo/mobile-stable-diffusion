@@ -30,20 +30,8 @@
 TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_command_queue cmdQueue,
                          cl_device_id deviceId) : context(context), cmdQueue(cmdQueue),
                                                   deviceId(deviceId), assetManager(assetManager) {
-    cl_int err;
     embedding = util::load_npy_file("encoder/embedding_fp32.npy");
-    auto positional_embedding = util::load_npy_file("encoder/positional_embedding_fp32.npy");
-
-    bufferPositionalEmbedding = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                                               positional_embedding.num_bytes(),
-                                               nullptr, &err);
-    CHECK_ERROR(err);
-
-    err = clEnqueueWriteBuffer(cmdQueue, bufferPositionalEmbedding, CL_TRUE, 0,
-                               positional_embedding.num_bytes(),
-                               positional_embedding.data<float>(), 0, nullptr, nullptr);
-
-    CHECK_ERROR(err);
+    bufferPositionalEmbedding = util::load_npy_file("encoder/positional_embedding_fp32.npy", nullptr, context, cmdQueue);
 
     for (int i = 0; i < LAYERS; i++) {
         auto folder_prefix =

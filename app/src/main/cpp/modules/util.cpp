@@ -117,17 +117,19 @@ cl_mem util::load_npy_file(const std::string &_filename, size_t *num_vals, cl_co
     cnpy::parse_npy_header(fp, word_size, shape, fortran_order);
 
     /* from cnpy::NpyArray() */
-    *num_vals = 1;
-    for (size_t i = 0; i < shape.size(); i++) *num_vals *= shape[i];
+    size_t tmp;
+    auto _num_vals = num_vals ?: &tmp;
+    *_num_vals = 1;
+    for (size_t i = 0; i < shape.size(); i++) *_num_vals *= shape[i];
 
-    auto num_bytes = *num_vals * word_size;
+    auto num_bytes = *_num_vals * word_size;
 
     auto buffer = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR,
-                                 sizeof(char) * (*num_vals) * word_size, nullptr, &errcode_ret);
+                                 sizeof(char) * (*_num_vals) * word_size, nullptr, &errcode_ret);
     CHECK_ERROR(errcode_ret)
 
     auto data = clEnqueueMapBuffer(cmdQueue, buffer, CL_TRUE, CL_MAP_WRITE, 0,
-                                   sizeof(char) * (*num_vals) * word_size, 0, nullptr, nullptr,
+                                   sizeof(char) * (*_num_vals) * word_size, 0, nullptr, nullptr,
                                    &errcode_ret);
     CHECK_ERROR(errcode_ret)
 
