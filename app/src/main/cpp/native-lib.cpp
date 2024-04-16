@@ -191,15 +191,20 @@ Java_com_example_myopencl_MainActivity_tokenize(JNIEnv *env, jobject thiz, jstri
 extern "C"
 JNIEXPORT jfloatArray JNICALL
 Java_com_example_myopencl_MainActivity_encode(JNIEnv *env, jobject thiz, jlongArray _token) {
+    auto start = std::chrono::high_resolution_clock::now();
     auto encoder = TextEncoder(assetManager, context, cmdQueue, deviceId);
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "text encoder init time: %lld ms",
+                        duration.count());
 
     long *longArray = env->GetLongArrayElements(_token, nullptr);
     auto token = std::vector<long>(longArray, longArray + env->GetArrayLength(_token));
 
-    auto start = std::chrono::high_resolution_clock::now();
+    start = std::chrono::high_resolution_clock::now();
     auto encodedToken = encoder.encode(token);
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    stop = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "text encoder exec time: %lld ms",
                         duration.count());
 

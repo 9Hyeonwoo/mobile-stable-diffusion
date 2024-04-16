@@ -25,24 +25,10 @@ Linear::Linear(
         AAssetManager *assetManager,
         size_t in_features, size_t out_features,
         const std::string &weight_name, const std::string &bias_name
-) : cmdQueue(cmdQueue), weight_name(weight_name), bias_name(bias_name), event_init_weight(nullptr),
-    event_init_bias(nullptr) {
+) : context(context), cmdQueue(cmdQueue), weight_name(weight_name), bias_name(bias_name),
+    bufferWeight(nullptr), bufferBias(nullptr) {
     cl_int err;
     weightShape = std::vector<size_t>({out_features, in_features});
-
-    if (!bias_name.empty()) {
-        bufferBias = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                                    sizeof(float) * out_features,
-                                    nullptr, &err);
-        CHECK_ERROR_THROW(err);
-    } else {
-        bufferBias = nullptr;
-    }
-
-    bufferWeight = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                                  sizeof(float) * out_features * in_features,
-                                  nullptr, &err);
-    CHECK_ERROR_THROW(err);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/linear.cl");
@@ -59,68 +45,43 @@ Linear::Linear(
 Linear::~Linear() {
     clReleaseKernel(kernel);
     clReleaseKernel(kernel_reg_linear);
-    if (event_init_weight != nullptr) {
+    if (bufferWeight != nullptr) {
         clReleaseMemObject(bufferWeight);
-        clReleaseEvent(event_init_weight);
     }
-    if (event_init_bias != nullptr) {
+    if (bufferBias != nullptr) {
         clReleaseMemObject(bufferBias);
-        clReleaseEvent(event_init_bias);
     }
 }
 
 void Linear::init() {
-    if (event_init_weight != nullptr && event_init_bias != nullptr) {
+    if (bufferWeight != nullptr && bufferBias != nullptr) {
         return;
     }
-    cl_int err;
-    auto weight = util::load_npy_file(weight_name);
+    size_t weight_num_vals;
+    bufferWeight = util::load_npy_file(weight_name, &weight_num_vals, context, cmdQueue);
 
-    if (weight.num_vals != (weightShape[0] * weightShape[1])) {
+    if (weight_num_vals != (weightShape[0] * weightShape[1])) {
         __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
                             "weight.num_vals(%ld) != (weightShape[0](%ld) * weightShape[1](%ld))",
-                            weight.num_vals, weightShape[0], weightShape[1]);
+                            weight_num_vals, weightShape[0], weightShape[1]);
         throw std::runtime_error("weight.num_vals != (weightShape[0] * weightShape[1])");
     }
-    err = clEnqueueWriteBuffer(cmdQueue, bufferWeight, CL_TRUE, 0,
-                               sizeof(float) * weight.num_vals,
-                               weight.data<float>(), 0, nullptr, &event_init_weight);
-    CHECK_ERROR_THROW(err);
 
-
-    if (bufferBias != nullptr) {
-        auto bias = util::load_npy_file(bias_name);
-        if (bias.num_vals != weightShape[0]) {
+    if (!bias_name.empty()) {
+        size_t bias_num_vals;
+        bufferBias = util::load_npy_file(bias_name, &bias_num_vals, context, cmdQueue);
+        if (bias_num_vals != weightShape[0]) {
             __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
                                 "bias.num_vals(%ld) != weightShape[0](%ld)",
-                                bias.num_vals, weightShape[0]);
+                                bias_num_vals, weightShape[0]);
             throw std::runtime_error("bias.num_vals != weightShape[0]");
         }
-
-        err = clEnqueueWriteBuffer(cmdQueue, bufferBias, CL_TRUE, 0,
-                                   sizeof(float) * bias.num_vals,
-                                   bias.data<float>(), 0, nullptr, &event_init_bias);
-        CHECK_ERROR_THROW(err);
     }
 }
 
 cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                        const cl_event *event_wait_list, cl_event *event) {
     cl_int err;
-    cl_uint _num_events;
-    if (event_init_bias != nullptr) {
-        _num_events = num_events_in_list + 2;
-    } else {
-        _num_events = num_events_in_list + 1;
-    }
-    auto *_event_list = new cl_event[_num_events];
-    _event_list[0] = event_init_weight;
-    if (event_init_bias != nullptr) {
-        _event_list[1] = event_init_bias;
-    }
-    for (int i = 0; i < num_events_in_list; i++) {
-        _event_list[i + (_num_events - num_events_in_list)] = event_wait_list[i];
-    }
 
     if (input == output) {
         __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Linear not support input == output");
@@ -208,8 +169,10 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     err |= clSetKernelArg(kernel_reg_linear, 7, sizeof(size_t), &reg_size_m);
     err |= clSetKernelArg(kernel_reg_linear, 8, sizeof(size_t), &tile_size_m);
     err |= clSetKernelArg(kernel_reg_linear, 9, sizeof(size_t), &tile_size_n);
-    err |= clSetKernelArg(kernel_reg_linear, 10, sizeof(float) * tile_size_m * tile_size_k, nullptr);
-    err |= clSetKernelArg(kernel_reg_linear, 11, sizeof(float) * tile_size_k * tile_size_n, nullptr);
+    err |= clSetKernelArg(kernel_reg_linear, 10, sizeof(float) * tile_size_m * tile_size_k,
+                          nullptr);
+    err |= clSetKernelArg(kernel_reg_linear, 11, sizeof(float) * tile_size_k * tile_size_n,
+                          nullptr);
     CHECK_ERROR(err);
 
     size_t globalSize_m, globalSize_n;
@@ -226,10 +189,8 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     size_t globalWorkSize_reg_linear[2] = {globalSize_m / reg_size_m, globalSize_n / reg_size_n};
     size_t localWorkSize_reg_linear[2] = {tile_size_m / reg_size_m, tile_size_n / reg_size_n};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel_reg_linear, 2, nullptr, globalWorkSize_reg_linear,
-                                 localWorkSize_reg_linear, _num_events, _event_list, event);
+                                 localWorkSize_reg_linear, num_events_in_list, event_wait_list, event);
     CHECK_ERROR(err);
-
-    delete[] _event_list;
 
     return CL_SUCCESS;
 }

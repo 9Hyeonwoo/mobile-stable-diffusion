@@ -35,11 +35,9 @@ private:
     cl_mem bufferBias;
 
     cl_command_queue cmdQueue;
+    cl_context context;
     cl_kernel kernel;
     cl_kernel kernel_reg_linear;
-
-    cl_event event_init_weight;
-    cl_event event_init_bias;
 
     const std::string weight_name;
     const std::string bias_name;
