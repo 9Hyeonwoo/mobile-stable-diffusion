@@ -100,6 +100,48 @@ cnpy::NpyArray util::load_npy_file(const std::string &_filename) {
     return cnpy::npy_load(filename);
 }
 
+cl_mem util::load_npy_file(const std::string &_filename, size_t *num_vals, cl_context context,
+                           cl_command_queue cmdQueue) {
+    auto filename = MEDIA_PATH + _filename;
+    cl_int errcode_ret;
+
+    /* from cnpy::npy_load */
+    FILE *fp = fopen(filename.c_str(), "rb");
+
+    if (!fp) throw std::runtime_error("npy_load: Unable to open file " + filename);
+
+    /* from cnpy::load_the_npy_file */
+    std::vector<size_t> shape;
+    size_t word_size;
+    bool fortran_order;
+    cnpy::parse_npy_header(fp, word_size, shape, fortran_order);
+
+    /* from cnpy::NpyArray() */
+    *num_vals = 1;
+    for (size_t i = 0; i < shape.size(); i++) *num_vals *= shape[i];
+
+    auto num_bytes = *num_vals * word_size;
+
+    auto buffer = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR,
+                                 sizeof(char) * (*num_vals) * word_size, nullptr, &errcode_ret);
+    CHECK_ERROR(errcode_ret)
+
+    auto data = clEnqueueMapBuffer(cmdQueue, buffer, CL_TRUE, CL_MAP_WRITE, 0,
+                                   sizeof(char) * (*num_vals) * word_size, 0, nullptr, nullptr,
+                                   &errcode_ret);
+    CHECK_ERROR(errcode_ret)
+
+    size_t nread = fread(data,1, num_bytes,fp);
+    if (nread != num_bytes) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "nread(%ld) != num_bytes(%ld)", nread, num_bytes);
+        throw std::runtime_error("nread != num_bytes");
+    }
+
+    clEnqueueUnmapMemObject(cmdQueue, buffer, data, 0, nullptr, nullptr);
+    fclose(fp);
+    return buffer;
+}
+
 void util::testBuffer(
         cl_command_queue cmdQueue, cl_mem buffer, const char *filename
 ) {

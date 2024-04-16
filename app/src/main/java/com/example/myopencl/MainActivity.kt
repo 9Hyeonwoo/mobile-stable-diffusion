@@ -80,17 +80,21 @@ class MainActivity : AppCompatActivity() {
             run {
                 // about 8s
                 Log.d("__TEST__", "start torchEncoder")
-                val torchEncoder = Module.load(mediaFilePath("encoder/text_encoder.ptl"))
+                val torchEncoder = checkTime("encode_init") {
+                    Module.load(mediaFilePath("encoder/text_encoder.ptl"))
+                }
 
                 val tensor = Tensor.fromBlob(token, longArrayOf(1, token.size.toLong()))
                 Log.d("__TEST__", "start encode")
                 // output shape = (batch_size=1, context_length=77, 1024)
 
-                condition =
+                condition = checkTime("encode_inference") {
                     torchEncoder.forward(IValue.from(tensor)).toTensor().dataAsFloatArray
+                }
                 torchEncoder.destroy()
                 Log.d("__TEST__", "end torchEncoder")
             }
+            return@setOnClickListener
             val latent: FloatArray
             run {
                 val random = Random(45)
@@ -210,6 +214,14 @@ class MainActivity : AppCompatActivity() {
             IValue.from(tensorStep),
             IValue.from(tensorCondition)
         ).toTensor().dataAsFloatArray
+    }
+
+    private inline fun<T> checkTime(tag: String, block: () -> T): T {
+        val start = System.currentTimeMillis()
+        val result = block()
+        val stop = System.currentTimeMillis()
+        Log.d("__TEST__", "$tag time: ${stop - start} ms")
+        return result
     }
 
     /**

@@ -37,9 +37,6 @@ private:
     cl_kernel kernel_var;
     cl_kernel kernel_norm;
 
-    cl_event event_init_weight;
-    cl_event event_init_bias;
-
     const std::string weight_name;
     const std::string bias_name;
 };
