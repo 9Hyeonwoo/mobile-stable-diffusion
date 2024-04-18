@@ -50,6 +50,7 @@ private:
     // Checked! (2023/11/29)
     // positional_embedding.shape = (CONTEXT_LENGTH, EMBEDDING_SIZE)
     cl_mem bufferPositionalEmbedding;
+    cl_mem bufferAttentionMask;
 };
 
 

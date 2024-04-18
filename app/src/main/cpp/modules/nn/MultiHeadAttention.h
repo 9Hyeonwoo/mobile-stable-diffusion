@@ -17,7 +17,8 @@ public:
                        const std::string &in_proj_weight_name,
                        const std::string &in_proj_bias_name,
                        const std::string &out_proj_weight_name,
-                       const std::string &out_proj_bias_name);
+                       const std::string &out_proj_bias_name,
+                       cl_mem attentionMask);
 
     ~MultiHeadAttention();
 

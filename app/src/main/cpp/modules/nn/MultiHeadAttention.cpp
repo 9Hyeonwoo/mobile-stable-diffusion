@@ -31,7 +31,8 @@ MultiHeadAttention::MultiHeadAttention(
         const std::string &in_proj_weight_name,
         const std::string &in_proj_bias_name,
         const std::string &out_proj_weight_name,
-        const std::string &out_proj_bias_name
+        const std::string &out_proj_bias_name,
+        cl_mem attentionMask
 ) : context(context),
     cmdQueue(cmdQueue),
     numHeads(numHeads) {
@@ -45,17 +46,7 @@ MultiHeadAttention::MultiHeadAttention(
                                 embed_dim, embed_dim,
                               out_proj_weight_name, out_proj_bias_name);
 
-    auto attention_mask = util::load_npy_file("encoder/attn_mask_fp32.npy");
-
-    bufferAttentionMask = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                                         attention_mask.num_bytes(),
-                                         nullptr, &err);
-    CHECK_ERROR_THROW(err);
-
-    err = clEnqueueWriteBuffer(cmdQueue, bufferAttentionMask, CL_TRUE, 0,
-                               attention_mask.num_bytes(),
-                               attention_mask.data<float>(), 0, nullptr, nullptr);
-    CHECK_ERROR_THROW(err);
+    bufferAttentionMask = attentionMask;
 
     cl_program program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                                     "kernel/multi_head_attention.cl");
@@ -89,7 +80,6 @@ MultiHeadAttention::MultiHeadAttention(
 MultiHeadAttention::~MultiHeadAttention() {
     delete attnInProj0;
     delete attnOutProj0;
-    clReleaseMemObject(bufferAttentionMask);
     clReleaseKernel(kernel_add_matmul_attention);
     clReleaseKernel(kernel_softmax);
     clReleaseKernel(kernel_matmul_attention);

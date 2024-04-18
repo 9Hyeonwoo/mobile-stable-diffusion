@@ -39,7 +39,8 @@ ResidualAttentionBlock::ResidualAttentionBlock(
         const std::string &mlp_c_fc_weight_name,
         const std::string &mlp_c_fc_bias_name,
         const std::string &mlp_c_proj_weight_name,
-        const std::string &mlp_c_proj_bias_name
+        const std::string &mlp_c_proj_bias_name,
+        cl_mem attentionMask
 ) : context(context),
     cmdQueue(cmdQueue) {
     cl_int err;
@@ -51,7 +52,8 @@ ResidualAttentionBlock::ResidualAttentionBlock(
     attn = new MultiHeadAttention(context, cmdQueue, deviceId, assetManager,
                                   d_model, numHeads,
                                   attn_in_proj_weight_name, attn_in_proj_bias_name,
-                                  attn_out_proj_weight_name, attn_out_proj_bias_name);
+                                  attn_out_proj_weight_name, attn_out_proj_bias_name,
+                                  attentionMask);
 
     mlp_c_fc = new Linear(context, cmdQueue, deviceId, assetManager,
                           d_model, d_model * 4,

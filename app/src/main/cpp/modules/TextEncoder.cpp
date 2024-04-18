@@ -32,6 +32,7 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
                                                   deviceId(deviceId), assetManager(assetManager) {
     embedding = util::load_npy_file("encoder/embedding_fp32.npy");
     bufferPositionalEmbedding = util::load_npy_file("encoder/positional_embedding_fp32.npy", nullptr, context, cmdQueue);
+    bufferAttentionMask = util::load_npy_file("encoder/attn_mask_fp32.npy", nullptr, context, cmdQueue);
 
     for (int i = 0; i < LAYERS; i++) {
         auto folder_prefix =
@@ -58,7 +59,8 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
                                            attn_out_proj_bias_name,
                                            mlp_c_fc_weight_name, mlp_c_fc_bias_name,
                                            mlp_c_proj_weight_name,
-                                           mlp_c_proj_bias_name)
+                                           mlp_c_proj_bias_name,
+                                           bufferAttentionMask)
         );
         resBlocks[i]->init();
     }
@@ -76,6 +78,7 @@ TextEncoder::~TextEncoder() {
     }
     delete ln_final;
     clReleaseMemObject(bufferPositionalEmbedding);
+    clReleaseMemObject(bufferAttentionMask);
 }
 
 /*

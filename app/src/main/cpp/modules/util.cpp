@@ -141,6 +141,7 @@ cl_mem util::load_npy_file(const std::string &_filename, size_t *num_vals, cl_co
 
     clEnqueueUnmapMemObject(cmdQueue, buffer, data, 0, nullptr, nullptr);
     fclose(fp);
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "load_npy_file[cl_mem]: %s", _filename.c_str());
     return buffer;
 }
 
