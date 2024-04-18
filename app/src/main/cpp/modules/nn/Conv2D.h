@@ -45,9 +45,6 @@ private:
     cl_mem bufferWeight;
     cl_mem bufferBias;
 
-    cl_event event_init_weight;
-    cl_event event_init_bias;
-
     int stride;
     int padding;
 
