@@ -33,7 +33,6 @@ TextEncoder::TextEncoder(
         cl_command_queue cmdQueue,
         cl_device_id deviceId
 ) : context(context), cmdQueue(cmdQueue),
-    linearKernel(context, deviceId, assetManager),
     multiHeadAttentionKernel(context, deviceId, assetManager),
     utilKernel(context, deviceId, assetManager) {
     embedding = util::load_npy_file("encoder/embedding_fp32.npy");
@@ -43,6 +42,7 @@ TextEncoder::TextEncoder(
                                               cmdQueue);
 
     layerNormKernel = std::make_shared<LayerNormKernel>(context, deviceId, assetManager);
+    linearKernel = std::make_shared<LinearKernel>(context, deviceId, assetManager);
 
     for (int i = 0; i < LAYERS; i++) {
         auto folder_prefix =

@@ -22,7 +22,7 @@ public:
                        const std::string &out_proj_weight_name,
                        const std::string &out_proj_bias_name,
                        cl_mem attentionMask,
-                       LinearKernel &linearKernel,
+                       std::shared_ptr<LinearKernel> linearKernel,
                        MultiHeadAttentionKernel &kernel,
                        UtilKernel &utilKernel
     );

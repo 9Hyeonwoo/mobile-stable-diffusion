@@ -55,7 +55,7 @@ private:
     cl_mem bufferAttentionMask;
 
     std::shared_ptr<LayerNormKernel> layerNormKernel;
-    LinearKernel linearKernel;
+    std::shared_ptr<LinearKernel> linearKernel;
     MultiHeadAttentionKernel multiHeadAttentionKernel;
     UtilKernel utilKernel;
 };

@@ -23,7 +23,7 @@ public:
                    const std::string &v_linear_weight_name,
                    const std::string &out_linear_weight_name,
                    const std::string &out_linear_bias_name,
-                   LinearKernel &linearKernel,
+                   std::shared_ptr<LinearKernel> linearKernel,
                    UtilKernel &utilKernel
     );
 

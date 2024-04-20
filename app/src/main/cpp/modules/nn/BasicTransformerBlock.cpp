@@ -39,7 +39,7 @@ BasicTransformerBlock::BasicTransformerBlock(
         const std::string &ff_geglu_linear_weight_name, const std::string &ff_geglu_linear_bias_name,
         const std::string &ff_net_linear_weight_name, const std::string &ff_net_linear_bias_name,
         std::shared_ptr<LayerNormKernel> layerNormKernel,
-        LinearKernel &linearKernel,
+        std::shared_ptr<LinearKernel> linearKernel,
         UtilKernel &utilKernel
 ) : cmdQueue(cmdQueue), context(context), utilKernel(utilKernel) {
 

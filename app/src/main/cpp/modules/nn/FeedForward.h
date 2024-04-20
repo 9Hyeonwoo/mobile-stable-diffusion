@@ -22,7 +22,7 @@ public:
                 size_t dim,
                 const std::string &geglu_linear_weight_name, const std::string &geglu_linear_bias_name,
                 const std::string &net_linear_weight_name, const std::string &net_linear_bias_name,
-                LinearKernel &linearKernel);
+                std::shared_ptr<LinearKernel> linearKernel);
 
     ~FeedForward();
 

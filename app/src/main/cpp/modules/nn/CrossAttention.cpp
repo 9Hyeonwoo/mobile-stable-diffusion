@@ -30,7 +30,7 @@ CrossAttention::CrossAttention(
         const std::string &k_linear_weight_name,
         const std::string &v_linear_weight_name,
         const std::string &out_linear_weight_name, const std::string &out_linear_bias_name,
-        LinearKernel &linearKernel,
+        std::shared_ptr<LinearKernel> linearKernel,
         UtilKernel &utilKernel
 ) : context(context), cmdQueue(cmdQueue), headSize(headSize), utilKernel(utilKernel) {
     cl_int err;

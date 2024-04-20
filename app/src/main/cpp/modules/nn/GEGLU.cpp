@@ -25,7 +25,7 @@ GEGLU::GEGLU(
         AAssetManager *assetManager,
         size_t in_features, size_t out_features,
         const std::string &linear_weight_name, const std::string &linear_bias_name,
-        LinearKernel &linearKernel
+        std::shared_ptr<LinearKernel> linearKernel
 ) : context(context), cmdQueue(cmdQueue) {
     cl_int err;
 

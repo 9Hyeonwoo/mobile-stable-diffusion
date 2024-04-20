@@ -151,7 +151,7 @@ private:
     Conv2D *out_conv2d;
 
     std::shared_ptr<LayerNormKernel> layerNormKernel;
-    LinearKernel linearKernel;
+    std::shared_ptr<LinearKernel> linearKernel;
     UtilKernel utilKernel;
 };
 

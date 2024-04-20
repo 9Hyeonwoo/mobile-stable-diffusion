@@ -50,7 +50,7 @@ public:
                        const std::string &out_linear_weight_name,
                        const std::string &out_linear_bias_name,
                        std::shared_ptr<LayerNormKernel> layerNormKernel,
-                       LinearKernel &linearKernel,
+                       std::shared_ptr<LinearKernel> linearKernel,
                        UtilKernel &utilKernel
     );
 

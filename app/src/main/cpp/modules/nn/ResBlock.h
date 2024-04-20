@@ -26,7 +26,7 @@ public:
              const std::string &out_group_norm_weight_name, const std::string &out_group_norm_bias_name,
              const std::string &out_conv2d_weight_name, const std::string &out_conv2d_bias_name,
              const std::string& skip_conv2d_weight_name, const std::string& skip_conv2d_bias_name,
-             LinearKernel &linearKernel);
+             std::shared_ptr<LinearKernel> linearKernel);
 
     ~ResBlock();
 

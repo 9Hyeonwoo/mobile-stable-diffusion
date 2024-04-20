@@ -20,7 +20,7 @@ public:
     Linear(cl_context context, cl_command_queue cmdQueue,
            size_t in_features, size_t out_features,
            const std::string &weight_name, const std::string &bias_name,
-           LinearKernel &kernel);
+           std::shared_ptr<LinearKernel> kernel);
 
     ~Linear();
 
@@ -41,7 +41,7 @@ private:
     const std::string weight_name;
     const std::string bias_name;
 
-    LinearKernel kernel;
+    std::shared_ptr<LinearKernel> kernel;
 };
 
 

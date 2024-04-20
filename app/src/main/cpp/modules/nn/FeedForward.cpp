@@ -26,7 +26,7 @@ FeedForward::FeedForward(
         const std::string &geglu_linear_weight_name,
         const std::string &geglu_linear_bias_name,
         const std::string &net_linear_weight_name, const std::string &net_linear_bias_name,
-        LinearKernel &linearKernel
+        std::shared_ptr<LinearKernel> linearKernel
 ) : context(context), cmdQueue(cmdQueue) {
 
     geglu = new GEGLU(context, cmdQueue, deviceId, assetManager,

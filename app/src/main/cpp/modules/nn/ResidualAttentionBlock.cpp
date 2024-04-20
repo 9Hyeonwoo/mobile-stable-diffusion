@@ -40,7 +40,7 @@ ResidualAttentionBlock::ResidualAttentionBlock(
         const std::string &mlp_c_proj_bias_name,
         cl_mem attentionMask,
         std::shared_ptr<LayerNormKernel> layerNormKernel,
-        LinearKernel &linearKernel,
+        std::shared_ptr<LinearKernel> linearKernel,
         MultiHeadAttentionKernel &multiHeadAttentionKernel,
         UtilKernel &utilKernel
 ) : context(context),

@@ -59,7 +59,7 @@ private:
     GroupNorm *out_group_norm;
     Conv2D *out_conv2d;
 
-    LinearKernel linearKernel;
+    std::shared_ptr<LinearKernel> linearKernel;
 };
 
 

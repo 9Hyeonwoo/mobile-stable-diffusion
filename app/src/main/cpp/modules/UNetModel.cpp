@@ -25,9 +25,9 @@ UNetModel::UNetModel(
         cl_command_queue cmdQueue,
         cl_device_id deviceId
 ) : context(context), cmdQueue(cmdQueue), deviceId(deviceId), assetManager(assetManager),
-    linearKernel(context, deviceId, assetManager),
     utilKernel(context, deviceId, assetManager) {
     layerNormKernel = std::make_shared<LayerNormKernel>(context, deviceId, assetManager);
+    linearKernel = std::make_shared<LinearKernel>(context, deviceId, assetManager);
     time_embed_0 = new Linear(context, cmdQueue,
                               320, 1280,
                               "unet/time_embed/time_embed_0_weight.npy",

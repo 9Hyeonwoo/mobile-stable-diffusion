@@ -20,8 +20,10 @@
 Decoder::Decoder(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager
-) : context(context), cmdQueue(cmdQueue), linearKernel(context, deviceId, assetManager) {
+) : context(context), cmdQueue(cmdQueue) {
     cl_int err;
+
+    linearKernel = std::make_shared<LinearKernel>(context, deviceId, assetManager);
 
     post_quant_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
                                    4, 4, 1, 1, 0,

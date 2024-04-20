@@ -24,7 +24,7 @@ Linear::Linear(
         cl_context context, cl_command_queue cmdQueue,
         size_t in_features, size_t out_features,
         const std::string &weight_name, const std::string &bias_name,
-        LinearKernel &kernel
+        std::shared_ptr<LinearKernel> kernel
 ) : context(context), cmdQueue(cmdQueue), weight_name(weight_name), bias_name(bias_name),
     bufferWeight(nullptr), bufferBias(nullptr), kernel(kernel) {
     weightShape = std::vector<size_t>({out_features, in_features});
@@ -90,15 +90,15 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     auto N = weightShape[0];
     auto K = weightShape[1];
     /* naive
-    err = clSetKernelArg(kernel.naive_linear, 0, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel.naive_linear, 1, sizeof(cl_mem), &bufferWeight);
-    err |= clSetKernelArg(kernel.naive_linear, 2, sizeof(cl_mem), &bufferBias);
-    err |= clSetKernelArg(kernel.naive_linear, 3, sizeof(cl_mem), &output);
-    err |= clSetKernelArg(kernel.naive_linear, 4, sizeof(int), &K);
+    err = clSetKernelArg(kernel->naive_linear, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel->naive_linear, 1, sizeof(cl_mem), &bufferWeight);
+    err |= clSetKernelArg(kernel->naive_linear, 2, sizeof(cl_mem), &bufferBias);
+    err |= clSetKernelArg(kernel->naive_linear, 3, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel->naive_linear, 4, sizeof(int), &K);
     CHECK_ERROR(err);
 
     size_t globalWorkSize[2] = {M, N};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel.naive_linear, 2, nullptr, globalWorkSize, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->naive_linear, 2, nullptr, globalWorkSize, nullptr,
                                  num_events_in_list, event_wait_list, event);
     CHECK_ERROR(err);
      naive */
@@ -145,19 +145,19 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
         return CL_INVALID_VALUE;
     }
 
-    err = clSetKernelArg(kernel.register_linear, 0, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel.register_linear, 1, sizeof(cl_mem), &bufferWeight);
-    err |= clSetKernelArg(kernel.register_linear, 2, sizeof(cl_mem), &bufferBias);
-    err |= clSetKernelArg(kernel.register_linear, 3, sizeof(cl_mem), &output);
-    err |= clSetKernelArg(kernel.register_linear, 4, sizeof(int), &M);
-    err |= clSetKernelArg(kernel.register_linear, 5, sizeof(int), &N);
-    err |= clSetKernelArg(kernel.register_linear, 6, sizeof(int), &K);
-    err |= clSetKernelArg(kernel.register_linear, 7, sizeof(size_t), &reg_size_m);
-    err |= clSetKernelArg(kernel.register_linear, 8, sizeof(size_t), &tile_size_m);
-    err |= clSetKernelArg(kernel.register_linear, 9, sizeof(size_t), &tile_size_n);
-    err |= clSetKernelArg(kernel.register_linear, 10, sizeof(float) * tile_size_m * tile_size_k,
+    err = clSetKernelArg(kernel->register_linear, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel->register_linear, 1, sizeof(cl_mem), &bufferWeight);
+    err |= clSetKernelArg(kernel->register_linear, 2, sizeof(cl_mem), &bufferBias);
+    err |= clSetKernelArg(kernel->register_linear, 3, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel->register_linear, 4, sizeof(int), &M);
+    err |= clSetKernelArg(kernel->register_linear, 5, sizeof(int), &N);
+    err |= clSetKernelArg(kernel->register_linear, 6, sizeof(int), &K);
+    err |= clSetKernelArg(kernel->register_linear, 7, sizeof(size_t), &reg_size_m);
+    err |= clSetKernelArg(kernel->register_linear, 8, sizeof(size_t), &tile_size_m);
+    err |= clSetKernelArg(kernel->register_linear, 9, sizeof(size_t), &tile_size_n);
+    err |= clSetKernelArg(kernel->register_linear, 10, sizeof(float) * tile_size_m * tile_size_k,
                           nullptr);
-    err |= clSetKernelArg(kernel.register_linear, 11, sizeof(float) * tile_size_k * tile_size_n,
+    err |= clSetKernelArg(kernel->register_linear, 11, sizeof(float) * tile_size_k * tile_size_n,
                           nullptr);
     CHECK_ERROR(err);
 
@@ -174,7 +174,7 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     }
     size_t globalWorkSize_reg_linear[2] = {globalSize_m / reg_size_m, globalSize_n / reg_size_n};
     size_t localWorkSize_reg_linear[2] = {tile_size_m / reg_size_m, tile_size_n / reg_size_n};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel.register_linear, 2, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->register_linear, 2, nullptr,
                                  globalWorkSize_reg_linear,
                                  localWorkSize_reg_linear, num_events_in_list, event_wait_list,
                                  event);
