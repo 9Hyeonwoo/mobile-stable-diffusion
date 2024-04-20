@@ -24,7 +24,7 @@ public:
                    const std::string &out_linear_weight_name,
                    const std::string &out_linear_bias_name,
                    std::shared_ptr<LinearKernel> linearKernel,
-                   UtilKernel &utilKernel
+                   std::shared_ptr<UtilKernel> utilKernel
     );
 
     ~CrossAttention();
@@ -49,7 +49,7 @@ private:
     cl_kernel kernel_einsum_bik_bjk_bij;
     cl_kernel kernel_einsum_bij_bjk_bik;
 
-    UtilKernel utilKernel;
+    std::shared_ptr<UtilKernel> utilKernel;
 };
 
 

@@ -24,10 +24,10 @@ UNetModel::UNetModel(
         cl_context context,
         cl_command_queue cmdQueue,
         cl_device_id deviceId
-) : context(context), cmdQueue(cmdQueue), deviceId(deviceId), assetManager(assetManager),
-    utilKernel(context, deviceId, assetManager) {
+) : context(context), cmdQueue(cmdQueue), deviceId(deviceId), assetManager(assetManager) {
     layerNormKernel = std::make_shared<LayerNormKernel>(context, deviceId, assetManager);
     linearKernel = std::make_shared<LinearKernel>(context, deviceId, assetManager);
+    utilKernel = std::make_shared<UtilKernel>(context, deviceId, assetManager);
     time_embed_0 = new Linear(context, cmdQueue,
                               320, 1280,
                               "unet/time_embed/time_embed_0_weight.npy",
@@ -1068,12 +1068,12 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     err = time_embed_0->forward(bufferTimeEmbed, bufferEmbedTemp, 1, &event0_0, &event0_1);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(utilKernel.silu, 0, sizeof(cl_mem), &bufferEmbedTemp);
-    err |= clSetKernelArg(utilKernel.silu, 1, sizeof(cl_mem), &bufferEmbedTemp);
+    err = clSetKernelArg(utilKernel->silu, 0, sizeof(cl_mem), &bufferEmbedTemp);
+    err |= clSetKernelArg(utilKernel->silu, 1, sizeof(cl_mem), &bufferEmbedTemp);
     CHECK_ERROR(err);
 
     size_t embedWorkSize[1] = {MODEL_CHANNELS * 4};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.silu, 1, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->silu, 1, nullptr,
                                  embedWorkSize, nullptr, 1, &event0_1, &event0_2);
     CHECK_ERROR(err);
 
@@ -1749,12 +1749,12 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     delete out_group_norm;
     out_group_norm = nullptr;
 
-    err = clSetKernelArg(utilKernel.silu, 0, sizeof(cl_mem), &buffer_320_64);
-    err |= clSetKernelArg(utilKernel.silu, 1, sizeof(cl_mem), &buffer_320_64);
+    err = clSetKernelArg(utilKernel->silu, 0, sizeof(cl_mem), &buffer_320_64);
+    err |= clSetKernelArg(utilKernel->silu, 1, sizeof(cl_mem), &buffer_320_64);
     CHECK_ERROR(err);
 
     size_t outSiluSize[1] = {MODEL_CHANNELS * 64 * 64};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.silu, 1, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->silu, 1, nullptr,
                                  outSiluSize, nullptr, 1, &event3_36, &event3_37);
     CHECK_ERROR(err);
 
@@ -1985,12 +1985,12 @@ UNetModel::test(const std::vector<float> &x, long timestep, const std::vector<fl
     err = time_embed_0->forward(bufferTimeEmbed, bufferEmbedTemp, 0, nullptr, &event[0]);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(utilKernel.silu, 0, sizeof(cl_mem), &bufferEmbedTemp);
-    err |= clSetKernelArg(utilKernel.silu, 1, sizeof(cl_mem), &bufferEmbedTemp);
+    err = clSetKernelArg(utilKernel->silu, 0, sizeof(cl_mem), &bufferEmbedTemp);
+    err |= clSetKernelArg(utilKernel->silu, 1, sizeof(cl_mem), &bufferEmbedTemp);
     CHECK_ERROR(err);
 
     size_t embedWorkSize[1] = {MODEL_CHANNELS * 4};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.silu, 1, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->silu, 1, nullptr,
                                  embedWorkSize, nullptr, 1, &event[0], &event[1]);
     CHECK_ERROR(err);
 

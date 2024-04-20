@@ -32,8 +32,7 @@ TextEncoder::TextEncoder(
         cl_context context,
         cl_command_queue cmdQueue,
         cl_device_id deviceId
-) : context(context), cmdQueue(cmdQueue),
-    utilKernel(context, deviceId, assetManager) {
+) : context(context), cmdQueue(cmdQueue) {
     embedding = util::load_npy_file("encoder/embedding_fp32.npy");
     bufferPositionalEmbedding = util::load_npy_file("encoder/positional_embedding_fp32.npy",
                                                     nullptr, context, cmdQueue);
@@ -44,6 +43,7 @@ TextEncoder::TextEncoder(
     linearKernel = std::make_shared<LinearKernel>(context, deviceId, assetManager);
     multiHeadAttentionKernel = std::make_shared<MultiHeadAttentionKernel>(context, deviceId,
                                                                           assetManager);
+    utilKernel = std::make_shared<UtilKernel>(context, deviceId, assetManager);
 
     for (int i = 0; i < LAYERS; i++) {
         auto folder_prefix =
@@ -133,13 +133,13 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
                                token_embedding_result.data(), 0, nullptr, nullptr);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(utilKernel.elemwise_add, 0, sizeof(cl_mem), &bufferEmbedding);
-    err |= clSetKernelArg(utilKernel.elemwise_add, 1, sizeof(cl_mem), &bufferPositionalEmbedding);
-    err |= clSetKernelArg(utilKernel.elemwise_add, 2, sizeof(cl_mem), &bufferEmbedding);
+    err = clSetKernelArg(utilKernel->elemwise_add, 0, sizeof(cl_mem), &bufferEmbedding);
+    err |= clSetKernelArg(utilKernel->elemwise_add, 1, sizeof(cl_mem), &bufferPositionalEmbedding);
+    err |= clSetKernelArg(utilKernel->elemwise_add, 2, sizeof(cl_mem), &bufferEmbedding);
     CHECK_ERROR(err);
 
     size_t globalSize[] = {token_embedding_result.size()};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.elemwise_add, 1, nullptr, globalSize, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->elemwise_add, 1, nullptr, globalSize, nullptr,
                                  0,
                                  nullptr,
                                  &event1);
@@ -153,12 +153,12 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     // permute
 //    PRINT_TIME(2,
 
-    err = clSetKernelArg(utilKernel.permute3D_1_0_2, 0, sizeof(cl_mem), &bufferEmbedding);
-    err |= clSetKernelArg(utilKernel.permute3D_1_0_2, 1, sizeof(cl_mem), &bufferTemp);
+    err = clSetKernelArg(utilKernel->permute3D_1_0_2, 0, sizeof(cl_mem), &bufferEmbedding);
+    err |= clSetKernelArg(utilKernel->permute3D_1_0_2, 1, sizeof(cl_mem), &bufferTemp);
     CHECK_ERROR(err);
 
     size_t globalSizePermute[3] = {1, CONTEXT_LENGTH, EMBEDDING_SIZE};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_1_0_2, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->permute3D_1_0_2, 3, nullptr,
                                  globalSizePermute,
                                  nullptr, 1,
                                  &event1,
@@ -187,12 +187,12 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     // util::testBuffer(cmdQueue, outBuffer, "encoder/test/resblock_22_test_fp32.npy");
 
     /* x.permute(1, 0, 2) */
-    err = clSetKernelArg(utilKernel.permute3D_1_0_2, 0, sizeof(cl_mem), &outBuffer);
-    err |= clSetKernelArg(utilKernel.permute3D_1_0_2, 1, sizeof(cl_mem), &inBuffer);
+    err = clSetKernelArg(utilKernel->permute3D_1_0_2, 0, sizeof(cl_mem), &outBuffer);
+    err |= clSetKernelArg(utilKernel->permute3D_1_0_2, 1, sizeof(cl_mem), &inBuffer);
     CHECK_ERROR(err);
 
     size_t globalSizePermuteReverse[3] = {CONTEXT_LENGTH, 1, EMBEDDING_SIZE};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_1_0_2, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->permute3D_1_0_2, 3, nullptr,
                                  globalSizePermuteReverse,
                                  nullptr, 1,
                                  &outEvent,

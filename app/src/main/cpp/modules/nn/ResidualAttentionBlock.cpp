@@ -42,7 +42,7 @@ ResidualAttentionBlock::ResidualAttentionBlock(
         std::shared_ptr<LayerNormKernel> layerNormKernel,
         std::shared_ptr<LinearKernel> linearKernel,
         std::shared_ptr<MultiHeadAttentionKernel> multiHeadAttentionKernel,
-        UtilKernel &utilKernel
+        std::shared_ptr<UtilKernel> utilKernel
 ) : context(context),
     cmdQueue(cmdQueue),
     utilKernel(utilKernel) {
@@ -120,13 +120,13 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     err = attn->forward(bufferEmbedding, bufferEmbedding, 1, &event1, &event2);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(utilKernel.elemwise_add, 0, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(utilKernel.elemwise_add, 1, sizeof(cl_mem), &bufferEmbedding);
-    err |= clSetKernelArg(utilKernel.elemwise_add, 2, sizeof(cl_mem), &bufferEmbedding);
+    err = clSetKernelArg(utilKernel->elemwise_add, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(utilKernel->elemwise_add, 1, sizeof(cl_mem), &bufferEmbedding);
+    err |= clSetKernelArg(utilKernel->elemwise_add, 2, sizeof(cl_mem), &bufferEmbedding);
     CHECK_ERROR(err);
 
     size_t globalSize[] = {inputSize};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.elemwise_add, 1, nullptr, globalSize, nullptr, 1,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->elemwise_add, 1, nullptr, globalSize, nullptr, 1,
                                  &event2, &event3);
     CHECK_ERROR(err);
 
@@ -143,12 +143,12 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     // max diff: 0.00002098083496093750
     // util::testBuffer(cmdQueue, bufferMLP, "encoder/test/resblock_0_mlp_c_fc_test_fp32.npy");
 
-    err = clSetKernelArg(utilKernel.gelu, 0, sizeof(cl_mem), &bufferMLP);
-    err |= clSetKernelArg(utilKernel.gelu, 1, sizeof(cl_mem), &bufferMLP);
+    err = clSetKernelArg(utilKernel->gelu, 0, sizeof(cl_mem), &bufferMLP);
+    err |= clSetKernelArg(utilKernel->gelu, 1, sizeof(cl_mem), &bufferMLP);
     CHECK_ERROR(err);
 
     size_t globalSizeGELU[] = {inputSize * 4};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.gelu, 1, nullptr, globalSizeGELU, nullptr, 1,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->gelu, 1, nullptr, globalSizeGELU, nullptr, 1,
                                  &event5, &event6);
     CHECK_ERROR(err);
 
@@ -161,12 +161,12 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     // max diff: 0.00003051757812500000
     // util::testBuffer(cmdQueue, bufferTemp, "encoder/test/resblock_0_mlp_c_proj_test_fp32.npy");
 
-    err = clSetKernelArg(utilKernel.elemwise_add, 0, sizeof(cl_mem), &bufferEmbedding);
-    err |= clSetKernelArg(utilKernel.elemwise_add, 1, sizeof(cl_mem), &bufferTemp);
-    err |= clSetKernelArg(utilKernel.elemwise_add, 2, sizeof(cl_mem), &output);
+    err = clSetKernelArg(utilKernel->elemwise_add, 0, sizeof(cl_mem), &bufferEmbedding);
+    err |= clSetKernelArg(utilKernel->elemwise_add, 1, sizeof(cl_mem), &bufferTemp);
+    err |= clSetKernelArg(utilKernel->elemwise_add, 2, sizeof(cl_mem), &output);
     CHECK_ERROR(err);
 
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.elemwise_add, 1, nullptr, globalSize, nullptr, 1,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->elemwise_add, 1, nullptr, globalSize, nullptr, 1,
                                  &event7, event);
     CHECK_ERROR(err);
 

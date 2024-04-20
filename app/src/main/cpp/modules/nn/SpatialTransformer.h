@@ -51,7 +51,7 @@ public:
                        const std::string &out_linear_bias_name,
                        std::shared_ptr<LayerNormKernel> layerNormKernel,
                        std::shared_ptr<LinearKernel> linearKernel,
-                       UtilKernel &utilKernel
+                       std::shared_ptr<UtilKernel> utilKernel
     );
 
     ~SpatialTransformer();
@@ -71,7 +71,7 @@ private:
     BasicTransformerBlock *transformer;
     Linear *projOutLinear;
 
-    UtilKernel utilKernel;
+    std::shared_ptr<UtilKernel> utilKernel;
 };
 
 

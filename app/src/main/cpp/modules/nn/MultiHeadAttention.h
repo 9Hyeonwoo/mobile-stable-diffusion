@@ -24,7 +24,7 @@ public:
                        cl_mem attentionMask,
                        std::shared_ptr<LinearKernel> linearKernel,
                        std::shared_ptr<MultiHeadAttentionKernel> kernel,
-                       UtilKernel &utilKernel
+                       std::shared_ptr<UtilKernel> utilKernel
     );
 
     ~MultiHeadAttention();
@@ -44,7 +44,7 @@ private:
     Linear *attnOutProj0;
 
     std::shared_ptr<MultiHeadAttentionKernel> kernel;
-    UtilKernel utilKernel;
+    std::shared_ptr<UtilKernel> utilKernel;
 
     cl_mem bufferAttentionMask;
 };

@@ -40,7 +40,7 @@ BasicTransformerBlock::BasicTransformerBlock(
         const std::string &ff_net_linear_weight_name, const std::string &ff_net_linear_bias_name,
         std::shared_ptr<LayerNormKernel> layerNormKernel,
         std::shared_ptr<LinearKernel> linearKernel,
-        UtilKernel &utilKernel
+        std::shared_ptr<UtilKernel> utilKernel
 ) : cmdQueue(cmdQueue), context(context), utilKernel(utilKernel) {
 
     layerNorm1 = new LayerNorm(context, cmdQueue, dim,
@@ -120,13 +120,13 @@ cl_int BasicTransformerBlock::forward(cl_mem input, cl_mem condition, cl_mem out
                                    1, &event0, &event1);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(utilKernel.elemwise_add, 0, sizeof(cl_mem), &bufferNorm);
-    err |= clSetKernelArg(utilKernel.elemwise_add, 1, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(utilKernel.elemwise_add, 2, sizeof(cl_mem), &bufferNorm);
+    err = clSetKernelArg(utilKernel->elemwise_add, 0, sizeof(cl_mem), &bufferNorm);
+    err |= clSetKernelArg(utilKernel->elemwise_add, 1, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(utilKernel->elemwise_add, 2, sizeof(cl_mem), &bufferNorm);
     CHECK_ERROR(err);
 
     size_t globalSize[1] = {inputSize};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.elemwise_add, 1, nullptr, globalSize, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->elemwise_add, 1, nullptr, globalSize, nullptr,
                                  1, &event1, &event2);
     CHECK_ERROR(err);
 
@@ -143,12 +143,12 @@ cl_int BasicTransformerBlock::forward(cl_mem input, cl_mem condition, cl_mem out
     // max diff: 0.00000175833702087402
     // util::testBuffer(cmdQueue, bufferNorm2, "unet/input_block/test/test_basic_attn2.npy");
 
-    err = clSetKernelArg(utilKernel.elemwise_add, 0, sizeof(cl_mem), &bufferNorm2);
-    err |= clSetKernelArg(utilKernel.elemwise_add, 1, sizeof(cl_mem), &bufferNorm);
-    err |= clSetKernelArg(utilKernel.elemwise_add, 2, sizeof(cl_mem), &bufferNorm2);
+    err = clSetKernelArg(utilKernel->elemwise_add, 0, sizeof(cl_mem), &bufferNorm2);
+    err |= clSetKernelArg(utilKernel->elemwise_add, 1, sizeof(cl_mem), &bufferNorm);
+    err |= clSetKernelArg(utilKernel->elemwise_add, 2, sizeof(cl_mem), &bufferNorm2);
     CHECK_ERROR(err);
 
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.elemwise_add, 1, nullptr, globalSize, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->elemwise_add, 1, nullptr, globalSize, nullptr,
                                  1, &event4, &event5);
     CHECK_ERROR(err);
 
@@ -164,12 +164,12 @@ cl_int BasicTransformerBlock::forward(cl_mem input, cl_mem condition, cl_mem out
     // max diff: 0.00000560283660888672
     // util::testBuffer(cmdQueue, bufferNorm, "unet/input_block/test/test_basic_ff.npy");
 
-    err = clSetKernelArg(utilKernel.elemwise_add, 0, sizeof(cl_mem), &bufferNorm);
-    err |= clSetKernelArg(utilKernel.elemwise_add, 1, sizeof(cl_mem), &bufferNorm2);
-    err |= clSetKernelArg(utilKernel.elemwise_add, 2, sizeof(cl_mem), &output);
+    err = clSetKernelArg(utilKernel->elemwise_add, 0, sizeof(cl_mem), &bufferNorm);
+    err |= clSetKernelArg(utilKernel->elemwise_add, 1, sizeof(cl_mem), &bufferNorm2);
+    err |= clSetKernelArg(utilKernel->elemwise_add, 2, sizeof(cl_mem), &output);
     CHECK_ERROR(err);
 
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.elemwise_add, 1, nullptr, globalSize, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->elemwise_add, 1, nullptr, globalSize, nullptr,
                                  1, &event7, event);
     CHECK_ERROR(err);
 

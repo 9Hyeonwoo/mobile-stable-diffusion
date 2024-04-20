@@ -31,7 +31,7 @@ CrossAttention::CrossAttention(
         const std::string &v_linear_weight_name,
         const std::string &out_linear_weight_name, const std::string &out_linear_bias_name,
         std::shared_ptr<LinearKernel> linearKernel,
-        UtilKernel &utilKernel
+        std::shared_ptr<UtilKernel> utilKernel
 ) : context(context), cmdQueue(cmdQueue), headSize(headSize), utilKernel(utilKernel) {
     cl_int err;
 
@@ -187,40 +187,40 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     err = toVLinear->forward(condition, bufferV, num_events_in_list, event_wait_list, &event2_0);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(utilKernel.permute3D_1_0_2, 0, sizeof(cl_mem), &bufferQ);
-    err |= clSetKernelArg(utilKernel.permute3D_1_0_2, 1, sizeof(cl_mem), &bufferPermuteQ);
+    err = clSetKernelArg(utilKernel->permute3D_1_0_2, 0, sizeof(cl_mem), &bufferQ);
+    err |= clSetKernelArg(utilKernel->permute3D_1_0_2, 1, sizeof(cl_mem), &bufferPermuteQ);
     CHECK_ERROR(err);
 
     /* assume batch size = 1 */
     size_t permuteQGlobalSize[3] = {inputSize / toQLinear->weightShape[1], headSize,
                                     toQLinear->weightShape[0] / headSize};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_1_0_2, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->permute3D_1_0_2, 3, nullptr,
                                  permuteQGlobalSize, nullptr, 1, &event0_0, &event0_1[0]);
     CHECK_ERROR(err);
 
     // max diff: 0.00001204013824462891
     // util::testBuffer(cmdQueue, bufferPermuteQ, "unet/input_block/test/test_cross_q_permute.npy");
 
-    err = clSetKernelArg(utilKernel.permute3D_1_0_2, 0, sizeof(cl_mem), &bufferK);
-    err |= clSetKernelArg(utilKernel.permute3D_1_0_2, 1, sizeof(cl_mem), &bufferPermuteK);
+    err = clSetKernelArg(utilKernel->permute3D_1_0_2, 0, sizeof(cl_mem), &bufferK);
+    err |= clSetKernelArg(utilKernel->permute3D_1_0_2, 1, sizeof(cl_mem), &bufferPermuteK);
     CHECK_ERROR(err);
 
     size_t permuteKGlobalSize[3] = {conditionSize / toKLinear->weightShape[1], headSize,
                                     toKLinear->weightShape[0] / headSize};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_1_0_2, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->permute3D_1_0_2, 3, nullptr,
                                  permuteKGlobalSize, nullptr, 1, &event1_0, &event0_1[1]);
     CHECK_ERROR(err);
 
     // max diff: 0.00000947713851928711
     // util::testBuffer(cmdQueue, bufferPermuteK, "unet/input_block/test/test_cross_k_permute.npy");
 
-    err = clSetKernelArg(utilKernel.permute3D_1_0_2, 0, sizeof(cl_mem), &bufferV);
-    err |= clSetKernelArg(utilKernel.permute3D_1_0_2, 1, sizeof(cl_mem), &bufferPermuteV);
+    err = clSetKernelArg(utilKernel->permute3D_1_0_2, 0, sizeof(cl_mem), &bufferV);
+    err |= clSetKernelArg(utilKernel->permute3D_1_0_2, 1, sizeof(cl_mem), &bufferPermuteV);
     CHECK_ERROR(err);
 
     size_t permuteVGlobalSize[3] = {conditionSize / toVLinear->weightShape[1], headSize,
                                     toVLinear->weightShape[0] / headSize};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_1_0_2, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->permute3D_1_0_2, 3, nullptr,
                                  permuteVGlobalSize, nullptr, 1, &event2_0, &event2_1[0]);
     CHECK_ERROR(err);
 
@@ -250,18 +250,18 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
 //    } else {
 //        workGroupSize = chunkSize;
 //    }
-    err = clSetKernelArg(utilKernel.softmax, 0, sizeof(cl_mem), &bufferEinsumQK);
-    err |= clSetKernelArg(utilKernel.softmax, 1, sizeof(cl_mem), &bufferEinsumQK);
-    err |= clSetKernelArg(utilKernel.softmax, 2, sizeof(float) * workGroupSize, nullptr);
-    err |= clSetKernelArg(utilKernel.softmax, 3, sizeof(float) * chunkSize, nullptr);
-    err |= clSetKernelArg(utilKernel.softmax, 4, sizeof(size_t), &chunkSize);
+    err = clSetKernelArg(utilKernel->softmax, 0, sizeof(cl_mem), &bufferEinsumQK);
+    err |= clSetKernelArg(utilKernel->softmax, 1, sizeof(cl_mem), &bufferEinsumQK);
+    err |= clSetKernelArg(utilKernel->softmax, 2, sizeof(float) * workGroupSize, nullptr);
+    err |= clSetKernelArg(utilKernel->softmax, 3, sizeof(float) * chunkSize, nullptr);
+    err |= clSetKernelArg(utilKernel->softmax, 4, sizeof(size_t), &chunkSize);
     CHECK_ERROR(err);
 
     size_t softmaxGlobalSize[1] = {
             headSize * (inputSize / toQLinear->weightShape[1]) * workGroupSize
     };
     size_t softmaxLocalSize[1] = {workGroupSize};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.softmax, 1, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->softmax, 1, nullptr,
                                  softmaxGlobalSize, softmaxLocalSize, 1, &event0_2, &event2_1[1]);
     CHECK_ERROR(err);
 
@@ -290,14 +290,14 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
         // util::testBuffer(cmdQueue, bufferEinsumV,"unet/input_block/test/test_basic_attn2_einsum_v.npy");
     }
 
-    err = clSetKernelArg(utilKernel.permute3D_1_0_2, 0, sizeof(cl_mem), &bufferEinsumV);
-    err |= clSetKernelArg(utilKernel.permute3D_1_0_2, 1, sizeof(cl_mem), &bufferOut);
+    err = clSetKernelArg(utilKernel->permute3D_1_0_2, 0, sizeof(cl_mem), &bufferEinsumV);
+    err |= clSetKernelArg(utilKernel->permute3D_1_0_2, 1, sizeof(cl_mem), &bufferOut);
     CHECK_ERROR(err);
 
     size_t permuteOutGlobalSize[3] = {headSize,
                                       (inputSize / toQLinear->weightShape[1]),
                                       (toVLinear->weightShape[0] / headSize)};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_1_0_2, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->permute3D_1_0_2, 3, nullptr,
                                  permuteOutGlobalSize, nullptr, 1, &event2_2, &event2_3);
     CHECK_ERROR(err);
 

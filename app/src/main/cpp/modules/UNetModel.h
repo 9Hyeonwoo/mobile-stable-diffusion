@@ -152,7 +152,7 @@ private:
 
     std::shared_ptr<LayerNormKernel> layerNormKernel;
     std::shared_ptr<LinearKernel> linearKernel;
-    UtilKernel utilKernel;
+    std::shared_ptr<UtilKernel> utilKernel;
 };
 
 

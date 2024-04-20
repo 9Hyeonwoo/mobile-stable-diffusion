@@ -44,7 +44,7 @@ public:
                           const std::string &ff_net_linear_bias_name,
                           std::shared_ptr<LayerNormKernel> layerNormKernel,
                           std::shared_ptr<LinearKernel> linearKernel,
-                          UtilKernel &utilKernel
+                          std::shared_ptr<UtilKernel> utilKernel
     );
 
     ~BasicTransformerBlock();
@@ -58,7 +58,7 @@ private:
     cl_command_queue cmdQueue;
     cl_context context;
 
-    UtilKernel utilKernel;
+    std::shared_ptr<UtilKernel> utilKernel;
 
     LayerNorm *layerNorm1;
     LayerNorm *layerNorm2;

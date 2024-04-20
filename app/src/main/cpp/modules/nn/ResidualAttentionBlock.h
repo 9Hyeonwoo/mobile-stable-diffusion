@@ -36,7 +36,7 @@ public:
                            std::shared_ptr<LayerNormKernel> layerNormKernel,
                            std::shared_ptr<LinearKernel> linearKernel,
                            std::shared_ptr<MultiHeadAttentionKernel> multiHeadAttentionKernel,
-                           UtilKernel &utilKernel
+                           std::shared_ptr<UtilKernel> utilKernel
     );
 
     ~ResidualAttentionBlock();
@@ -56,7 +56,7 @@ private:
     cl_context context;
     cl_command_queue cmdQueue;
 
-    UtilKernel utilKernel;
+    std::shared_ptr<UtilKernel> utilKernel;
 };
 
 
