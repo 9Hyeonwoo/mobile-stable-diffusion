@@ -33,7 +33,6 @@ TextEncoder::TextEncoder(
         cl_command_queue cmdQueue,
         cl_device_id deviceId
 ) : context(context), cmdQueue(cmdQueue),
-    multiHeadAttentionKernel(context, deviceId, assetManager),
     utilKernel(context, deviceId, assetManager) {
     embedding = util::load_npy_file("encoder/embedding_fp32.npy");
     bufferPositionalEmbedding = util::load_npy_file("encoder/positional_embedding_fp32.npy",
@@ -43,6 +42,8 @@ TextEncoder::TextEncoder(
 
     layerNormKernel = std::make_shared<LayerNormKernel>(context, deviceId, assetManager);
     linearKernel = std::make_shared<LinearKernel>(context, deviceId, assetManager);
+    multiHeadAttentionKernel = std::make_shared<MultiHeadAttentionKernel>(context, deviceId,
+                                                                          assetManager);
 
     for (int i = 0; i < LAYERS; i++) {
         auto folder_prefix =
@@ -138,7 +139,8 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     CHECK_ERROR(err);
 
     size_t globalSize[] = {token_embedding_result.size()};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.elemwise_add, 1, nullptr, globalSize, nullptr, 0,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.elemwise_add, 1, nullptr, globalSize, nullptr,
+                                 0,
                                  nullptr,
                                  &event1);
 
@@ -156,7 +158,8 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     CHECK_ERROR(err);
 
     size_t globalSizePermute[3] = {1, CONTEXT_LENGTH, EMBEDDING_SIZE};
-    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_1_0_2, 3, nullptr, globalSizePermute,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_1_0_2, 3, nullptr,
+                                 globalSizePermute,
                                  nullptr, 1,
                                  &event1,
                                  &event2);

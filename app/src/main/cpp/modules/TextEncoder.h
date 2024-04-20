@@ -56,7 +56,7 @@ private:
 
     std::shared_ptr<LayerNormKernel> layerNormKernel;
     std::shared_ptr<LinearKernel> linearKernel;
-    MultiHeadAttentionKernel multiHeadAttentionKernel;
+    std::shared_ptr<MultiHeadAttentionKernel> multiHeadAttentionKernel;
     UtilKernel utilKernel;
 };
 

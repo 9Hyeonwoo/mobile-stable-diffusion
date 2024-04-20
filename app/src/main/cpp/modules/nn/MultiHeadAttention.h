@@ -23,7 +23,7 @@ public:
                        const std::string &out_proj_bias_name,
                        cl_mem attentionMask,
                        std::shared_ptr<LinearKernel> linearKernel,
-                       MultiHeadAttentionKernel &kernel,
+                       std::shared_ptr<MultiHeadAttentionKernel> kernel,
                        UtilKernel &utilKernel
     );
 
@@ -43,7 +43,7 @@ private:
     Linear *attnInProj0;
     Linear *attnOutProj0;
 
-    MultiHeadAttentionKernel kernel;
+    std::shared_ptr<MultiHeadAttentionKernel> kernel;
     UtilKernel utilKernel;
 
     cl_mem bufferAttentionMask;

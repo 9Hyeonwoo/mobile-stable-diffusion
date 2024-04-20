@@ -32,7 +32,7 @@ MultiHeadAttention::MultiHeadAttention(
         const std::string &out_proj_bias_name,
         cl_mem attentionMask,
         std::shared_ptr<LinearKernel> linearKernel,
-        MultiHeadAttentionKernel &kernel,
+        std::shared_ptr<MultiHeadAttentionKernel> kernel,
         UtilKernel &utilKernel
 ) : context(context),
     cmdQueue(cmdQueue),
@@ -167,14 +167,14 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
     CHECK_ERROR(err);
 
     /* naive QxK
-    err = clSetKernelArg(kernel.add_matmul_attention, 0, sizeof(cl_mem), &bufferAttnInProj0);
-    err |= clSetKernelArg(kernel.add_matmul_attention, 1, sizeof(cl_mem), &bufferAttentionMask);
-    err |= clSetKernelArg(kernel.add_matmul_attention, 2, sizeof(cl_mem), &bufferAttentionQK);
-    err |= clSetKernelArg(kernel.add_matmul_attention, 3, sizeof(size_t), &head_dim);
+    err = clSetKernelArg(kernel->add_matmul_attention, 0, sizeof(cl_mem), &bufferAttnInProj0);
+    err |= clSetKernelArg(kernel->add_matmul_attention, 1, sizeof(cl_mem), &bufferAttentionMask);
+    err |= clSetKernelArg(kernel->add_matmul_attention, 2, sizeof(cl_mem), &bufferAttentionQK);
+    err |= clSetKernelArg(kernel->add_matmul_attention, 3, sizeof(size_t), &head_dim);
     CHECK_ERROR(err);
 
     size_t globalSizeQK[3] = {numHeads, CONTEXT_LENGTH, CONTEXT_LENGTH};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel.add_matmul_attention, 3, nullptr, globalSizeQK,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->add_matmul_attention, 3, nullptr, globalSizeQK,
                                  nullptr, 3,
                                  &event3,
                                  &event4);
@@ -183,18 +183,18 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
     /* optimized QxK */
     size_t MN = CONTEXT_LENGTH;
     size_t reg_size = 7, tile_size = 77;
-    err = clSetKernelArg(kernel.batch_matmul_mask, 0, sizeof(cl_mem), &bufferQ);
-    err |= clSetKernelArg(kernel.batch_matmul_mask, 1, sizeof(cl_mem), &bufferK);
-    err |= clSetKernelArg(kernel.batch_matmul_mask, 2, sizeof(cl_mem), &bufferAttentionMask);
-    err |= clSetKernelArg(kernel.batch_matmul_mask, 3, sizeof(cl_mem), &bufferAttentionQK);
-    err |= clSetKernelArg(kernel.batch_matmul_mask, 4, sizeof(size_t), &MN);
-    err |= clSetKernelArg(kernel.batch_matmul_mask, 5, sizeof(size_t), &MN);
-    err |= clSetKernelArg(kernel.batch_matmul_mask, 6, sizeof(size_t), &head_dim);
+    err = clSetKernelArg(kernel->batch_matmul_mask, 0, sizeof(cl_mem), &bufferQ);
+    err |= clSetKernelArg(kernel->batch_matmul_mask, 1, sizeof(cl_mem), &bufferK);
+    err |= clSetKernelArg(kernel->batch_matmul_mask, 2, sizeof(cl_mem), &bufferAttentionMask);
+    err |= clSetKernelArg(kernel->batch_matmul_mask, 3, sizeof(cl_mem), &bufferAttentionQK);
+    err |= clSetKernelArg(kernel->batch_matmul_mask, 4, sizeof(size_t), &MN);
+    err |= clSetKernelArg(kernel->batch_matmul_mask, 5, sizeof(size_t), &MN);
+    err |= clSetKernelArg(kernel->batch_matmul_mask, 6, sizeof(size_t), &head_dim);
     CHECK_ERROR(err);
 
     size_t globalSizeQK[3] = {numHeads,MN/reg_size, MN/reg_size};
     size_t localSizeQK[3] = {1, tile_size/reg_size, tile_size/reg_size};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel.batch_matmul_mask, 3, nullptr, globalSizeQK,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->batch_matmul_mask, 3, nullptr, globalSizeQK,
                                  localSizeQK, 3,
                                  &event3,
                                  &event4);
@@ -206,14 +206,14 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
 
     /* scale dot attention - softmax */
 
-    err = clSetKernelArg(kernel.softmax, 0, sizeof(cl_mem), &bufferAttentionQK);
-    err |= clSetKernelArg(kernel.softmax, 1, sizeof(cl_mem), &bufferAttentionQK);
-    err |= clSetKernelArg(kernel.softmax, 2, sizeof(float) * CONTEXT_LENGTH, nullptr);
+    err = clSetKernelArg(kernel->softmax, 0, sizeof(cl_mem), &bufferAttentionQK);
+    err |= clSetKernelArg(kernel->softmax, 1, sizeof(cl_mem), &bufferAttentionQK);
+    err |= clSetKernelArg(kernel->softmax, 2, sizeof(float) * CONTEXT_LENGTH, nullptr);
     CHECK_ERROR(err);
 
     size_t globalSizeSoftmax[1] = {numHeads * CONTEXT_LENGTH * CONTEXT_LENGTH};
     size_t localSizeSoftmax[1] = {CONTEXT_LENGTH};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel.softmax, 1, nullptr, globalSizeSoftmax,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->softmax, 1, nullptr, globalSizeSoftmax,
                                  localSizeSoftmax, 1,
                                  &event4,
                                  &event5);
@@ -225,14 +225,14 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
 
     /* naive - QK x V
     size_t context_length = CONTEXT_LENGTH;
-    err = clSetKernelArg(kernel.matmul_attention, 0, sizeof(cl_mem), &bufferAttentionQK);
-    err |= clSetKernelArg(kernel.matmul_attention, 1, sizeof(cl_mem), &bufferAttnInProj0);
-    err |= clSetKernelArg(kernel.matmul_attention, 2, sizeof(cl_mem), &bufferTemp);
-    err |= clSetKernelArg(kernel.matmul_attention, 3, sizeof(size_t), &context_length);
+    err = clSetKernelArg(kernel->matmul_attention, 0, sizeof(cl_mem), &bufferAttentionQK);
+    err |= clSetKernelArg(kernel->matmul_attention, 1, sizeof(cl_mem), &bufferAttnInProj0);
+    err |= clSetKernelArg(kernel->matmul_attention, 2, sizeof(cl_mem), &bufferTemp);
+    err |= clSetKernelArg(kernel->matmul_attention, 3, sizeof(size_t), &context_length);
     CHECK_ERROR(err);
 
     size_t globalSizeMatmul[3] = {numHeads, CONTEXT_LENGTH, head_dim};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel.matmul_attention, 3, nullptr, globalSizeMatmul,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->matmul_attention, 3, nullptr, globalSizeMatmul,
                                  nullptr, 1,
                                  &event5,
                                  &event6);
@@ -241,17 +241,17 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
 
     /* optimized - QK x V */
     size_t tile_size1 = 64, reg_size1 = 8;
-    err = clSetKernelArg(kernel.batch_matmul, 0, sizeof(cl_mem), &bufferAttentionQK);
-    err |= clSetKernelArg(kernel.batch_matmul, 1, sizeof(cl_mem), &bufferV);
-    err |= clSetKernelArg(kernel.batch_matmul, 2, sizeof(cl_mem), &bufferTemp);
-    err |= clSetKernelArg(kernel.batch_matmul, 3, sizeof(size_t), &MN);
-    err |= clSetKernelArg(kernel.batch_matmul, 4, sizeof(size_t), &head_dim);
-    err |= clSetKernelArg(kernel.batch_matmul, 5, sizeof(size_t), &MN);
+    err = clSetKernelArg(kernel->batch_matmul, 0, sizeof(cl_mem), &bufferAttentionQK);
+    err |= clSetKernelArg(kernel->batch_matmul, 1, sizeof(cl_mem), &bufferV);
+    err |= clSetKernelArg(kernel->batch_matmul, 2, sizeof(cl_mem), &bufferTemp);
+    err |= clSetKernelArg(kernel->batch_matmul, 3, sizeof(size_t), &MN);
+    err |= clSetKernelArg(kernel->batch_matmul, 4, sizeof(size_t), &head_dim);
+    err |= clSetKernelArg(kernel->batch_matmul, 5, sizeof(size_t), &MN);
     CHECK_ERROR(err);
 
     size_t globalSizeMatmul[3] = {numHeads,MN/reg_size, head_dim/reg_size1};
     size_t localSizeMatmul[3] = {1, tile_size/reg_size, tile_size1/reg_size1};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel.batch_matmul, 3, nullptr, globalSizeMatmul,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->batch_matmul, 3, nullptr, globalSizeMatmul,
                                  localSizeMatmul, 1,
                                  &event5,
                                  &event6);
