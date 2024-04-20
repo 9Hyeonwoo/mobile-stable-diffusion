@@ -36,7 +36,6 @@ LayerNormKernel::LayerNormKernel(
 }
 
 LayerNormKernel::~LayerNormKernel() {
-    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "__TEST__ destory LayerNormKernel\n");
     clReleaseKernel(mean);
     clReleaseKernel(variance);
     clReleaseKernel(normalization);

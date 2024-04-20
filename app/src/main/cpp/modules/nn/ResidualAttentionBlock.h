@@ -33,7 +33,7 @@ public:
                            const std::string &mlp_c_proj_weight_name,
                            const std::string &mlp_c_proj_bias_name,
                            cl_mem attentionMask,
-                           LayerNormKernel &layerNormKernel,
+                           std::shared_ptr<LayerNormKernel> layerNormKernel,
                            LinearKernel &linearKernel,
                            MultiHeadAttentionKernel &multiHeadAttentionKernel,
                            UtilKernel &utilKernel

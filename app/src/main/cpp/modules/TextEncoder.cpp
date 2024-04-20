@@ -33,7 +33,6 @@ TextEncoder::TextEncoder(
         cl_command_queue cmdQueue,
         cl_device_id deviceId
 ) : context(context), cmdQueue(cmdQueue),
-    layerNormKernel(context, deviceId, assetManager),
     linearKernel(context, deviceId, assetManager),
     multiHeadAttentionKernel(context, deviceId, assetManager),
     utilKernel(context, deviceId, assetManager) {
@@ -42,6 +41,8 @@ TextEncoder::TextEncoder(
                                                     nullptr, context, cmdQueue);
     bufferAttentionMask = util::load_npy_file("encoder/attn_mask_fp32.npy", nullptr, context,
                                               cmdQueue);
+
+    layerNormKernel = std::make_shared<LayerNormKernel>(context, deviceId, assetManager);
 
     for (int i = 0; i < LAYERS; i++) {
         auto folder_prefix =

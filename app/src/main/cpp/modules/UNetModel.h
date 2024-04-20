@@ -150,7 +150,7 @@ private:
     GroupNorm *out_group_norm;
     Conv2D *out_conv2d;
 
-    LayerNormKernel layerNormKernel;
+    std::shared_ptr<LayerNormKernel> layerNormKernel;
     LinearKernel linearKernel;
     UtilKernel utilKernel;
 };

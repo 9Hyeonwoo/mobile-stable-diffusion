@@ -26,7 +26,7 @@ LayerNorm::LayerNorm(
         cl_command_queue cmdQueue,
         size_t dim,
         const std::string &weight_name, const std::string &bias_name,
-        LayerNormKernel &kernel
+        std::shared_ptr<LayerNormKernel> kernel
 ) : context(context), cmdQueue(cmdQueue), weight_name(weight_name), bias_name(bias_name),
     bufferWeight(nullptr), bufferBias(nullptr), kernel(kernel), weightSize(dim), biasSize(dim) {
 }
@@ -89,15 +89,15 @@ cl_int LayerNorm::forward(
     CHECK_ERROR(err);
 
     size_t reductionSize = weightSize / WORK_GROUP_SIZE;
-    err = clSetKernelArg(kernel.mean, 0, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel.mean, 1, sizeof(cl_mem), &bufferMean);
-    err |= clSetKernelArg(kernel.mean, 2, sizeof(float) * WORK_GROUP_SIZE, nullptr);
-    err |= clSetKernelArg(kernel.mean, 3, sizeof(size_t), &reductionSize);
+    err = clSetKernelArg(kernel->mean, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel->mean, 1, sizeof(cl_mem), &bufferMean);
+    err |= clSetKernelArg(kernel->mean, 2, sizeof(float) * WORK_GROUP_SIZE, nullptr);
+    err |= clSetKernelArg(kernel->mean, 3, sizeof(size_t), &reductionSize);
     CHECK_ERROR(err);
 
     size_t globalReductionSize[1] = {input_size / reductionSize};
     size_t localReductionSize[1] = {WORK_GROUP_SIZE};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel.mean, 1, nullptr, globalReductionSize,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->mean, 1, nullptr, globalReductionSize,
                                  localReductionSize,
                                  num_events_in_list, event_wait_list, &event1);
     CHECK_ERROR(err);
@@ -105,14 +105,14 @@ cl_int LayerNorm::forward(
 //    clWaitForEvents(1, &event1);
 //    util::testBuffer(cmdQueue, bufferMean, "encoder/test/local_mean_test_fp32.npy");
 
-    err = clSetKernelArg(kernel.variance, 0, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel.variance, 1, sizeof(cl_mem), &bufferMean);
-    err |= clSetKernelArg(kernel.variance, 2, sizeof(cl_mem), &bufferVariance);
-    err |= clSetKernelArg(kernel.variance, 3, sizeof(float) * WORK_GROUP_SIZE, nullptr);
-    err |= clSetKernelArg(kernel.variance, 4, sizeof(size_t), &reductionSize);
+    err = clSetKernelArg(kernel->variance, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel->variance, 1, sizeof(cl_mem), &bufferMean);
+    err |= clSetKernelArg(kernel->variance, 2, sizeof(cl_mem), &bufferVariance);
+    err |= clSetKernelArg(kernel->variance, 3, sizeof(float) * WORK_GROUP_SIZE, nullptr);
+    err |= clSetKernelArg(kernel->variance, 4, sizeof(size_t), &reductionSize);
     CHECK_ERROR(err);
 
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel.variance, 1, nullptr, globalReductionSize,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->variance, 1, nullptr, globalReductionSize,
                                  localReductionSize, 1,
                                  &event1, &event2);
     CHECK_ERROR(err);
@@ -120,17 +120,17 @@ cl_int LayerNorm::forward(
 //    clWaitForEvents(1, &event2);
 //    util::testBuffer(cmdQueue, bufferVariance, "encoder/test/local_var_test_fp32.npy");
 
-    err = clSetKernelArg(kernel.normalization, 0, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel.normalization, 1, sizeof(cl_mem), &bufferMean);
-    err |= clSetKernelArg(kernel.normalization, 2, sizeof(cl_mem), &bufferVariance);
-    err |= clSetKernelArg(kernel.normalization, 3, sizeof(cl_mem), &bufferWeight);
-    err |= clSetKernelArg(kernel.normalization, 4, sizeof(cl_mem), &bufferBias);
-    err |= clSetKernelArg(kernel.normalization, 5, sizeof(size_t), &weightSize);
-    err |= clSetKernelArg(kernel.normalization, 6, sizeof(cl_mem), &output);
+    err = clSetKernelArg(kernel->normalization, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel->normalization, 1, sizeof(cl_mem), &bufferMean);
+    err |= clSetKernelArg(kernel->normalization, 2, sizeof(cl_mem), &bufferVariance);
+    err |= clSetKernelArg(kernel->normalization, 3, sizeof(cl_mem), &bufferWeight);
+    err |= clSetKernelArg(kernel->normalization, 4, sizeof(cl_mem), &bufferBias);
+    err |= clSetKernelArg(kernel->normalization, 5, sizeof(size_t), &weightSize);
+    err |= clSetKernelArg(kernel->normalization, 6, sizeof(cl_mem), &output);
     CHECK_ERROR(err);
 
     size_t globalWorkSize[1] = {input_size};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel.normalization, 1, nullptr, globalWorkSize,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->normalization, 1, nullptr, globalWorkSize,
                                  nullptr, 1,
                                  &event2, event);
     CHECK_ERROR(err);

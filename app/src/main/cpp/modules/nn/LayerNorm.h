@@ -18,7 +18,7 @@ public:
     LayerNorm(cl_context context, cl_command_queue cmdQueue,
               size_t dim,
               const std::string &weight_name, const std::string &bias_name,
-              LayerNormKernel &kernel);
+              std::shared_ptr<LayerNormKernel> kernel);
 
     ~LayerNorm();
 
@@ -35,7 +35,7 @@ private:
     cl_command_queue cmdQueue;
     cl_context context;
 
-    LayerNormKernel kernel;
+    std::shared_ptr<LayerNormKernel> kernel;
 
     const std::string weight_name;
     const std::string bias_name;

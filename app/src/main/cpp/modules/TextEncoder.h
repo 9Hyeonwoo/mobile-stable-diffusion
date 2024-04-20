@@ -54,7 +54,7 @@ private:
     cl_mem bufferPositionalEmbedding;
     cl_mem bufferAttentionMask;
 
-    LayerNormKernel layerNormKernel;
+    std::shared_ptr<LayerNormKernel> layerNormKernel;
     LinearKernel linearKernel;
     MultiHeadAttentionKernel multiHeadAttentionKernel;
     UtilKernel utilKernel;

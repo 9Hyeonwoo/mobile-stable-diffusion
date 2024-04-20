@@ -38,7 +38,7 @@ BasicTransformerBlock::BasicTransformerBlock(
         const std::string &cross_2_out_linear_weight_name, const std::string &cross_2_out_linear_bias_name,
         const std::string &ff_geglu_linear_weight_name, const std::string &ff_geglu_linear_bias_name,
         const std::string &ff_net_linear_weight_name, const std::string &ff_net_linear_bias_name,
-        LayerNormKernel &layerNormKernel,
+        std::shared_ptr<LayerNormKernel> layerNormKernel,
         LinearKernel &linearKernel,
         UtilKernel &utilKernel
 ) : cmdQueue(cmdQueue), context(context), utilKernel(utilKernel) {
