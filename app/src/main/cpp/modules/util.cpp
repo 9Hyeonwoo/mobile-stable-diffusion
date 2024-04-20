@@ -68,16 +68,12 @@ cl_program util::create_and_build_program_with_source(cl_context context,
     auto buffer = static_cast<const unsigned char *>(AAsset_getBuffer(asset));
     size_t source_size = AAsset_getLength(asset);
 
-    char *source_code = (char *) malloc(source_size + 1);
-    memcpy(source_code, buffer, source_size);
-    source_code[source_size] = '\0';
-    AAsset_close(asset);
 
     cl_int err;
     cl_program program = clCreateProgramWithSource(
-            context, 1, (const char **) &source_code, &source_size, &err);
+            context, 1, (const char **) &buffer, &source_size, &err);
     CHECK_ERROR(err);
-    free(source_code);
+    AAsset_close(asset);
     err = clBuildProgram(program, 1, &device, "", nullptr, nullptr);
     if (err == CL_BUILD_PROGRAM_FAILURE) {
         size_t log_size;
