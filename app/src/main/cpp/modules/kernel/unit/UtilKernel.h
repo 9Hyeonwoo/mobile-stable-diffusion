@@ -16,7 +16,10 @@ public:
 
     cl_kernel elemwise_add;
     cl_kernel permute3D_1_0_2;
+    cl_kernel permute3D_0_2_1;
     cl_kernel gelu;
+    cl_kernel softmax;
+    cl_kernel silu;
 };
 
 

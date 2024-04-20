@@ -43,8 +43,9 @@ SpatialTransformer::SpatialTransformer(
         const std::string &ff_net_linear_weight_name, const std::string &ff_net_linear_bias_name,
         const std::string &out_linear_weight_name, const std::string &out_linear_bias_name,
         LayerNormKernel &layerNormKernel,
-        LinearKernel &linearKernel
-) : context(context), cmdQueue(cmdQueue), channels(channels) {
+        LinearKernel &linearKernel,
+        UtilKernel &utilKernel
+) : context(context), cmdQueue(cmdQueue), channels(channels), utilKernel(utilKernel) {
     cl_int err;
     size_t inner_dim = headSize * headDim;
     groupNorm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, channels, 1e-6,
@@ -73,23 +74,13 @@ SpatialTransformer::SpatialTransformer(
                                             ff_geglu_linear_weight_name, ff_geglu_linear_bias_name,
                                             ff_net_linear_weight_name, ff_net_linear_bias_name,
                                             layerNormKernel,
-                                            linearKernel);
+                                            linearKernel,
+                                            utilKernel);
 
     projOutLinear = new Linear(context, cmdQueue,
                                channels, inner_dim,
                                out_linear_weight_name, out_linear_bias_name,
                                linearKernel);
-
-    auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                              "kernel/util.cl");
-
-    kernel_permute_0_2_1 = clCreateKernel(program, "permute3D__0_2_1", &err);
-    CHECK_ERROR_THROW(err);
-
-    kernel_elem_add = clCreateKernel(program, "elemwise_add", &err);
-    CHECK_ERROR_THROW(err);
-
-    clReleaseProgram(program);
 }
 
 SpatialTransformer::~SpatialTransformer() {
@@ -97,8 +88,6 @@ SpatialTransformer::~SpatialTransformer() {
     delete projInLinear;
     delete transformer;
     delete projOutLinear;
-    clReleaseKernel(kernel_permute_0_2_1);
-    clReleaseKernel(kernel_elem_add);
 }
 
 void SpatialTransformer::init() {
@@ -136,12 +125,12 @@ cl_int SpatialTransformer::forward(cl_mem input, cl_mem condition, cl_mem output
     // max diff: 0.00000278651714324951
     // util::testBuffer(cmdQueue, bufferGroupNorm, "unet/input_block/test/test_spatial_norm.npy");
 
-    err = clSetKernelArg(kernel_permute_0_2_1, 0, sizeof(cl_mem), &bufferGroupNorm);
-    err |= clSetKernelArg(kernel_permute_0_2_1, 1, sizeof(cl_mem), &bufferPermute);
+    err = clSetKernelArg(utilKernel.permute3D_0_2_1, 0, sizeof(cl_mem), &bufferGroupNorm);
+    err |= clSetKernelArg(utilKernel.permute3D_0_2_1, 1, sizeof(cl_mem), &bufferPermute);
     CHECK_ERROR(err);
 
     size_t permuteGlobalSize[3] = {1, channels, inputSize / channels};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute_0_2_1, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_0_2_1, 3, nullptr,
                                  permuteGlobalSize, nullptr, 1, &event0, &event1);
     CHECK_ERROR(err);
 
@@ -157,22 +146,22 @@ cl_int SpatialTransformer::forward(cl_mem input, cl_mem condition, cl_mem output
     err = projOutLinear->forward(bufferPermute, bufferGroupNorm, 1, &event3, &event4);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(kernel_permute_0_2_1, 0, sizeof(cl_mem), &bufferGroupNorm);
-    err |= clSetKernelArg(kernel_permute_0_2_1, 1, sizeof(cl_mem), &bufferPermute);
+    err = clSetKernelArg(utilKernel.permute3D_0_2_1, 0, sizeof(cl_mem), &bufferGroupNorm);
+    err |= clSetKernelArg(utilKernel.permute3D_0_2_1, 1, sizeof(cl_mem), &bufferPermute);
     CHECK_ERROR(err);
 
     size_t permuteGlobalSize2[3] = {1, inputSize / channels, channels};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute_0_2_1, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_0_2_1, 3, nullptr,
                                  permuteGlobalSize2, nullptr, 1, &event4, &event5);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(kernel_elem_add, 0, sizeof(cl_mem), &bufferPermute);
-    err |= clSetKernelArg(kernel_elem_add, 1, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel_elem_add, 2, sizeof(cl_mem), &output);
+    err = clSetKernelArg(utilKernel.elemwise_add, 0, sizeof(cl_mem), &bufferPermute);
+    err |= clSetKernelArg(utilKernel.elemwise_add, 1, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(utilKernel.elemwise_add, 2, sizeof(cl_mem), &output);
     CHECK_ERROR(err);
 
     size_t addGlobalSize[1] = {inputSize};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elem_add, 1, nullptr, addGlobalSize, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.elemwise_add, 1, nullptr, addGlobalSize, nullptr,
                                  1, &event5, event);
     CHECK_ERROR(err);
 

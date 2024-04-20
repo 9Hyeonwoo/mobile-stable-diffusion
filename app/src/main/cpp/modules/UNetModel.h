@@ -14,6 +14,7 @@
 #include "nn/UpSample.h"
 #include "kernel/unit/LayerNormKernel.h"
 #include "kernel/unit/LinearKernel.h"
+#include "kernel/unit/UtilKernel.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -149,9 +150,9 @@ private:
     GroupNorm *out_group_norm;
     Conv2D *out_conv2d;
 
-    cl_kernel kernel_silu;
     LayerNormKernel layerNormKernel;
     LinearKernel linearKernel;
+    UtilKernel utilKernel;
 };
 
 

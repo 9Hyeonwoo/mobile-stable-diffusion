@@ -15,15 +15,19 @@
 #include <android/asset_manager_jni.h>
 #include "../kernel/unit/LayerNormKernel.h"
 #include "../kernel/unit/LinearKernel.h"
+#include "../kernel/unit/UtilKernel.h"
 
 class BasicTransformerBlock {
 public:
     BasicTransformerBlock(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
                           AAssetManager *assetManager,
                           size_t dim, size_t context_dim, size_t headSize, size_t headDim,
-                          const std::string &layer_norm_1_weight_name, const std::string &layer_norm_1_bias_name,
-                          const std::string &layer_norm_2_weight_name, const std::string &layer_norm_2_bias_name,
-                          const std::string &layer_norm_3_weight_name, const std::string &layer_norm_3_bias_name,
+                          const std::string &layer_norm_1_weight_name,
+                          const std::string &layer_norm_1_bias_name,
+                          const std::string &layer_norm_2_weight_name,
+                          const std::string &layer_norm_2_bias_name,
+                          const std::string &layer_norm_3_weight_name,
+                          const std::string &layer_norm_3_bias_name,
                           const std::string &cross_1_q_linear_weight_name,
                           const std::string &cross_1_k_linear_weight_name,
                           const std::string &cross_1_v_linear_weight_name,
@@ -39,7 +43,9 @@ public:
                           const std::string &ff_net_linear_weight_name,
                           const std::string &ff_net_linear_bias_name,
                           LayerNormKernel &layerNormKernel,
-                          LinearKernel &linearKernel);
+                          LinearKernel &linearKernel,
+                          UtilKernel &utilKernel
+    );
 
     ~BasicTransformerBlock();
 
@@ -52,7 +58,7 @@ private:
     cl_command_queue cmdQueue;
     cl_context context;
 
-    cl_kernel kernel_elem_add;
+    UtilKernel utilKernel;
 
     LayerNorm *layerNorm1;
     LayerNorm *layerNorm2;

@@ -11,6 +11,7 @@
 #include <android/asset_manager_jni.h>
 #include "Linear.h"
 #include "../kernel/unit/LinearKernel.h"
+#include "../kernel/unit/UtilKernel.h"
 
 class CrossAttention {
 public:
@@ -20,8 +21,11 @@ public:
                    const std::string &q_linear_weight_name,
                    const std::string &k_linear_weight_name,
                    const std::string &v_linear_weight_name,
-                   const std::string &out_linear_weight_name, const std::string &out_linear_bias_name,
-                   LinearKernel &linearKernel);
+                   const std::string &out_linear_weight_name,
+                   const std::string &out_linear_bias_name,
+                   LinearKernel &linearKernel,
+                   UtilKernel &utilKernel
+    );
 
     ~CrossAttention();
 
@@ -42,10 +46,10 @@ private:
     Linear *toVLinear;
     Linear *toOutLinear;
 
-    cl_kernel kernel_permute3D_1_0_2;
     cl_kernel kernel_einsum_bik_bjk_bij;
     cl_kernel kernel_einsum_bij_bjk_bik;
-    cl_kernel kernel_softmax;
+
+    UtilKernel utilKernel;
 };
 
 

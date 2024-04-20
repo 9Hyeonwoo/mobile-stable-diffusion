@@ -27,7 +27,16 @@ UtilKernel::UtilKernel(cl_context context, cl_device_id deviceId, AAssetManager 
     permute3D_1_0_2 = clCreateKernel(program, "permute3D__1_0_2", &err);
     CHECK_ERROR_THROW(err);
 
+    permute3D_0_2_1 = clCreateKernel(program, "permute3D__0_2_1", &err);
+    CHECK_ERROR_THROW(err);
+
     gelu = clCreateKernel(program, "gelu", &err);
+    CHECK_ERROR_THROW(err);
+
+    softmax = clCreateKernel(program, "softmax", &err);
+    CHECK_ERROR_THROW(err);
+
+    silu = clCreateKernel(program, "silu", &err);
     CHECK_ERROR_THROW(err);
 
     clReleaseProgram(program);
@@ -36,5 +45,8 @@ UtilKernel::UtilKernel(cl_context context, cl_device_id deviceId, AAssetManager 
 UtilKernel::~UtilKernel() {
     clReleaseKernel(elemwise_add);
     clReleaseKernel(permute3D_1_0_2);
+    clReleaseKernel(permute3D_0_2_1);
     clReleaseKernel(gelu);
+    clReleaseKernel(softmax);
+    clReleaseKernel(silu);
 }

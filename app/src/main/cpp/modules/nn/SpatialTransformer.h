@@ -16,17 +16,23 @@
 #include "BasicTransformerBlock.h"
 #include "../kernel/unit/LayerNormKernel.h"
 #include "../kernel/unit/LinearKernel.h"
+#include "../kernel/unit/UtilKernel.h"
 
 class SpatialTransformer {
 public:
     SpatialTransformer(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
                        AAssetManager *assetManager,
                        size_t channels, size_t context_dim, size_t headSize, size_t headDim,
-                       const std::string &group_norm_weight_name, const std::string &group_norm_bias_name,
-                       const std::string &in_linear_weight_name, const std::string &in_linear_bias_name,
-                       const std::string &layer_norm_1_weight_name, const std::string &layer_norm_1_bias_name,
-                       const std::string &layer_norm_2_weight_name, const std::string &layer_norm_2_bias_name,
-                       const std::string &layer_norm_3_weight_name, const std::string &layer_norm_3_bias_name,
+                       const std::string &group_norm_weight_name,
+                       const std::string &group_norm_bias_name,
+                       const std::string &in_linear_weight_name,
+                       const std::string &in_linear_bias_name,
+                       const std::string &layer_norm_1_weight_name,
+                       const std::string &layer_norm_1_bias_name,
+                       const std::string &layer_norm_2_weight_name,
+                       const std::string &layer_norm_2_bias_name,
+                       const std::string &layer_norm_3_weight_name,
+                       const std::string &layer_norm_3_bias_name,
                        const std::string &cross_1_q_linear_weight_name,
                        const std::string &cross_1_k_linear_weight_name,
                        const std::string &cross_1_v_linear_weight_name,
@@ -39,10 +45,14 @@ public:
                        const std::string &cross_2_out_linear_bias_name,
                        const std::string &ff_geglu_linear_weight_name,
                        const std::string &ff_geglu_linear_bias_name,
-                       const std::string &ff_net_linear_weight_name, const std::string &ff_net_linear_bias_name,
-                       const std::string &out_linear_weight_name, const std::string &out_linear_bias_name,
+                       const std::string &ff_net_linear_weight_name,
+                       const std::string &ff_net_linear_bias_name,
+                       const std::string &out_linear_weight_name,
+                       const std::string &out_linear_bias_name,
                        LayerNormKernel &layerNormKernel,
-                       LinearKernel &linearKernel);
+                       LinearKernel &linearKernel,
+                       UtilKernel &utilKernel
+    );
 
     ~SpatialTransformer();
 
@@ -61,8 +71,7 @@ private:
     BasicTransformerBlock *transformer;
     Linear *projOutLinear;
 
-    cl_kernel kernel_permute_0_2_1;
-    cl_kernel kernel_elem_add;
+    UtilKernel utilKernel;
 };
 
 

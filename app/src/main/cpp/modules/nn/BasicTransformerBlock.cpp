@@ -39,9 +39,9 @@ BasicTransformerBlock::BasicTransformerBlock(
         const std::string &ff_geglu_linear_weight_name, const std::string &ff_geglu_linear_bias_name,
         const std::string &ff_net_linear_weight_name, const std::string &ff_net_linear_bias_name,
         LayerNormKernel &layerNormKernel,
-        LinearKernel &linearKernel
-) : cmdQueue(cmdQueue), context(context) {
-    cl_int err;
+        LinearKernel &linearKernel,
+        UtilKernel &utilKernel
+) : cmdQueue(cmdQueue), context(context), utilKernel(utilKernel) {
 
     layerNorm1 = new LayerNorm(context, cmdQueue, dim,
                                layer_norm_1_weight_name, layer_norm_1_bias_name, layerNormKernel);
@@ -56,7 +56,8 @@ BasicTransformerBlock::BasicTransformerBlock(
                                          cross_1_v_linear_weight_name,
                                          cross_1_out_linear_weight_name,
                                          cross_1_out_linear_bias_name,
-                                         linearKernel);
+                                         linearKernel,
+                                         utilKernel);
     crossAttention2 = new CrossAttention(context, cmdQueue, deviceId, assetManager,
                                          dim, context_dim, headSize, headDim,
                                          cross_2_q_linear_weight_name,
@@ -64,19 +65,12 @@ BasicTransformerBlock::BasicTransformerBlock(
                                          cross_2_v_linear_weight_name,
                                          cross_2_out_linear_weight_name,
                                          cross_2_out_linear_bias_name,
-                                         linearKernel);
+                                         linearKernel,
+                                         utilKernel);
     feedForward = new FeedForward(context, cmdQueue, deviceId, assetManager, dim,
                                   ff_geglu_linear_weight_name, ff_geglu_linear_bias_name,
                                   ff_net_linear_weight_name, ff_net_linear_bias_name,
                                   linearKernel);
-
-    auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                              "kernel/util.cl");
-
-    kernel_elem_add = clCreateKernel(program, "elemwise_add", &err);
-    CHECK_ERROR_THROW(err);
-
-    clReleaseProgram(program);
 }
 
 void BasicTransformerBlock::init() {
@@ -95,7 +89,6 @@ BasicTransformerBlock::~BasicTransformerBlock() {
     delete crossAttention1;
     delete crossAttention2;
     delete feedForward;
-    clReleaseKernel(kernel_elem_add);
 }
 
 cl_int BasicTransformerBlock::forward(cl_mem input, cl_mem condition, cl_mem output,
@@ -127,13 +120,13 @@ cl_int BasicTransformerBlock::forward(cl_mem input, cl_mem condition, cl_mem out
                                    1, &event0, &event1);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(kernel_elem_add, 0, sizeof(cl_mem), &bufferNorm);
-    err |= clSetKernelArg(kernel_elem_add, 1, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel_elem_add, 2, sizeof(cl_mem), &bufferNorm);
+    err = clSetKernelArg(utilKernel.elemwise_add, 0, sizeof(cl_mem), &bufferNorm);
+    err |= clSetKernelArg(utilKernel.elemwise_add, 1, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(utilKernel.elemwise_add, 2, sizeof(cl_mem), &bufferNorm);
     CHECK_ERROR(err);
 
     size_t globalSize[1] = {inputSize};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elem_add, 1, nullptr, globalSize, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.elemwise_add, 1, nullptr, globalSize, nullptr,
                                  1, &event1, &event2);
     CHECK_ERROR(err);
 
@@ -150,12 +143,12 @@ cl_int BasicTransformerBlock::forward(cl_mem input, cl_mem condition, cl_mem out
     // max diff: 0.00000175833702087402
     // util::testBuffer(cmdQueue, bufferNorm2, "unet/input_block/test/test_basic_attn2.npy");
 
-    err = clSetKernelArg(kernel_elem_add, 0, sizeof(cl_mem), &bufferNorm2);
-    err |= clSetKernelArg(kernel_elem_add, 1, sizeof(cl_mem), &bufferNorm);
-    err |= clSetKernelArg(kernel_elem_add, 2, sizeof(cl_mem), &bufferNorm2);
+    err = clSetKernelArg(utilKernel.elemwise_add, 0, sizeof(cl_mem), &bufferNorm2);
+    err |= clSetKernelArg(utilKernel.elemwise_add, 1, sizeof(cl_mem), &bufferNorm);
+    err |= clSetKernelArg(utilKernel.elemwise_add, 2, sizeof(cl_mem), &bufferNorm2);
     CHECK_ERROR(err);
 
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elem_add, 1, nullptr, globalSize, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.elemwise_add, 1, nullptr, globalSize, nullptr,
                                  1, &event4, &event5);
     CHECK_ERROR(err);
 
@@ -171,12 +164,12 @@ cl_int BasicTransformerBlock::forward(cl_mem input, cl_mem condition, cl_mem out
     // max diff: 0.00000560283660888672
     // util::testBuffer(cmdQueue, bufferNorm, "unet/input_block/test/test_basic_ff.npy");
 
-    err = clSetKernelArg(kernel_elem_add, 0, sizeof(cl_mem), &bufferNorm);
-    err |= clSetKernelArg(kernel_elem_add, 1, sizeof(cl_mem), &bufferNorm2);
-    err |= clSetKernelArg(kernel_elem_add, 2, sizeof(cl_mem), &output);
+    err = clSetKernelArg(utilKernel.elemwise_add, 0, sizeof(cl_mem), &bufferNorm);
+    err |= clSetKernelArg(utilKernel.elemwise_add, 1, sizeof(cl_mem), &bufferNorm2);
+    err |= clSetKernelArg(utilKernel.elemwise_add, 2, sizeof(cl_mem), &output);
     CHECK_ERROR(err);
 
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elem_add, 1, nullptr, globalSize, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.elemwise_add, 1, nullptr, globalSize, nullptr,
                                  1, &event7, event);
     CHECK_ERROR(err);
 
