@@ -14,6 +14,7 @@
 #include <android/asset_manager_jni.h>
 #include "../kernel/unit/LayerNormKernel.h"
 #include "../kernel/unit/LinearKernel.h"
+#include "../kernel/unit/MultiHeadAttentionKernel.h"
 
 class ResidualAttentionBlock {
 public:
@@ -33,7 +34,8 @@ public:
                            const std::string &mlp_c_proj_bias_name,
                            cl_mem attentionMask,
                            LayerNormKernel &layerNormKernel,
-                           LinearKernel &linearKernel);
+                           LinearKernel &linearKernel,
+                           MultiHeadAttentionKernel &multiHeadAttentionKernel);
 
     ~ResidualAttentionBlock();
 

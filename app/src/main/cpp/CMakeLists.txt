@@ -50,6 +50,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         modules/nn/AttnBlock.cpp
         modules/kernel/unit/LayerNormKernel.cpp
         modules/kernel/unit/LinearKernel.cpp
+        modules/kernel/unit/MultiHeadAttentionKernel.cpp
 )
 
 # add libraries for OpenCL

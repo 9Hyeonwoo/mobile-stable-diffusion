@@ -14,6 +14,7 @@
 #include "nn/LayerNorm.h"
 #include "kernel/unit/LayerNormKernel.h"
 #include "kernel/unit/LinearKernel.h"
+#include "kernel/unit/MultiHeadAttentionKernel.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -56,6 +57,7 @@ private:
 
     LayerNormKernel layerNormKernel;
     LinearKernel linearKernel;
+    MultiHeadAttentionKernel multiHeadAttentionKernel;
 };
 
 

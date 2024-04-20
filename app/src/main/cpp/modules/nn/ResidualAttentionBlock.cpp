@@ -42,7 +42,8 @@ ResidualAttentionBlock::ResidualAttentionBlock(
         const std::string &mlp_c_proj_bias_name,
         cl_mem attentionMask,
         LayerNormKernel &layerNormKernel,
-        LinearKernel &linearKernel
+        LinearKernel &linearKernel,
+        MultiHeadAttentionKernel &multiHeadAttentionKernel
 ) : context(context),
     cmdQueue(cmdQueue) {
     cl_int err;
@@ -56,7 +57,8 @@ ResidualAttentionBlock::ResidualAttentionBlock(
                                   attn_in_proj_weight_name, attn_in_proj_bias_name,
                                   attn_out_proj_weight_name, attn_out_proj_bias_name,
                                   attentionMask,
-                                  linearKernel);
+                                  linearKernel,
+                                  multiHeadAttentionKernel);
 
     mlp_c_fc = new Linear(context, cmdQueue,
                           d_model, d_model * 4,

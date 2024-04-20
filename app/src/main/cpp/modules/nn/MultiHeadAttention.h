@@ -10,6 +10,7 @@
 #include "Linear.h"
 #include <android/asset_manager_jni.h>
 #include "../kernel/unit/LinearKernel.h"
+#include "../kernel/unit/MultiHeadAttentionKernel.h"
 
 class MultiHeadAttention {
 public:
@@ -20,7 +21,8 @@ public:
                        const std::string &out_proj_weight_name,
                        const std::string &out_proj_bias_name,
                        cl_mem attentionMask,
-                       LinearKernel &linearKernel);
+                       LinearKernel &linearKernel,
+                       MultiHeadAttentionKernel &kerenl);
 
     ~MultiHeadAttention();
 
@@ -38,11 +40,7 @@ private:
     Linear *attnOutProj0;
 
     cl_kernel kernel_permute3D_1_0_2;
-    cl_kernel kernel_add_matmul_attention;
-    cl_kernel kernel_softmax;
-    cl_kernel kernel_matmul_attention;
-    cl_kernel kernel_batch_matmul_mask;
-    cl_kernel kernel_batch_matmul;
+    MultiHeadAttentionKernel kernel;
 
     cl_mem bufferAttentionMask;
 };
