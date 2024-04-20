@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include "nn/ResidualAttentionBlock.h"
 #include "nn/LayerNorm.h"
+#include "kernel/unit/LayerNormKernel.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -51,6 +52,8 @@ private:
     // positional_embedding.shape = (CONTEXT_LENGTH, EMBEDDING_SIZE)
     cl_mem bufferPositionalEmbedding;
     cl_mem bufferAttentionMask;
+
+    LayerNormKernel layerNormKernel;
 };
 
 

@@ -12,6 +12,7 @@
 #include "nn/ResBlock.h"
 #include "nn/SpatialTransformer.h"
 #include "nn/UpSample.h"
+#include "kernel/unit/LayerNormKernel.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -148,6 +149,7 @@ private:
     Conv2D *out_conv2d;
 
     cl_kernel kernel_silu;
+    LayerNormKernel layerNormKernel;
 };
 
 

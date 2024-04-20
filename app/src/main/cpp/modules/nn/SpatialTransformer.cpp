@@ -41,7 +41,8 @@ SpatialTransformer::SpatialTransformer(
         const std::string &cross_2_out_linear_weight_name, const std::string &cross_2_out_linear_bias_name,
         const std::string &ff_geglu_linear_weight_name, const std::string &ff_geglu_linear_bias_name,
         const std::string &ff_net_linear_weight_name, const std::string &ff_net_linear_bias_name,
-        const std::string &out_linear_weight_name, const std::string &out_linear_bias_name
+        const std::string &out_linear_weight_name, const std::string &out_linear_bias_name,
+        LayerNormKernel &layerNormKernel
 ) : context(context), cmdQueue(cmdQueue), channels(channels) {
     cl_int err;
     size_t inner_dim = headSize * headDim;
@@ -68,7 +69,8 @@ SpatialTransformer::SpatialTransformer(
                                             cross_2_out_linear_weight_name,
                                             cross_2_out_linear_bias_name,
                                             ff_geglu_linear_weight_name, ff_geglu_linear_bias_name,
-                                            ff_net_linear_weight_name, ff_net_linear_bias_name);
+                                            ff_net_linear_weight_name, ff_net_linear_bias_name,
+                                            layerNormKernel);
 
     projOutLinear = new Linear(context, cmdQueue, deviceId, assetManager,
                                channels, inner_dim,

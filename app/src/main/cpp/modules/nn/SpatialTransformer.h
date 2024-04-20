@@ -14,6 +14,7 @@
 #include "GroupNorm.h"
 #include "Linear.h"
 #include "BasicTransformerBlock.h"
+#include "../kernel/unit/LayerNormKernel.h"
 
 class SpatialTransformer {
 public:
@@ -38,7 +39,8 @@ public:
                        const std::string &ff_geglu_linear_weight_name,
                        const std::string &ff_geglu_linear_bias_name,
                        const std::string &ff_net_linear_weight_name, const std::string &ff_net_linear_bias_name,
-                       const std::string &out_linear_weight_name, const std::string &out_linear_bias_name);
+                       const std::string &out_linear_weight_name, const std::string &out_linear_bias_name,
+                       LayerNormKernel &layerNormKernel);
 
     ~SpatialTransformer();
 

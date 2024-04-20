@@ -40,14 +40,15 @@ ResidualAttentionBlock::ResidualAttentionBlock(
         const std::string &mlp_c_fc_bias_name,
         const std::string &mlp_c_proj_weight_name,
         const std::string &mlp_c_proj_bias_name,
-        cl_mem attentionMask
+        cl_mem attentionMask,
+        LayerNormKernel &layerNormKernel
 ) : context(context),
     cmdQueue(cmdQueue) {
     cl_int err;
-    ln_1 = new LayerNorm(context, cmdQueue, deviceId, assetManager, d_model,
-                         ln_1_weight_name, ln_1_bias_name);
-    ln_2 = new LayerNorm(context, cmdQueue, deviceId, assetManager, d_model,
-                         ln_2_weight_name, ln_2_bias_name);
+    ln_1 = new LayerNorm(context, cmdQueue, d_model,
+                         ln_1_weight_name, ln_1_bias_name, layerNormKernel);
+    ln_2 = new LayerNorm(context, cmdQueue, d_model,
+                         ln_2_weight_name, ln_2_bias_name, layerNormKernel);
 
     attn = new MultiHeadAttention(context, cmdQueue, deviceId, assetManager,
                                   d_model, numHeads,

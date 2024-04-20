@@ -11,12 +11,14 @@
 
 #include <CL/opencl.h>
 #include <string>
+#include "../kernel/unit/LayerNormKernel.h"
 
 class LayerNorm {
 public:
-    LayerNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-              AAssetManager *assetManager, size_t dim,
-              const std::string &weight_name, const std::string &bias_name);
+    LayerNorm(cl_context context, cl_command_queue cmdQueue,
+              size_t dim,
+              const std::string &weight_name, const std::string &bias_name,
+              LayerNormKernel &kernel);
 
     ~LayerNorm();
 
@@ -33,9 +35,7 @@ private:
     cl_command_queue cmdQueue;
     cl_context context;
 
-    cl_kernel kernel_mean;
-    cl_kernel kernel_var;
-    cl_kernel kernel_norm;
+    LayerNormKernel kernel;
 
     const std::string weight_name;
     const std::string bias_name;

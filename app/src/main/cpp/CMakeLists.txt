@@ -47,7 +47,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         modules/nn/GEGLU.cpp
         modules/nn/UpSample.cpp
         modules/Decoder.cpp
-        modules/nn/AttnBlock.cpp)
+        modules/nn/AttnBlock.cpp
+        modules/kernel/unit/LayerNormKernel.cpp)
 
 # add libraries for OpenCL
 include_directories( ${CMAKE_SOURCE_DIR}/include )

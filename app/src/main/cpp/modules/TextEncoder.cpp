@@ -27,12 +27,19 @@
         __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "PRINT_TIME[%s]: %lld", #index, std::chrono::duration_cast<std::chrono::milliseconds>(end##index - start##index).count()); \
     } while(0)
 
-TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_command_queue cmdQueue,
-                         cl_device_id deviceId) : context(context), cmdQueue(cmdQueue),
-                                                  deviceId(deviceId), assetManager(assetManager) {
+TextEncoder::TextEncoder(
+        AAssetManager *assetManager,
+        cl_context context,
+        cl_command_queue cmdQueue,
+        cl_device_id deviceId
+) : context(context), cmdQueue(cmdQueue),
+    deviceId(deviceId), assetManager(assetManager),
+    layerNormKernel(context, deviceId, assetManager) {
     embedding = util::load_npy_file("encoder/embedding_fp32.npy");
-    bufferPositionalEmbedding = util::load_npy_file("encoder/positional_embedding_fp32.npy", nullptr, context, cmdQueue);
-    bufferAttentionMask = util::load_npy_file("encoder/attn_mask_fp32.npy", nullptr, context, cmdQueue);
+    bufferPositionalEmbedding = util::load_npy_file("encoder/positional_embedding_fp32.npy",
+                                                    nullptr, context, cmdQueue);
+    bufferAttentionMask = util::load_npy_file("encoder/attn_mask_fp32.npy", nullptr, context,
+                                              cmdQueue);
 
     for (int i = 0; i < LAYERS; i++) {
         auto folder_prefix =
@@ -50,7 +57,8 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
         auto mlp_c_proj_weight_name = folder_prefix + "_mlp_c_proj_weight_fp32.npy";
         auto mlp_c_proj_bias_name = folder_prefix + "_mlp_c_proj_bias_fp32.npy";
         resBlocks.push_back(
-                new ResidualAttentionBlock(context, cmdQueue, deviceId, assetManager, EMBEDDING_SIZE, NUM_HEADS,
+                new ResidualAttentionBlock(context, cmdQueue, deviceId, assetManager,
+                                           EMBEDDING_SIZE, NUM_HEADS,
                                            ln_1_weight_name, ln_1_bias_name,
                                            ln_2_weight_name, ln_2_bias_name,
                                            attn_in_proj_weight_name,
@@ -60,15 +68,17 @@ TextEncoder::TextEncoder(AAssetManager *assetManager, cl_context context, cl_com
                                            mlp_c_fc_weight_name, mlp_c_fc_bias_name,
                                            mlp_c_proj_weight_name,
                                            mlp_c_proj_bias_name,
-                                           bufferAttentionMask)
+                                           bufferAttentionMask,
+                                           layerNormKernel)
         );
         resBlocks[i]->init();
     }
 
-    ln_final = new LayerNorm(context, cmdQueue, deviceId, assetManager,
+    ln_final = new LayerNorm(context, cmdQueue,
                              EMBEDDING_SIZE,
                              "encoder/ln_final_weight_fp32.npy",
-                             "encoder/ln_final_bias_fp32.npy");
+                             "encoder/ln_final_bias_fp32.npy",
+                             layerNormKernel);
     ln_final->init();
 }
 
@@ -182,7 +192,8 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     CHECK_ERROR(err);
 
     size_t globalSizePermuteReverse[3] = {CONTEXT_LENGTH, 1, EMBEDDING_SIZE};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_1_0_2, 3, nullptr, globalSizePermuteReverse,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_1_0_2, 3, nullptr,
+                                 globalSizePermuteReverse,
                                  nullptr, 1,
                                  &outEvent,
                                  &event4);

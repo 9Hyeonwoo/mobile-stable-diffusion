@@ -37,16 +37,17 @@ BasicTransformerBlock::BasicTransformerBlock(
         const std::string &cross_2_v_linear_weight_name,
         const std::string &cross_2_out_linear_weight_name, const std::string &cross_2_out_linear_bias_name,
         const std::string &ff_geglu_linear_weight_name, const std::string &ff_geglu_linear_bias_name,
-        const std::string &ff_net_linear_weight_name, const std::string &ff_net_linear_bias_name
+        const std::string &ff_net_linear_weight_name, const std::string &ff_net_linear_bias_name,
+        LayerNormKernel &layerNormKernel
 ) : cmdQueue(cmdQueue), context(context) {
     cl_int err;
 
-    layerNorm1 = new LayerNorm(context, cmdQueue, deviceId, assetManager, dim,
-                               layer_norm_1_weight_name, layer_norm_1_bias_name);
-    layerNorm2 = new LayerNorm(context, cmdQueue, deviceId, assetManager, dim,
-                               layer_norm_2_weight_name, layer_norm_2_bias_name);
-    layerNorm3 = new LayerNorm(context, cmdQueue, deviceId, assetManager, dim,
-                               layer_norm_3_weight_name, layer_norm_3_bias_name);
+    layerNorm1 = new LayerNorm(context, cmdQueue, dim,
+                               layer_norm_1_weight_name, layer_norm_1_bias_name, layerNormKernel);
+    layerNorm2 = new LayerNorm(context, cmdQueue, dim,
+                               layer_norm_2_weight_name, layer_norm_2_bias_name, layerNormKernel);
+    layerNorm3 = new LayerNorm(context, cmdQueue, dim,
+                               layer_norm_3_weight_name, layer_norm_3_bias_name, layerNormKernel);
     crossAttention1 = new CrossAttention(context, cmdQueue, deviceId, assetManager,
                                          dim, 0, headSize, headDim,
                                          cross_1_q_linear_weight_name,
