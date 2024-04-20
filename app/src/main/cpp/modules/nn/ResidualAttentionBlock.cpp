@@ -41,7 +41,8 @@ ResidualAttentionBlock::ResidualAttentionBlock(
         const std::string &mlp_c_proj_weight_name,
         const std::string &mlp_c_proj_bias_name,
         cl_mem attentionMask,
-        LayerNormKernel &layerNormKernel
+        LayerNormKernel &layerNormKernel,
+        LinearKernel &linearKernel
 ) : context(context),
     cmdQueue(cmdQueue) {
     cl_int err;
@@ -54,15 +55,18 @@ ResidualAttentionBlock::ResidualAttentionBlock(
                                   d_model, numHeads,
                                   attn_in_proj_weight_name, attn_in_proj_bias_name,
                                   attn_out_proj_weight_name, attn_out_proj_bias_name,
-                                  attentionMask);
+                                  attentionMask,
+                                  linearKernel);
 
-    mlp_c_fc = new Linear(context, cmdQueue, deviceId, assetManager,
+    mlp_c_fc = new Linear(context, cmdQueue,
                           d_model, d_model * 4,
-                          mlp_c_fc_weight_name, mlp_c_fc_bias_name);
+                          mlp_c_fc_weight_name, mlp_c_fc_bias_name,
+                          linearKernel);
 
-    mlp_c_proj = new Linear(context, cmdQueue, deviceId, assetManager,
+    mlp_c_proj = new Linear(context, cmdQueue,
                             d_model * 4, d_model,
-                            mlp_c_proj_weight_name, mlp_c_proj_bias_name);
+                            mlp_c_proj_weight_name, mlp_c_proj_bias_name,
+                            linearKernel);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");

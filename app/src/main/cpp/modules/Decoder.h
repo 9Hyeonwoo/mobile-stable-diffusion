@@ -16,6 +16,7 @@
 #define CL_TARGET_OPENCL_VERSION 200
 
 #include "CL/opencl.h"
+#include "kernel/unit/LinearKernel.h"
 
 class Decoder {
 public:
@@ -57,6 +58,8 @@ private:
 
     GroupNorm *out_group_norm;
     Conv2D *out_conv2d;
+
+    LinearKernel linearKernel;
 };
 
 

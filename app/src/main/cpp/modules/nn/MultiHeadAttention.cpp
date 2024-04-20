@@ -32,19 +32,22 @@ MultiHeadAttention::MultiHeadAttention(
         const std::string &in_proj_bias_name,
         const std::string &out_proj_weight_name,
         const std::string &out_proj_bias_name,
-        cl_mem attentionMask
+        cl_mem attentionMask,
+        LinearKernel &linearKernel
 ) : context(context),
     cmdQueue(cmdQueue),
     numHeads(numHeads) {
     cl_int err;
 
-    attnInProj0 = new Linear(context, cmdQueue, deviceId, assetManager,
+    attnInProj0 = new Linear(context, cmdQueue,
                              embed_dim, embed_dim * 3,
-                             in_proj_weight_name, in_proj_bias_name);
+                             in_proj_weight_name, in_proj_bias_name,
+                             linearKernel);
 
-    attnOutProj0 = new Linear(context, cmdQueue, deviceId, assetManager,
+    attnOutProj0 = new Linear(context, cmdQueue,
                                 embed_dim, embed_dim,
-                              out_proj_weight_name, out_proj_bias_name);
+                              out_proj_weight_name, out_proj_bias_name,
+                              linearKernel);
 
     bufferAttentionMask = attentionMask;
 

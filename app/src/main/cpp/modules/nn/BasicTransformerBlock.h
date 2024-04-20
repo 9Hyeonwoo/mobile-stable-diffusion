@@ -14,6 +14,7 @@
 
 #include <android/asset_manager_jni.h>
 #include "../kernel/unit/LayerNormKernel.h"
+#include "../kernel/unit/LinearKernel.h"
 
 class BasicTransformerBlock {
 public:
@@ -37,7 +38,8 @@ public:
                           const std::string &ff_geglu_linear_bias_name,
                           const std::string &ff_net_linear_weight_name,
                           const std::string &ff_net_linear_bias_name,
-                          LayerNormKernel &layerNormKernel);
+                          LayerNormKernel &layerNormKernel,
+                          LinearKernel &linearKernel);
 
     ~BasicTransformerBlock();
 

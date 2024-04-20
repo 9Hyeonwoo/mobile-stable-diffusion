@@ -13,13 +13,14 @@
 
 #include <vector>
 #include <string>
+#include "../kernel/unit/LinearKernel.h"
 
 class Linear {
 public:
-    Linear(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-           AAssetManager *assetManager,
+    Linear(cl_context context, cl_command_queue cmdQueue,
            size_t in_features, size_t out_features,
-           const std::string &weight_name, const std::string &bias_name);
+           const std::string &weight_name, const std::string &bias_name,
+           LinearKernel &kernel);
 
     ~Linear();
 
@@ -36,11 +37,11 @@ private:
 
     cl_command_queue cmdQueue;
     cl_context context;
-    cl_kernel kernel;
-    cl_kernel kernel_reg_linear;
 
     const std::string weight_name;
     const std::string bias_name;
+
+    LinearKernel kernel;
 };
 
 

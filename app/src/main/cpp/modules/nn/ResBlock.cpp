@@ -30,7 +30,8 @@ ResBlock::ResBlock(
         const std::string& embed_linear_weight_name, const std::string& embed_linear_bias_name,
         const std::string &out_group_norm_weight_name, const std::string &out_group_norm_bias_name,
         const std::string &out_conv2d_weight_name, const std::string &out_conv2d_bias_name,
-        const std::string& skip_conv2d_weight_name, const std::string& skip_conv2d_bias_name
+        const std::string& skip_conv2d_weight_name, const std::string& skip_conv2d_bias_name,
+        LinearKernel &linearKernel
 ) : context(context), cmdQueue(cmdQueue), in_channels(in_channels), out_channels(out_channels) {
     cl_int err;
     in_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, in_channels, 1e-5,
@@ -41,9 +42,10 @@ ResBlock::ResBlock(
     if (emb_channels <= 0 || embed_linear_weight_name.empty() || embed_linear_bias_name.empty()) {
         embed_linear = nullptr;
     } else {
-        embed_linear = new Linear(context, cmdQueue, deviceId, assetManager,
+        embed_linear = new Linear(context, cmdQueue,
                                   emb_channels, out_channels,
-                                  embed_linear_weight_name, embed_linear_bias_name);
+                                  embed_linear_weight_name, embed_linear_bias_name,
+                                  linearKernel);
     }
     out_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, out_channels,
                                    1e-5,

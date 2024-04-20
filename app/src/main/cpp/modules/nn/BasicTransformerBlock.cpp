@@ -38,7 +38,8 @@ BasicTransformerBlock::BasicTransformerBlock(
         const std::string &cross_2_out_linear_weight_name, const std::string &cross_2_out_linear_bias_name,
         const std::string &ff_geglu_linear_weight_name, const std::string &ff_geglu_linear_bias_name,
         const std::string &ff_net_linear_weight_name, const std::string &ff_net_linear_bias_name,
-        LayerNormKernel &layerNormKernel
+        LayerNormKernel &layerNormKernel,
+        LinearKernel &linearKernel
 ) : cmdQueue(cmdQueue), context(context) {
     cl_int err;
 
@@ -54,17 +55,20 @@ BasicTransformerBlock::BasicTransformerBlock(
                                          cross_1_k_linear_weight_name,
                                          cross_1_v_linear_weight_name,
                                          cross_1_out_linear_weight_name,
-                                         cross_1_out_linear_bias_name);
+                                         cross_1_out_linear_bias_name,
+                                         linearKernel);
     crossAttention2 = new CrossAttention(context, cmdQueue, deviceId, assetManager,
                                          dim, context_dim, headSize, headDim,
                                          cross_2_q_linear_weight_name,
                                          cross_2_k_linear_weight_name,
                                          cross_2_v_linear_weight_name,
                                          cross_2_out_linear_weight_name,
-                                         cross_2_out_linear_bias_name);
+                                         cross_2_out_linear_bias_name,
+                                         linearKernel);
     feedForward = new FeedForward(context, cmdQueue, deviceId, assetManager, dim,
                                   ff_geglu_linear_weight_name, ff_geglu_linear_bias_name,
-                                  ff_net_linear_weight_name, ff_net_linear_bias_name);
+                                  ff_net_linear_weight_name, ff_net_linear_bias_name,
+                                  linearKernel);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");

@@ -48,7 +48,9 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         modules/nn/UpSample.cpp
         modules/Decoder.cpp
         modules/nn/AttnBlock.cpp
-        modules/kernel/unit/LayerNormKernel.cpp)
+        modules/kernel/unit/LayerNormKernel.cpp
+        modules/kernel/unit/LinearKernel.cpp
+)
 
 # add libraries for OpenCL
 include_directories( ${CMAKE_SOURCE_DIR}/include )

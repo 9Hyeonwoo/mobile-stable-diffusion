@@ -9,6 +9,7 @@
 #include "CL/opencl.h"
 #include "Linear.h"
 #include <android/asset_manager_jni.h>
+#include "../kernel/unit/LinearKernel.h"
 
 class MultiHeadAttention {
 public:
@@ -18,7 +19,8 @@ public:
                        const std::string &in_proj_bias_name,
                        const std::string &out_proj_weight_name,
                        const std::string &out_proj_bias_name,
-                       cl_mem attentionMask);
+                       cl_mem attentionMask,
+                       LinearKernel &linearKernel);
 
     ~MultiHeadAttention();
 

@@ -42,16 +42,18 @@ SpatialTransformer::SpatialTransformer(
         const std::string &ff_geglu_linear_weight_name, const std::string &ff_geglu_linear_bias_name,
         const std::string &ff_net_linear_weight_name, const std::string &ff_net_linear_bias_name,
         const std::string &out_linear_weight_name, const std::string &out_linear_bias_name,
-        LayerNormKernel &layerNormKernel
+        LayerNormKernel &layerNormKernel,
+        LinearKernel &linearKernel
 ) : context(context), cmdQueue(cmdQueue), channels(channels) {
     cl_int err;
     size_t inner_dim = headSize * headDim;
     groupNorm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, channels, 1e-6,
                               group_norm_weight_name, group_norm_bias_name);
 
-    projInLinear = new Linear(context, cmdQueue, deviceId, assetManager,
+    projInLinear = new Linear(context, cmdQueue,
                               channels, inner_dim,
-                              in_linear_weight_name, in_linear_bias_name);
+                              in_linear_weight_name, in_linear_bias_name,
+                              linearKernel);
 
     transformer = new BasicTransformerBlock(context, cmdQueue, deviceId, assetManager,
                                             inner_dim, context_dim, headSize, headDim,
@@ -70,11 +72,13 @@ SpatialTransformer::SpatialTransformer(
                                             cross_2_out_linear_bias_name,
                                             ff_geglu_linear_weight_name, ff_geglu_linear_bias_name,
                                             ff_net_linear_weight_name, ff_net_linear_bias_name,
-                                            layerNormKernel);
+                                            layerNormKernel,
+                                            linearKernel);
 
-    projOutLinear = new Linear(context, cmdQueue, deviceId, assetManager,
+    projOutLinear = new Linear(context, cmdQueue,
                                channels, inner_dim,
-                               out_linear_weight_name, out_linear_bias_name);
+                               out_linear_weight_name, out_linear_bias_name,
+                               linearKernel);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");

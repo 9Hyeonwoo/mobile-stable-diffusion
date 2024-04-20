@@ -10,6 +10,7 @@
 #include "CL/opencl.h"
 #include <android/asset_manager_jni.h>
 #include "Linear.h"
+#include "../kernel/unit/LinearKernel.h"
 
 class CrossAttention {
 public:
@@ -19,7 +20,8 @@ public:
                    const std::string &q_linear_weight_name,
                    const std::string &k_linear_weight_name,
                    const std::string &v_linear_weight_name,
-                   const std::string &out_linear_weight_name, const std::string &out_linear_bias_name);
+                   const std::string &out_linear_weight_name, const std::string &out_linear_bias_name,
+                   LinearKernel &linearKernel);
 
     ~CrossAttention();
 

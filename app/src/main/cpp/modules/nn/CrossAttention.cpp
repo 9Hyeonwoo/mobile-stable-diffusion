@@ -29,7 +29,8 @@ CrossAttention::CrossAttention(
         const std::string &q_linear_weight_name,
         const std::string &k_linear_weight_name,
         const std::string &v_linear_weight_name,
-        const std::string &out_linear_weight_name, const std::string &out_linear_bias_name
+        const std::string &out_linear_weight_name, const std::string &out_linear_bias_name,
+        LinearKernel &linearKernel
 ) : context(context), cmdQueue(cmdQueue), headSize(headSize) {
     cl_int err;
 
@@ -39,22 +40,26 @@ CrossAttention::CrossAttention(
         context_dim = query_dim;
     }
 
-    toQLinear = new Linear(context, cmdQueue, deviceId, assetManager,
+    toQLinear = new Linear(context, cmdQueue,
                            query_dim, headSize * headDim,
                            q_linear_weight_name,
-                           "");
-    toKLinear = new Linear(context, cmdQueue, deviceId, assetManager,
+                           "",
+                           linearKernel);
+    toKLinear = new Linear(context, cmdQueue,
                            context_dim, headSize * headDim,
                            k_linear_weight_name,
-                           "");
-    toVLinear = new Linear(context, cmdQueue, deviceId, assetManager,
+                           "",
+                           linearKernel);
+    toVLinear = new Linear(context, cmdQueue,
                            context_dim, headSize * headDim,
                            v_linear_weight_name,
-                           "");
-    toOutLinear = new Linear(context, cmdQueue, deviceId, assetManager,
+                           "",
+                           linearKernel);
+    toOutLinear = new Linear(context, cmdQueue,
                              headSize * headDim, query_dim,
                              out_linear_weight_name,
-                             out_linear_bias_name);
+                             out_linear_bias_name,
+                             linearKernel);
 
     cl_program program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                                     "kernel/util.cl");

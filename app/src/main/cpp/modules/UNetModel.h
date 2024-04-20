@@ -13,6 +13,7 @@
 #include "nn/SpatialTransformer.h"
 #include "nn/UpSample.h"
 #include "kernel/unit/LayerNormKernel.h"
+#include "kernel/unit/LinearKernel.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -150,6 +151,7 @@ private:
 
     cl_kernel kernel_silu;
     LayerNormKernel layerNormKernel;
+    LinearKernel linearKernel;
 };
 
 

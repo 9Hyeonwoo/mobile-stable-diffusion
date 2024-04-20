@@ -13,6 +13,7 @@
 #include "nn/ResidualAttentionBlock.h"
 #include "nn/LayerNorm.h"
 #include "kernel/unit/LayerNormKernel.h"
+#include "kernel/unit/LinearKernel.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -54,6 +55,7 @@ private:
     cl_mem bufferAttentionMask;
 
     LayerNormKernel layerNormKernel;
+    LinearKernel linearKernel;
 };
 
 

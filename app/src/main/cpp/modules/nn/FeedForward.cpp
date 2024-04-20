@@ -25,15 +25,18 @@ FeedForward::FeedForward(
         AAssetManager *assetManager, size_t dim,
         const std::string &geglu_linear_weight_name,
         const std::string &geglu_linear_bias_name,
-        const std::string &net_linear_weight_name, const std::string &net_linear_bias_name
+        const std::string &net_linear_weight_name, const std::string &net_linear_bias_name,
+        LinearKernel &linearKernel
 ) : context(context), cmdQueue(cmdQueue) {
 
     geglu = new GEGLU(context, cmdQueue, deviceId, assetManager,
                       dim, dim * 4,
-                      geglu_linear_weight_name, geglu_linear_bias_name);
-    netLinear = new Linear(context, cmdQueue, deviceId, assetManager,
+                      geglu_linear_weight_name, geglu_linear_bias_name,
+                      linearKernel);
+    netLinear = new Linear(context, cmdQueue,
                            dim * 4, dim,
-                           net_linear_weight_name, net_linear_bias_name);
+                           net_linear_weight_name, net_linear_bias_name,
+                           linearKernel);
 }
 
 FeedForward::~FeedForward() {

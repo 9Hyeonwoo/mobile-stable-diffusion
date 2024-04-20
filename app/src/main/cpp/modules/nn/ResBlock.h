@@ -13,6 +13,7 @@
 #include "GroupNorm.h"
 #include "Conv2D.h"
 #include "Linear.h"
+#include "../kernel/unit/LinearKernel.h"
 
 class ResBlock {
 public:
@@ -24,7 +25,8 @@ public:
              const std::string& embed_linear_weight_name, const std::string& embed_linear_bias_name,
              const std::string &out_group_norm_weight_name, const std::string &out_group_norm_bias_name,
              const std::string &out_conv2d_weight_name, const std::string &out_conv2d_bias_name,
-             const std::string& skip_conv2d_weight_name, const std::string& skip_conv2d_bias_name);
+             const std::string& skip_conv2d_weight_name, const std::string& skip_conv2d_bias_name,
+             LinearKernel &linearKernel);
 
     ~ResBlock();
 

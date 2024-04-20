@@ -34,7 +34,8 @@ TextEncoder::TextEncoder(
         cl_device_id deviceId
 ) : context(context), cmdQueue(cmdQueue),
     deviceId(deviceId), assetManager(assetManager),
-    layerNormKernel(context, deviceId, assetManager) {
+    layerNormKernel(context, deviceId, assetManager),
+    linearKernel(context, deviceId, assetManager) {
     embedding = util::load_npy_file("encoder/embedding_fp32.npy");
     bufferPositionalEmbedding = util::load_npy_file("encoder/positional_embedding_fp32.npy",
                                                     nullptr, context, cmdQueue);
@@ -69,7 +70,8 @@ TextEncoder::TextEncoder(
                                            mlp_c_proj_weight_name,
                                            mlp_c_proj_bias_name,
                                            bufferAttentionMask,
-                                           layerNormKernel)
+                                           layerNormKernel,
+                                           linearKernel)
         );
         resBlocks[i]->init();
     }

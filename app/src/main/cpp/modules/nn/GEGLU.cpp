@@ -24,13 +24,14 @@ GEGLU::GEGLU(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager,
         size_t in_features, size_t out_features,
-        const std::string &linear_weight_name, const std::string &linear_bias_name
+        const std::string &linear_weight_name, const std::string &linear_bias_name,
+        LinearKernel &linearKernel
 ) : context(context), cmdQueue(cmdQueue) {
     cl_int err;
 
-    linear = new Linear(context, cmdQueue, deviceId, assetManager,
+    linear = new Linear(context, cmdQueue,
                         in_features, out_features * 2,
-                        linear_weight_name, linear_bias_name);
+                        linear_weight_name, linear_bias_name, linearKernel);
 
     weightShape = linear->weightShape;
 
