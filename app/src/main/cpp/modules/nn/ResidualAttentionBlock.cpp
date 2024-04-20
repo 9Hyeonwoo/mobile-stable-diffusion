@@ -25,8 +25,6 @@
 ResidualAttentionBlock::ResidualAttentionBlock(
         cl_context context,
         cl_command_queue cmdQueue,
-        cl_device_id deviceId,
-        AAssetManager *assetManager,
         size_t d_model, size_t numHeads,
         const std::string &ln_1_weight_name,
         const std::string &ln_1_bias_name,
@@ -43,22 +41,24 @@ ResidualAttentionBlock::ResidualAttentionBlock(
         cl_mem attentionMask,
         LayerNormKernel &layerNormKernel,
         LinearKernel &linearKernel,
-        MultiHeadAttentionKernel &multiHeadAttentionKernel
+        MultiHeadAttentionKernel &multiHeadAttentionKernel,
+        UtilKernel &utilKernel
 ) : context(context),
-    cmdQueue(cmdQueue) {
-    cl_int err;
+    cmdQueue(cmdQueue),
+    utilKernel(utilKernel) {
     ln_1 = new LayerNorm(context, cmdQueue, d_model,
                          ln_1_weight_name, ln_1_bias_name, layerNormKernel);
     ln_2 = new LayerNorm(context, cmdQueue, d_model,
                          ln_2_weight_name, ln_2_bias_name, layerNormKernel);
 
-    attn = new MultiHeadAttention(context, cmdQueue, deviceId, assetManager,
+    attn = new MultiHeadAttention(context, cmdQueue,
                                   d_model, numHeads,
                                   attn_in_proj_weight_name, attn_in_proj_bias_name,
                                   attn_out_proj_weight_name, attn_out_proj_bias_name,
                                   attentionMask,
                                   linearKernel,
-                                  multiHeadAttentionKernel);
+                                  multiHeadAttentionKernel,
+                                  utilKernel);
 
     mlp_c_fc = new Linear(context, cmdQueue,
                           d_model, d_model * 4,
@@ -69,17 +69,6 @@ ResidualAttentionBlock::ResidualAttentionBlock(
                             d_model * 4, d_model,
                             mlp_c_proj_weight_name, mlp_c_proj_bias_name,
                             linearKernel);
-
-    auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                              "kernel/util.cl");
-
-    kernel_elemwise_add = clCreateKernel(program, "elemwise_add", &err);
-    CHECK_ERROR_THROW(err);
-
-    kernel_gelu = clCreateKernel(program, "gelu", &err);
-    CHECK_ERROR_THROW(err);
-
-    clReleaseProgram(program);
 }
 
 ResidualAttentionBlock::~ResidualAttentionBlock() {
@@ -88,8 +77,6 @@ ResidualAttentionBlock::~ResidualAttentionBlock() {
     delete attn;
     delete mlp_c_fc;
     delete mlp_c_proj;
-    clReleaseKernel(kernel_elemwise_add);
-    clReleaseKernel(kernel_gelu);
 }
 
 void ResidualAttentionBlock::init() {
@@ -133,13 +120,13 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     err = attn->forward(bufferEmbedding, bufferEmbedding, 1, &event1, &event2);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(kernel_elemwise_add, 0, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel_elemwise_add, 1, sizeof(cl_mem), &bufferEmbedding);
-    err |= clSetKernelArg(kernel_elemwise_add, 2, sizeof(cl_mem), &bufferEmbedding);
+    err = clSetKernelArg(utilKernel.elemwise_add, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(utilKernel.elemwise_add, 1, sizeof(cl_mem), &bufferEmbedding);
+    err |= clSetKernelArg(utilKernel.elemwise_add, 2, sizeof(cl_mem), &bufferEmbedding);
     CHECK_ERROR(err);
 
     size_t globalSize[] = {inputSize};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elemwise_add, 1, nullptr, globalSize, nullptr, 1,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.elemwise_add, 1, nullptr, globalSize, nullptr, 1,
                                  &event2, &event3);
     CHECK_ERROR(err);
 
@@ -156,12 +143,12 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     // max diff: 0.00002098083496093750
     // util::testBuffer(cmdQueue, bufferMLP, "encoder/test/resblock_0_mlp_c_fc_test_fp32.npy");
 
-    err = clSetKernelArg(kernel_gelu, 0, sizeof(cl_mem), &bufferMLP);
-    err |= clSetKernelArg(kernel_gelu, 1, sizeof(cl_mem), &bufferMLP);
+    err = clSetKernelArg(utilKernel.gelu, 0, sizeof(cl_mem), &bufferMLP);
+    err |= clSetKernelArg(utilKernel.gelu, 1, sizeof(cl_mem), &bufferMLP);
     CHECK_ERROR(err);
 
     size_t globalSizeGELU[] = {inputSize * 4};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_gelu, 1, nullptr, globalSizeGELU, nullptr, 1,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.gelu, 1, nullptr, globalSizeGELU, nullptr, 1,
                                  &event5, &event6);
     CHECK_ERROR(err);
 
@@ -174,12 +161,12 @@ cl_int ResidualAttentionBlock::forward(cl_mem input, cl_mem output, cl_uint num_
     // max diff: 0.00003051757812500000
     // util::testBuffer(cmdQueue, bufferTemp, "encoder/test/resblock_0_mlp_c_proj_test_fp32.npy");
 
-    err = clSetKernelArg(kernel_elemwise_add, 0, sizeof(cl_mem), &bufferEmbedding);
-    err |= clSetKernelArg(kernel_elemwise_add, 1, sizeof(cl_mem), &bufferTemp);
-    err |= clSetKernelArg(kernel_elemwise_add, 2, sizeof(cl_mem), &output);
+    err = clSetKernelArg(utilKernel.elemwise_add, 0, sizeof(cl_mem), &bufferEmbedding);
+    err |= clSetKernelArg(utilKernel.elemwise_add, 1, sizeof(cl_mem), &bufferTemp);
+    err |= clSetKernelArg(utilKernel.elemwise_add, 2, sizeof(cl_mem), &output);
     CHECK_ERROR(err);
 
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elemwise_add, 1, nullptr, globalSize, nullptr, 1,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.elemwise_add, 1, nullptr, globalSize, nullptr, 1,
                                  &event7, event);
     CHECK_ERROR(err);
 

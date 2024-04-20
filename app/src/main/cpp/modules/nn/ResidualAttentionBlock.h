@@ -11,15 +11,15 @@
 #include "LayerNorm.h"
 #include "Linear.h"
 #include "MultiHeadAttention.h"
-#include <android/asset_manager_jni.h>
 #include "../kernel/unit/LayerNormKernel.h"
 #include "../kernel/unit/LinearKernel.h"
 #include "../kernel/unit/MultiHeadAttentionKernel.h"
+#include "../kernel/unit/UtilKernel.h"
 
 class ResidualAttentionBlock {
 public:
-    ResidualAttentionBlock(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-                           AAssetManager *assetManager, size_t d_model, size_t numHeads,
+    ResidualAttentionBlock(cl_context context, cl_command_queue cmdQueue,
+                           size_t d_model, size_t numHeads,
                            const std::string &ln_1_weight_name,
                            const std::string &ln_1_bias_name,
                            const std::string &ln_2_weight_name,
@@ -35,7 +35,9 @@ public:
                            cl_mem attentionMask,
                            LayerNormKernel &layerNormKernel,
                            LinearKernel &linearKernel,
-                           MultiHeadAttentionKernel &multiHeadAttentionKernel);
+                           MultiHeadAttentionKernel &multiHeadAttentionKernel,
+                           UtilKernel &utilKernel
+    );
 
     ~ResidualAttentionBlock();
 
@@ -54,8 +56,7 @@ private:
     cl_context context;
     cl_command_queue cmdQueue;
 
-    cl_kernel kernel_elemwise_add;
-    cl_kernel kernel_gelu;
+    UtilKernel utilKernel;
 };
 
 

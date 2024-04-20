@@ -33,10 +33,10 @@ TextEncoder::TextEncoder(
         cl_command_queue cmdQueue,
         cl_device_id deviceId
 ) : context(context), cmdQueue(cmdQueue),
-    deviceId(deviceId), assetManager(assetManager),
     layerNormKernel(context, deviceId, assetManager),
     linearKernel(context, deviceId, assetManager),
-    multiHeadAttentionKernel(context, deviceId, assetManager) {
+    multiHeadAttentionKernel(context, deviceId, assetManager),
+    utilKernel(context, deviceId, assetManager) {
     embedding = util::load_npy_file("encoder/embedding_fp32.npy");
     bufferPositionalEmbedding = util::load_npy_file("encoder/positional_embedding_fp32.npy",
                                                     nullptr, context, cmdQueue);
@@ -59,7 +59,7 @@ TextEncoder::TextEncoder(
         auto mlp_c_proj_weight_name = folder_prefix + "_mlp_c_proj_weight_fp32.npy";
         auto mlp_c_proj_bias_name = folder_prefix + "_mlp_c_proj_bias_fp32.npy";
         resBlocks.push_back(
-                new ResidualAttentionBlock(context, cmdQueue, deviceId, assetManager,
+                new ResidualAttentionBlock(context, cmdQueue,
                                            EMBEDDING_SIZE, NUM_HEADS,
                                            ln_1_weight_name, ln_1_bias_name,
                                            ln_2_weight_name, ln_2_bias_name,
@@ -73,7 +73,8 @@ TextEncoder::TextEncoder(
                                            bufferAttentionMask,
                                            layerNormKernel,
                                            linearKernel,
-                                           multiHeadAttentionKernel)
+                                           multiHeadAttentionKernel,
+                                           utilKernel)
         );
         resBlocks[i]->init();
     }
@@ -111,7 +112,6 @@ std::vector<float> TextEncoder::token_embedding(const std::vector<long> &token) 
 std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     cl_int err;
     cl_event event1, event2, event3, event4, event5, event6;
-    cl_kernel kernel_elemwise_add, kernel_permute3D_1_0_2;
 //    testEmbedding(token);
 //    PRINT_TIME(0,
     std::vector<float> token_embedding_result = token_embedding(token);
@@ -131,19 +131,13 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
                                token_embedding_result.data(), 0, nullptr, nullptr);
     CHECK_ERROR(err);
 
-    cl_program program = util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                                    "kernel/util.cl");
-
-    kernel_elemwise_add = clCreateKernel(program, "elemwise_add", &err);
-    CHECK_ERROR(err);
-
-    err = clSetKernelArg(kernel_elemwise_add, 0, sizeof(cl_mem), &bufferEmbedding);
-    err |= clSetKernelArg(kernel_elemwise_add, 1, sizeof(cl_mem), &bufferPositionalEmbedding);
-    err |= clSetKernelArg(kernel_elemwise_add, 2, sizeof(cl_mem), &bufferEmbedding);
+    err = clSetKernelArg(utilKernel.elemwise_add, 0, sizeof(cl_mem), &bufferEmbedding);
+    err |= clSetKernelArg(utilKernel.elemwise_add, 1, sizeof(cl_mem), &bufferPositionalEmbedding);
+    err |= clSetKernelArg(utilKernel.elemwise_add, 2, sizeof(cl_mem), &bufferEmbedding);
     CHECK_ERROR(err);
 
     size_t globalSize[] = {token_embedding_result.size()};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elemwise_add, 1, nullptr, globalSize, nullptr, 0,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.elemwise_add, 1, nullptr, globalSize, nullptr, 0,
                                  nullptr,
                                  &event1);
 
@@ -155,15 +149,13 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
 
     // permute
 //    PRINT_TIME(2,
-    kernel_permute3D_1_0_2 = clCreateKernel(program, "permute3D__1_0_2", &err);
-    CHECK_ERROR(err);
 
-    err = clSetKernelArg(kernel_permute3D_1_0_2, 0, sizeof(cl_mem), &bufferEmbedding);
-    err |= clSetKernelArg(kernel_permute3D_1_0_2, 1, sizeof(cl_mem), &bufferTemp);
+    err = clSetKernelArg(utilKernel.permute3D_1_0_2, 0, sizeof(cl_mem), &bufferEmbedding);
+    err |= clSetKernelArg(utilKernel.permute3D_1_0_2, 1, sizeof(cl_mem), &bufferTemp);
     CHECK_ERROR(err);
 
     size_t globalSizePermute[3] = {1, CONTEXT_LENGTH, EMBEDDING_SIZE};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_1_0_2, 3, nullptr, globalSizePermute,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_1_0_2, 3, nullptr, globalSizePermute,
                                  nullptr, 1,
                                  &event1,
                                  &event2);
@@ -191,12 +183,12 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     // util::testBuffer(cmdQueue, outBuffer, "encoder/test/resblock_22_test_fp32.npy");
 
     /* x.permute(1, 0, 2) */
-    err = clSetKernelArg(kernel_permute3D_1_0_2, 0, sizeof(cl_mem), &outBuffer);
-    err |= clSetKernelArg(kernel_permute3D_1_0_2, 1, sizeof(cl_mem), &inBuffer);
+    err = clSetKernelArg(utilKernel.permute3D_1_0_2, 0, sizeof(cl_mem), &outBuffer);
+    err |= clSetKernelArg(utilKernel.permute3D_1_0_2, 1, sizeof(cl_mem), &inBuffer);
     CHECK_ERROR(err);
 
     size_t globalSizePermuteReverse[3] = {CONTEXT_LENGTH, 1, EMBEDDING_SIZE};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_1_0_2, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_1_0_2, 3, nullptr,
                                  globalSizePermuteReverse,
                                  nullptr, 1,
                                  &outEvent,
@@ -216,7 +208,6 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
 
     clWaitForEvents(1, &event6);
 
-    clReleaseProgram(program);
     clReleaseMemObject(bufferTemp);
     clReleaseMemObject(bufferEmbedding);
     clReleaseEvent(event1);
@@ -225,8 +216,6 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     clReleaseEvent(event4);
     clReleaseEvent(event5);
     clReleaseEvent(event6);
-    clReleaseKernel(kernel_elemwise_add);
-    clReleaseKernel(kernel_permute3D_1_0_2);
 
     return result;
 }

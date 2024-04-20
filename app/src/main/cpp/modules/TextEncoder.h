@@ -15,6 +15,7 @@
 #include "kernel/unit/LayerNormKernel.h"
 #include "kernel/unit/LinearKernel.h"
 #include "kernel/unit/MultiHeadAttentionKernel.h"
+#include "kernel/unit/UtilKernel.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -42,8 +43,6 @@ private:
 
     cl_context context;
     cl_command_queue cmdQueue;
-    cl_device_id deviceId;
-    AAssetManager *assetManager;
 
     cnpy::NpyArray embedding;
 
@@ -58,6 +57,7 @@ private:
     LayerNormKernel layerNormKernel;
     LinearKernel linearKernel;
     MultiHeadAttentionKernel multiHeadAttentionKernel;
+    UtilKernel utilKernel;
 };
 
 

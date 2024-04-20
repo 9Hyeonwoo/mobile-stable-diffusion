@@ -25,8 +25,6 @@
 MultiHeadAttention::MultiHeadAttention(
         cl_context context,
         cl_command_queue cmdQueue,
-        cl_device_id deviceId,
-        AAssetManager *assetManager,
         size_t embed_dim, size_t numHeads,
         const std::string &in_proj_weight_name,
         const std::string &in_proj_bias_name,
@@ -34,12 +32,12 @@ MultiHeadAttention::MultiHeadAttention(
         const std::string &out_proj_bias_name,
         cl_mem attentionMask,
         LinearKernel &linearKernel,
-        MultiHeadAttentionKernel &kernel
+        MultiHeadAttentionKernel &kernel,
+        UtilKernel &utilKernel
 ) : context(context),
     cmdQueue(cmdQueue),
     numHeads(numHeads),
-    kernel(kernel) {
-    cl_int err;
+    kernel(kernel), utilKernel(utilKernel) {
 
     attnInProj0 = new Linear(context, cmdQueue,
                              embed_dim, embed_dim * 3,
@@ -52,20 +50,11 @@ MultiHeadAttention::MultiHeadAttention(
                               linearKernel);
 
     bufferAttentionMask = attentionMask;
-
-    cl_program program = util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                         "kernel/util.cl");
-
-    kernel_permute3D_1_0_2 = clCreateKernel(program, "permute3D__1_0_2", &err);
-    CHECK_ERROR_THROW(err);
-
-    clReleaseProgram(program);
 }
 
 MultiHeadAttention::~MultiHeadAttention() {
     delete attnInProj0;
     delete attnOutProj0;
-    clReleaseKernel(kernel_permute3D_1_0_2);
 }
 
 void MultiHeadAttention::init() {
@@ -118,12 +107,12 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
     // util::testBuffer(cmdQueue, bufferAttnInProj0, "encoder/test/resblock_0_attn_in_proj_test_fp32.npy");
 
     /* permute in_proj result to Q,K,V */
-    err = clSetKernelArg(kernel_permute3D_1_0_2, 0, sizeof(cl_mem), &bufferAttnInProj0);
-    err |= clSetKernelArg(kernel_permute3D_1_0_2, 1, sizeof(cl_mem), &bufferAttnInProj0_QKV);
+    err = clSetKernelArg(utilKernel.permute3D_1_0_2, 0, sizeof(cl_mem), &bufferAttnInProj0);
+    err |= clSetKernelArg(utilKernel.permute3D_1_0_2, 1, sizeof(cl_mem), &bufferAttnInProj0_QKV);
     CHECK_ERROR(err);
 
     size_t globalSizePermute_QKV[3] = {CONTEXT_LENGTH, 3, EMBEDDING_SIZE};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_1_0_2, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_1_0_2, 3, nullptr,
                                  globalSizePermute_QKV, nullptr, 1,
                                  &event1,
                                  &event2);
@@ -134,25 +123,25 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
 
     /* permute Q,K,V from (CONTEXT_LENGTH(77), BATCH(1)*NUM_HEADS(16), 1024/NUM_HEADS)
      * to (BATCH(1)*NUM_HEADS(16), CONTEXT_LENGTH(77), 1024/NUM_HEADS) */
-    err = clSetKernelArg(kernel_permute3D_1_0_2, 0, sizeof(cl_mem), &bufferAttnInProj0_QKV);
-    err |= clSetKernelArg(kernel_permute3D_1_0_2, 1, sizeof(cl_mem), &bufferAttnInProj0);
+    err = clSetKernelArg(utilKernel.permute3D_1_0_2, 0, sizeof(cl_mem), &bufferAttnInProj0_QKV);
+    err |= clSetKernelArg(utilKernel.permute3D_1_0_2, 1, sizeof(cl_mem), &bufferAttnInProj0);
     CHECK_ERROR(err);
 
     size_t head_dim = EMBEDDING_SIZE / numHeads;
     size_t globalSizePermute_QKV_head[3] = {CONTEXT_LENGTH, numHeads, head_dim};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_1_0_2, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_1_0_2, 3, nullptr,
                                  globalSizePermute_QKV_head, nullptr, 1,
                                  &event2,
                                  &event3);
 
     size_t globalOffsetK[3] = {CONTEXT_LENGTH, 0, 0};
-    err |= clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_1_0_2, 3, globalOffsetK,
+    err |= clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_1_0_2, 3, globalOffsetK,
                                   globalSizePermute_QKV_head, nullptr, 1,
                                   &event2,
                                   &event3);
 
     size_t globalOffsetV[3] = {CONTEXT_LENGTH * 2, 0, 0};
-    err |= clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_1_0_2, 3, globalOffsetV,
+    err |= clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_1_0_2, 3, globalOffsetV,
                                   globalSizePermute_QKV_head, nullptr, 1,
                                   &event2,
                                   &event3);
@@ -273,12 +262,12 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
     // util::testBuffer(cmdQueue, bufferTemp, "encoder/test/resblock_0_attn_attention_test_fp32.npy");
 
     /* permute for input of out_proj */
-    err = clSetKernelArg(kernel_permute3D_1_0_2, 0, sizeof(cl_mem), &bufferTemp);
-    err |= clSetKernelArg(kernel_permute3D_1_0_2, 1, sizeof(cl_mem), &bufferEmbedding);
+    err = clSetKernelArg(utilKernel.permute3D_1_0_2, 0, sizeof(cl_mem), &bufferTemp);
+    err |= clSetKernelArg(utilKernel.permute3D_1_0_2, 1, sizeof(cl_mem), &bufferEmbedding);
     CHECK_ERROR(err);
 
     size_t globalSizePermuteOutProj[3] = {numHeads, CONTEXT_LENGTH, head_dim};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_1_0_2, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel.permute3D_1_0_2, 3, nullptr,
                                  globalSizePermuteOutProj, nullptr, 1,
                                  &event6,
                                  &event7);
