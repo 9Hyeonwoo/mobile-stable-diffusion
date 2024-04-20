@@ -6,6 +6,7 @@
 #include <android/log.h>
 #include "../util.h"
 
+#define DEBUG 0
 #define LOG_TAG "MULTI_HEAD_ATTENTION"
 #define CONTEXT_LENGTH 77
 #define EMBEDDING_SIZE 1024
@@ -21,6 +22,8 @@
       __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "[%s:%d] OpenCL error %d\n", __FILE__, __LINE__, err); \
       throw std::runtime_error("OpenCL error."); \
     }
+
+static int count = 0;
 
 MultiHeadAttention::MultiHeadAttention(
         cl_context context,
@@ -278,6 +281,32 @@ cl_int MultiHeadAttention::forward(cl_mem input, cl_mem output, cl_uint num_even
 
     // max diff: 0.00000362098217010498
     // util::testBuffer(cmdQueue, output, "encoder/test/resblock_0_attn_test_fp32.npy");
+
+#if DEBUG
+    clWaitForEvents(1, &event6);
+    if (count == 0)
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "try, component, index, global size[0], global size[1], global size[2], local size[0], local size[1], local size[2], reg size[0], reg size[1], kernel, time(ms)\n");
+    auto message_prefix =
+            "0, MultiHeadAttention, " +
+            std::to_string(count++) + ", ";
+    auto message =
+            message_prefix +
+            std::to_string(numHeads) + ", " + std::to_string(MN/reg_size) + ", " + std::to_string(head_dim/reg_size1) + ", " +
+            "1, " + std::to_string(tile_size/reg_size) + ", " + std::to_string(tile_size/reg_size) + ", " +
+            std::to_string(reg_size) + ", " + std::to_string(reg_size);
+    util::printEventTime(message + ", batch_matmul_mask", event4);
+    message =
+            message_prefix +
+            std::to_string(numHeads * CONTEXT_LENGTH * CONTEXT_LENGTH) + ", , , " +
+            std::to_string(CONTEXT_LENGTH) + ", , , , ";
+    util::printEventTime(message + ", softmax", event5);
+     message =
+            message_prefix +
+            std::to_string(numHeads) + ", " + std::to_string(MN/reg_size) + ", " + std::to_string(MN/reg_size) + ", " +
+            "1, " + std::to_string(tile_size/reg_size) + ", " + std::to_string(tile_size1/reg_size1) + ", " +
+            std::to_string(reg_size) + ", " + std::to_string(reg_size1);
+    util::printEventTime(message + ", batch_matmul", event6);
+#endif
 
     clReleaseEvent(event1);
     clReleaseEvent(event2);

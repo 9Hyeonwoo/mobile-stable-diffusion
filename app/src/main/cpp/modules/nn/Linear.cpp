@@ -6,6 +6,7 @@
 #include "../util.h"
 #include "android/log.h"
 
+#define DEBUG 0
 #define LOG_TAG "LINEAR"
 
 #define CHECK_ERROR(err) \
@@ -19,6 +20,8 @@
       __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "[%s:%d] OpenCL error %d\n", __FILE__, __LINE__, err); \
       throw std::runtime_error("OpenCL error."); \
     }
+
+static int count = 0;
 
 Linear::Linear(
         cl_context context, cl_command_queue cmdQueue,
@@ -179,6 +182,24 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  localWorkSize_reg_linear, num_events_in_list, event_wait_list,
                                  event);
     CHECK_ERROR(err);
+
+#if DEBUG
+    clWaitForEvents(1, event);
+    if (count == 0)
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "try, component, index, input size, out feature, in feature, tile size m, tile size n, tile size k, reg size m, reg size n, kernel, time(ms)\n");
+    auto message =
+            "0, Linear, " +
+            std::to_string(count++) + ", " +
+            std::to_string(inputSize) + ", " +
+            std::to_string(weightShape[0]) + ", " +
+            std::to_string(weightShape[1]) +  ", " +
+            std::to_string(tile_size_m) + ", " +
+            std::to_string(tile_size_n) + ", " +
+            std::to_string(tile_size_k) + ", " +
+            std::to_string(reg_size_m) + ", " +
+            std::to_string(reg_size_n);
+    util::printEventTime(message + ", register_linear", *event);
+#endif
 
     return CL_SUCCESS;
 }

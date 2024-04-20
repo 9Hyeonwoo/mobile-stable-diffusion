@@ -5,6 +5,7 @@
 #include "LayerNorm.h"
 #include "../util.h"
 #include <android/log.h>
+#define DEBUG 0
 
 #define LOG_TAG "LAYER_NORM"
 #define WORK_GROUP_SIZE 64
@@ -20,6 +21,8 @@
       __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "[%s:%d] OpenCL error %d\n", __FILE__, __LINE__, err); \
       throw std::runtime_error("OpenCL error."); \
     }
+
+static int count = 0;
 
 LayerNorm::LayerNorm(
         cl_context context,
@@ -137,6 +140,18 @@ cl_int LayerNorm::forward(
 
 //    clWaitForEvents(1, event);
 //    util::testBuffer(cmdQueue, output, "encoder/test/layer_norm_0_test_fp32.npy");
+
+#if DEBUG
+    clWaitForEvents(1, event);
+    auto message =
+            "2, LayerNorm, " +
+            std::to_string(count++) + ", " +
+            std::to_string(input_size) + ", " +
+            std::to_string(weightSize);
+    util::printEventTime(message + ", mean", event1);
+    util::printEventTime(message + ", variance", event2);
+    util::printEventTime(message + ", normalization", *event);
+#endif
 
     clReleaseMemObject(bufferMean);
     clReleaseMemObject(bufferVariance);

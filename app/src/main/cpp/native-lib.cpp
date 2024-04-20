@@ -43,7 +43,7 @@ Java_com_example_myopencl_MainActivity_initOpenCL(
     context = clCreateContext(nullptr, 1, &deviceId, nullptr, nullptr, &err);
     CHECK_ERROR(err);
 
-    cl_queue_properties properties[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,
+    cl_queue_properties properties[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE,
                                         0};
     cmdQueue = clCreateCommandQueueWithProperties(context, deviceId, properties, &err);
     CHECK_ERROR(err);

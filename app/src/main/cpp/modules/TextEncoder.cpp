@@ -24,7 +24,7 @@
         auto start##index = std::chrono::steady_clock::now(); \
         { __VA_ARGS__; } \
         auto end##index = std::chrono::steady_clock::now(); \
-        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "PRINT_TIME[%s]: %lld", #index, std::chrono::duration_cast<std::chrono::milliseconds>(end##index - start##index).count()); \
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "PRINT_TIME[%s]: %0.3f", #index, std::chrono::duration_cast<std::chrono::microseconds>(end##index - start##index).count() / 1000.0); \
     } while(0)
 
 TextEncoder::TextEncoder(
@@ -114,16 +114,19 @@ std::vector<float> TextEncoder::token_embedding(const std::vector<long> &token) 
 std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     cl_int err;
     cl_event event1, event2, event3, event4, event5, event6;
+    cl_mem bufferEmbedding, bufferTemp;
+    std::vector<float> token_embedding_result;
 //    testEmbedding(token);
 //    PRINT_TIME(0,
-    std::vector<float> token_embedding_result = token_embedding(token);
+    token_embedding_result = token_embedding(token);
+//    );
 
     // elemwise_add
-    cl_mem bufferEmbedding = clCreateBuffer(context, CL_MEM_READ_WRITE,
+    bufferEmbedding = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                             sizeof(float) * token_embedding_result.size(),
                                             nullptr, &err);
     CHECK_ERROR(err);
-    cl_mem bufferTemp = clCreateBuffer(context, CL_MEM_READ_WRITE,
+    bufferTemp = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                        sizeof(float) * token_embedding_result.size(),
                                        nullptr, &err);
     CHECK_ERROR(err);
@@ -143,9 +146,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
                                  0,
                                  nullptr,
                                  &event1);
-
     CHECK_ERROR(err);
-//    );
 
 
 //    util::testBuffer(cmdQueue, bufferEmbedding, "encoder/test/positional_embedding_test_fp32.npy");

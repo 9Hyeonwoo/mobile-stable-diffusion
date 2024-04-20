@@ -29,5 +29,7 @@ namespace util {
     void testBuffer(cl_command_queue cmdQueue, cl_mem buffer, const char *filename);
 
     void testBuffer(std::vector<float> result, const char *filename);
+
+    void printEventTime(std::string tag, cl_event event);
 }
 #endif //MY_OPENCL_UTIL_H

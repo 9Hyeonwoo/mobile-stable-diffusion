@@ -194,3 +194,17 @@ void util::testBuffer(std::vector<float> result, const char *filename) {
                             wrongs[i], result[wrongs[i]], wrongs[i], test.data<float>()[wrongs[i]]);
     }
 }
+
+void util::printEventTime(std::string message, cl_event event) {
+    cl_ulong time_start;
+    cl_ulong time_end;
+    cl_int err;
+
+    err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
+    err |= clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
+    CHECK_ERROR(err);
+
+    double nanoSeconds = time_end-time_start;
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s, %0.3f\n",
+                        message.c_str(), nanoSeconds / 1000000.0);
+}
