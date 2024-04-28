@@ -269,4 +269,5 @@ Java_com_example_myopencl_MainActivity_destroyOpenCL(JNIEnv *env, jobject thiz) 
 
     clReleaseCommandQueue(cmdQueue);
     clReleaseContext(context);
+
 }

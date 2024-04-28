@@ -107,7 +107,18 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  num_events_in_list, event_wait_list, event);
     CHECK_ERROR(err);
 #elif LINEAR_KERNEL_VERSION == 2
-    /* tile without memory copy : 시작 17295 ms -> 8274ms */
+    /** tile(m=11,n=32) without memory copy : light throttle 17295 ms -> 8274ms
+     * + local barrier : 4650 ms
+     * tile(11, 16) : 5215 ms
+     * tile(1, 256) : 21180 ms
+     * tile_size_k = 1 : 4307 ms, 4046 ms, 3942 ms
+     * tile_size_k = 2 : 4422 ms, 4229 ms, 4216 ms
+     * tile_size_k = 4 : 4657 ms, 4470 ms, 4486 ms
+     * tile_size_k = 8 : 4598 ms
+     * tile_size_k = 32 : 4862 ms
+     * tile(77, 4) : 27251 ms
+     * tile(7, 32) : 5185 ms, 5029 ms, 5003 ms
+     * */
     size_t tile_size_k = 16;
     std::vector<size_t> tile_size_ms = {32, 11, 1};
     std::vector<size_t> tile_size_ns = {32};
@@ -162,7 +173,7 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  num_events_in_list, event_wait_list, event);
     CHECK_ERROR(err);
 #elif LINEAR_KERNEL_VERSION == 1
-    /* register : 시작 15818 ms -> 8319 ms */
+    /* register : light throttle 15818 ms -> 8319 ms */
     size_t reg_size_n = 8;
     size_t tile_size_k = 16;
     cl_uchar tile_size_ms[] = {128, 77, 1};

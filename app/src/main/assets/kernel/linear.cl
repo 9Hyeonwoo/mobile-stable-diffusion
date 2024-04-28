@@ -279,6 +279,7 @@ __kernel void tile_linear(
             // A(M, K) * B(N, K) = C(M, N)
             sum += A[i * K + t * tile_size_k + k] * B[j * K + t * tile_size_k + k];
         }
+        barrier(CLK_LOCAL_MEM_FENCE);
     }
 
     if (bias != NULL) {
