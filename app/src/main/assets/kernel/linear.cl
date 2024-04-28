@@ -31,9 +31,9 @@ __kernel void reg_linear(
     const int M,
     const int N,
     const int K,
-    const size_t reg_size_m,
-    const size_t tile_size_m,
-    const size_t tile_size_n,
+    const uchar reg_size_m,
+    const uchar tile_size_m,
+    const uchar tile_size_n,
     __local float* Asub,
     __local float* Bsub
     // const size_t tile_size_k
@@ -135,6 +135,100 @@ __kernel void reg_linear(
             for (int wm=0; wm<wm_size; wm++) {
                 int row = local_m + wm*local_size_m;
                 Areg = Asub[row*tile_size_k + k];
+                //Areg = Asub_global[row*K + k];
+                for (int wn=0; wn<wn_size; wn++) {
+                    acc[wm][wn] += Areg * Breg[wn];
+                }
+            }
+        }
+
+        // Synchronise before loading the next tile
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    // Store the final results in C
+    for (int wm=0; wm<wm_size; wm++) {
+        int global_m = offset_m + local_m + wm*local_size_m;
+        for (int wn=0; wn<wn_size; wn++) {
+            int global_n = offset_n + local_n + wn*local_size_n;
+            if (bias != NULL) {
+                acc[wm][wn] += bias[global_n];
+            }
+            C[global_m*N + global_n] = acc[wm][wn];
+        }
+    }
+}
+
+// remove memory copy in the reg_linear
+__kernel void reg_linear_v2(
+    __global const float* A, // A = (M, K)
+    __global const float* B, // B = (N, K)
+    __global const float* bias,
+    __global float* C,
+    const int M,
+    const int N,
+    const int K,
+    const uchar reg_size_m,
+    const uchar tile_size_m,
+    const uchar tile_size_n,
+    __local float* Asub,
+    __local float* Bsub
+    // const size_t tile_size_k
+) {
+
+    __constant int reg_size_n = 8;
+    __constant int tile_size_k = 16;
+
+    // Thread identifiers
+    int local_size_m = get_local_size(0);
+    int local_size_n = get_local_size(1);
+    const int local_m = get_local_id(0);
+    const int local_n = get_local_id(1);
+    const int offset_m = get_group_id(0) * get_local_size(0) * reg_size_m ;
+    const int offset_n = get_group_id(1) * get_local_size(1) * reg_size_n ;
+
+    // Local memory to fit a tile of A and B
+    // __local float Asub[tile_size_m][tile_size_k];
+    // __local float Bsub[tile_size_k * tile_size_n];
+
+    // Allocate register space
+    float Areg;
+    float Breg[reg_size_n];
+    float acc[8][reg_size_n];
+
+    // Initialise the accumulation registers
+    int wm_size = reg_size_m;
+    int wn_size = reg_size_n;
+    for (int wm=0; wm<reg_size_m; wm++) {
+        for (int wn=0; wn<reg_size_n; wn++) {
+            acc[wm][wn] = 0.0f;
+        }
+    }
+
+    // Loop over all tiles
+    int numTiles = K/tile_size_k;
+    for (int t=0; t<numTiles; t++) {
+
+        int a = offset_m * K + t * tile_size_k;
+        int b = offset_n * K + t * tile_size_k;
+
+        // Loop over the values of a single tile
+        for (int k=0; k<tile_size_k; k++) {
+
+            // Cache the values of Bsub in registers
+            for (int wn=0; wn<wn_size; wn++) {
+                int col = local_n + wn*local_size_n;
+                // Breg[wn] = Bsub[k*tile_size_n + col];
+                Breg[wn] = B[b + (col*K + k)];
+                //Breg[wn] = Bsub_global[col * K + k];
+            }
+
+            // Perform the computation
+
+            for (int wm=0; wm<wm_size; wm++) {
+                int row = local_m + wm*local_size_m;
+                // Areg = Asub[row*tile_size_k + k];
+                Areg = A[a + (row*K + k)];
                 //Areg = Asub_global[row*K + k];
                 for (int wn=0; wn<wn_size; wn++) {
                     acc[wm][wn] += Areg * Breg[wn];

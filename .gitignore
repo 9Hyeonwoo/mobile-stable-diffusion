@@ -41,3 +41,4 @@ app/src/main/assets/encoder
 
 # test result
 *.csv
+*.txt

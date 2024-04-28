@@ -108,9 +108,9 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
 
     size_t reg_size_n = 8;
     size_t tile_size_k = 16;
-    size_t tile_size_ms[] = {128, 77, 1};
-    size_t reg_size_ms[] = {8, 7, 1};
-    size_t tile_size_ns[] = {128, 64};
+    cl_uchar tile_size_ms[] = {128, 77, 1};
+    cl_uchar reg_size_ms[] = {8, 7, 1};
+    cl_uchar tile_size_ns[] = {128, 64};
 
     int m_index, m_size = 3;
     for (m_index = 0; m_index < m_size; m_index++) {
@@ -138,9 +138,9 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                             __LINE__, N);
         return CL_INVALID_VALUE;
     }
-    size_t tile_size_m = tile_size_ms[m_index];
-    size_t reg_size_m = reg_size_ms[m_index];
-    size_t tile_size_n = tile_size_ns[n_index];
+    cl_uchar tile_size_m = tile_size_ms[m_index];
+    cl_uchar reg_size_m = reg_size_ms[m_index];
+    cl_uchar tile_size_n = tile_size_ns[n_index];
     if (K % tile_size_k != 0) {
         __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
                             "[%s:%d] K(%ld) %% tile_size_k(%ld) != 0\n", __FILE__,
@@ -155,9 +155,9 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     err |= clSetKernelArg(kernel->register_linear, 4, sizeof(int), &M);
     err |= clSetKernelArg(kernel->register_linear, 5, sizeof(int), &N);
     err |= clSetKernelArg(kernel->register_linear, 6, sizeof(int), &K);
-    err |= clSetKernelArg(kernel->register_linear, 7, sizeof(size_t), &reg_size_m);
-    err |= clSetKernelArg(kernel->register_linear, 8, sizeof(size_t), &tile_size_m);
-    err |= clSetKernelArg(kernel->register_linear, 9, sizeof(size_t), &tile_size_n);
+    err |= clSetKernelArg(kernel->register_linear, 7, sizeof(cl_uchar), &reg_size_m);
+    err |= clSetKernelArg(kernel->register_linear, 8, sizeof(cl_uchar), &tile_size_m);
+    err |= clSetKernelArg(kernel->register_linear, 9, sizeof(cl_uchar), &tile_size_n);
     err |= clSetKernelArg(kernel->register_linear, 10, sizeof(float) * tile_size_m * tile_size_k,
                           nullptr);
     err |= clSetKernelArg(kernel->register_linear, 11, sizeof(float) * tile_size_k * tile_size_n,
@@ -176,7 +176,7 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
         globalSize_n = N;
     }
     size_t globalWorkSize_reg_linear[2] = {globalSize_m / reg_size_m, globalSize_n / reg_size_n};
-    size_t localWorkSize_reg_linear[2] = {tile_size_m / reg_size_m, tile_size_n / reg_size_n};
+    size_t localWorkSize_reg_linear[2] = {static_cast<size_t>(tile_size_m / reg_size_m), tile_size_n / reg_size_n};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel->register_linear, 2, nullptr,
                                  globalWorkSize_reg_linear,
                                  localWorkSize_reg_linear, num_events_in_list, event_wait_list,
