@@ -261,8 +261,6 @@ __kernel void tile_linear(
     const int K
 ) {
 
-    const int tile_size_k = 16;
-
     const int local_i = get_local_size(0);
     const int local_j = get_local_size(1);
 
@@ -273,12 +271,8 @@ __kernel void tile_linear(
     int j = get_global_id(1);
     float sum = 0.0f;
 
-    const int num_tiles = K / tile_size_k;
-    for (int t = 0; t < num_tiles; t++) {
-        for (int k = 0; k < tile_size_k; k++) {
-            // A(M, K) * B(N, K) = C(M, N)
-            sum += A[i * K + t * tile_size_k + k] * B[j * K + t * tile_size_k + k];
-        }
+    for (int k = 0; k < K; k++) {
+        sum += A[i * K +  k] * B[j * K + k];
         barrier(CLK_LOCAL_MEM_FENCE);
     }
 

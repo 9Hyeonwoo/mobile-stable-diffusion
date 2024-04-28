@@ -111,6 +111,7 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
      * + local barrier : 4650 ms
      * tile(11, 16) : 5215 ms
      * tile(1, 256) : 21180 ms
+     * without tile k but local sync : 8244 ms, 3908 ms, 3905 ms
      * tile_size_k = 1 : 4307 ms, 4046 ms, 3942 ms
      * tile_size_k = 2 : 4422 ms, 4229 ms, 4216 ms
      * tile_size_k = 4 : 4657 ms, 4470 ms, 4486 ms
@@ -119,7 +120,6 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
      * tile(77, 4) : 27251 ms
      * tile(7, 32) : 5185 ms, 5029 ms, 5003 ms
      * */
-    size_t tile_size_k = 16;
     std::vector<size_t> tile_size_ms = {32, 11, 1};
     std::vector<size_t> tile_size_ns = {32};
     int m_index;
@@ -146,12 +146,6 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
         __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
                             "[%s:%d] N(%ld) %% tile_size_n != 0\n", __FILE__,
                             __LINE__, N);
-        return CL_INVALID_VALUE;
-    }
-    if (K % tile_size_k != 0) {
-        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
-                            "[%s:%d] K(%ld) %% tile_size_k(%ld) != 0\n", __FILE__,
-                            __LINE__, K, tile_size_k);
         return CL_INVALID_VALUE;
     }
 
