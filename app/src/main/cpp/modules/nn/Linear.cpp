@@ -106,8 +106,63 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     err = clEnqueueNDRangeKernel(cmdQueue, kernel->naive_linear, 2, nullptr, globalWorkSize, nullptr,
                                  num_events_in_list, event_wait_list, event);
     CHECK_ERROR(err);
+#elif LINEAR_KERNEL_VERSION == 2
+    /* tile without memory copy : 시작 17295 ms -> 8274ms */
+    size_t tile_size_k = 16;
+    std::vector<size_t> tile_size_ms = {32, 11, 1};
+    std::vector<size_t> tile_size_ns = {32};
+    int m_index;
+    for (m_index = 0; m_index < tile_size_ms.size(); m_index++) {
+        if (M % (tile_size_ms[m_index]) == 0) {
+            break;
+        }
+    }
+
+    int n_index;
+    for (n_index = 0; n_index < tile_size_ns.size(); n_index++) {
+        if (N % (tile_size_ns[n_index]) == 0) {
+            break;
+        }
+    }
+
+    if (m_index >= tile_size_ms.size()) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] M(%ld) %% tile_size_m != 0\n", __FILE__,
+                            __LINE__, M);
+        return CL_INVALID_VALUE;
+    }
+    if (n_index >= tile_size_ns.size()) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] N(%ld) %% tile_size_n != 0\n", __FILE__,
+                            __LINE__, N);
+        return CL_INVALID_VALUE;
+    }
+    if (K % tile_size_k != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] K(%ld) %% tile_size_k(%ld) != 0\n", __FILE__,
+                            __LINE__, K, tile_size_k);
+        return CL_INVALID_VALUE;
+    }
+
+    size_t tile_size_m = tile_size_ms[m_index];
+    size_t tile_size_n = tile_size_ns[n_index];
+
+    err = clSetKernelArg(kernel->tile_linear, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel->tile_linear, 1, sizeof(cl_mem), &bufferWeight);
+    err |= clSetKernelArg(kernel->tile_linear, 2, sizeof(cl_mem), &bufferBias);
+    err |= clSetKernelArg(kernel->tile_linear, 3, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel->tile_linear, 4, sizeof(int), &K);
+    CHECK_ERROR(err);
+
+    size_t globalWorkSize[2] = {M, N};
+    size_t localWorkSize[2] = {tile_size_m, tile_size_n};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->tile_linear,
+                                 2, nullptr,
+                                 globalWorkSize, localWorkSize,
+                                 num_events_in_list, event_wait_list, event);
+    CHECK_ERROR(err);
 #elif LINEAR_KERNEL_VERSION == 1
-    /* register */
+    /* register : 시작 15818 ms -> 8319 ms */
     size_t reg_size_n = 8;
     size_t tile_size_k = 16;
     cl_uchar tile_size_ms[] = {128, 77, 1};

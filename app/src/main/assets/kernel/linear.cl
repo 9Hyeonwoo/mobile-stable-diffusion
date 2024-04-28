@@ -252,3 +252,37 @@ __kernel void reg_linear_v2(
         }
     }
 }
+
+__kernel void tile_linear(
+    __global float *A,
+    __global float *B,
+    __global float *bias,
+    __global float *C,
+    const int K
+) {
+
+    const int tile_size_k = 16;
+
+    const int local_i = get_local_size(0);
+    const int local_j = get_local_size(1);
+
+    int M = get_global_size(0);
+    int N = get_global_size(1);
+
+    int i = get_global_id(0);
+    int j = get_global_id(1);
+    float sum = 0.0f;
+
+    const int num_tiles = K / tile_size_k;
+    for (int t = 0; t < num_tiles; t++) {
+        for (int k = 0; k < tile_size_k; k++) {
+            // A(M, K) * B(N, K) = C(M, N)
+            sum += A[i * K + t * tile_size_k + k] * B[j * K + t * tile_size_k + k];
+        }
+    }
+
+    if (bias != NULL) {
+        sum += bias[j];
+    }
+    C[i * N + j] = sum;
+}

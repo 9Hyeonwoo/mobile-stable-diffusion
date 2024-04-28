@@ -29,10 +29,15 @@ LinearKernel::LinearKernel(
 
     register_linear = clCreateKernel(program, "reg_linear", &err);
     CHECK_ERROR_THROW(err);
+
+    tile_linear = clCreateKernel(program, "tile_linear", &err);
+    CHECK_ERROR_THROW(err);
+
     clReleaseProgram(program);
 }
 
 LinearKernel::~LinearKernel() {
     clReleaseKernel(naive_linear);
     clReleaseKernel(register_linear);
+    clReleaseKernel(tile_linear);
 }

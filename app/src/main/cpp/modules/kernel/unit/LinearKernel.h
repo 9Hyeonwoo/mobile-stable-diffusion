@@ -16,6 +16,7 @@ public:
 
     cl_kernel naive_linear;
     cl_kernel register_linear;
+    cl_kernel tile_linear;
 };
 
 
