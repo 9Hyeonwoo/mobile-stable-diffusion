@@ -59,6 +59,7 @@ cl_program util::create_and_build_program_with_source(cl_context context,
                                                       cl_device_id device,
                                                       AAssetManager *assetManager,
                                                       const char *file_name) {
+    auto start = std::chrono::system_clock::now();
     AAsset *asset = AAssetManager_open(assetManager, file_name, AASSET_MODE_BUFFER);
     if (asset == nullptr) {
         __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to open the asset.");
@@ -87,6 +88,9 @@ cl_program util::create_and_build_program_with_source(cl_context context,
         free(log);
     }
     CHECK_ERROR(err);
+    auto end = std::chrono::system_clock::now();
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "create_and_build_program_with_source(%s): %lld ms",
+                        file_name, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
     return program;
 }
 
