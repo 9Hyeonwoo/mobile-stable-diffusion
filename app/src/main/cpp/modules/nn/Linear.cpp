@@ -5,6 +5,7 @@
 #include "Linear.h"
 #include "../util.h"
 #include "android/log.h"
+#include "../setting.h"
 
 #define DEBUG 0
 #define LOG_TAG "LINEAR"
@@ -92,7 +93,8 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     auto M = inputSize / weightShape[1];
     auto N = weightShape[0];
     auto K = weightShape[1];
-    /* naive
+#if LINEAR_KERNEL_VERSION == 0
+    /* naive */
     err = clSetKernelArg(kernel->naive_linear, 0, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel->naive_linear, 1, sizeof(cl_mem), &bufferWeight);
     err |= clSetKernelArg(kernel->naive_linear, 2, sizeof(cl_mem), &bufferBias);
@@ -104,8 +106,8 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     err = clEnqueueNDRangeKernel(cmdQueue, kernel->naive_linear, 2, nullptr, globalWorkSize, nullptr,
                                  num_events_in_list, event_wait_list, event);
     CHECK_ERROR(err);
-     naive */
-
+#elif LINEAR_KERNEL_VERSION == 1
+    /* register */
     size_t reg_size_n = 8;
     size_t tile_size_k = 16;
     cl_uchar tile_size_ms[] = {128, 77, 1};
@@ -182,6 +184,7 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  localWorkSize_reg_linear, num_events_in_list, event_wait_list,
                                  event);
     CHECK_ERROR(err);
+#endif
 
 #if DEBUG
     clWaitForEvents(1, event);
