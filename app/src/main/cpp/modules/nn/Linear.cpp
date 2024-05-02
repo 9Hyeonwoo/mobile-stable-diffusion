@@ -166,6 +166,61 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  globalWorkSize, localWorkSize,
                                  num_events_in_list, event_wait_list, event);
     CHECK_ERROR(err);
+#elif LINEAR_KERNEL_VERSION == 3
+    /** tile(m=11,n=32)
+     * reg_size_m=1 : 4035 ms, 3964 ms, 3924 ms
+     * reg_size_n=2 : 3712 ms, 3495 ms, 3585 ms
+     * reg_size_n=4 : 3852 ms, 3806 ms, 3667 ms
+     * reg_size_n=8 : 3706 ms, 3620 ms, 3594 ms
+     * reg_size_n=16 : 9019 ms, 9005 ms, 8924 ms
+     * */
+    int reg_size_n = 2;
+    std::vector<size_t> tile_size_ms = {32, 11, 1};
+    std::vector<size_t> tile_size_ns = {32};
+    int m_index;
+    for (m_index = 0; m_index < tile_size_ms.size(); m_index++) {
+        if (M % (tile_size_ms[m_index]) == 0) {
+            break;
+        }
+    }
+
+    int n_index;
+    for (n_index = 0; n_index < tile_size_ns.size(); n_index++) {
+        if (N % (tile_size_ns[n_index]) == 0) {
+            break;
+        }
+    }
+
+    if (m_index >= tile_size_ms.size()) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] M(%ld) %% tile_size_m != 0\n", __FILE__,
+                            __LINE__, M);
+        return CL_INVALID_VALUE;
+    }
+    if (n_index >= tile_size_ns.size()) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] N(%ld) %% tile_size_n != 0\n", __FILE__,
+                            __LINE__, N);
+        return CL_INVALID_VALUE;
+    }
+
+    size_t tile_size_m = tile_size_ms[m_index];
+    size_t tile_size_n = tile_size_ns[n_index];
+
+    err = clSetKernelArg(kernel->tile_reg_n_linear, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel->tile_reg_n_linear, 1, sizeof(cl_mem), &bufferWeight);
+    err |= clSetKernelArg(kernel->tile_reg_n_linear, 2, sizeof(cl_mem), &bufferBias);
+    err |= clSetKernelArg(kernel->tile_reg_n_linear, 3, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel->tile_reg_n_linear, 4, sizeof(int), &K);
+    CHECK_ERROR(err);
+
+    size_t globalWorkSize[2] = {M, N / reg_size_n};
+    size_t localWorkSize[2] = {tile_size_m, tile_size_n / reg_size_n };
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->tile_reg_n_linear,
+                                 2, nullptr,
+                                 globalWorkSize, localWorkSize,
+                                 num_events_in_list, event_wait_list, event);
+    CHECK_ERROR(err);
 #elif LINEAR_KERNEL_VERSION == 1
     /* register : light throttle 15818 ms -> 8319 ms */
     size_t reg_size_n = 8;
