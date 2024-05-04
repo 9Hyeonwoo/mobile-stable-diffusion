@@ -169,9 +169,13 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
 #elif LINEAR_KERNEL_VERSION == 3
     /** tile(m=11,n=32)
      * reg_size_m=1 : 4035 ms, 3964 ms, 3924 ms
+     * tile(m=11,n=16) reg_size_n=2 : 4295 ms, 4116 ms, 4117 ms
      * reg_size_n=2 : 3712 ms, 3495 ms, 3585 ms
+     * local size 단위로 reg reg_size_n=2 : 3776 ms, 3576 ms, 3557 ms
      * reg_size_n=4 : 3852 ms, 3806 ms, 3667 ms
+     * tile(m=11,n=64) reg_size_n=4 : 3933 ms, 3562 ms, 3497 ms
      * reg_size_n=8 : 3706 ms, 3620 ms, 3594 ms
+     * tile(m=11,n=128) reg_size_n=8 : 3955 ms, 3831 ms, 3856 ms
      * reg_size_n=16 : 9019 ms, 9005 ms, 8924 ms
      * */
     int reg_size_n = 2;

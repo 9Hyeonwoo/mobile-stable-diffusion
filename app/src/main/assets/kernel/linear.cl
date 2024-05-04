@@ -294,12 +294,17 @@ __kernel void tile_reg_n_linear(
     const int local_i = get_local_size(0);
     const int local_j = get_local_size(1);
 
+    const int group_j = get_group_id(1);
+
+    const int local_id_j = get_local_id(1);
+
     int M = get_global_size(0);
     int global_j = get_global_size(1);
     int N = global_j * reg_size_n;
 
     int i = get_global_id(0);
-    int j = get_global_id(1);
+    int j = group_j * local_j * reg_size_n + local_id_j;
+
     float acc[reg_size_n];
 
     for (int wn=0; wn<reg_size_n; wn++) {
@@ -308,18 +313,18 @@ __kernel void tile_reg_n_linear(
 
     for (int k = 0; k < K; k++) {
         for (int wn=0; wn<reg_size_n; wn++) {
-            acc[wn] += A[i * K +  k] * B[(j + wn * global_j) * K + k];
+            acc[wn] += A[i * K +  k] * B[(j + wn * local_j) * K + k];
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
 
     if (bias != NULL) {
         for (int wn=0; wn<reg_size_n; wn++) {
-            acc[wn] += bias[j + wn * global_j];
+            acc[wn] += bias[j + wn * local_j];
         }
     }
 
     for (int wn=0; wn<reg_size_n; wn++) {
-        C[i * N + j + wn * global_j] = acc[wn];
+        C[i * N + j + wn * local_j] = acc[wn];
     }
 }
