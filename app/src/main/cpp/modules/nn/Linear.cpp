@@ -231,10 +231,11 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
      * width=4 : 1272 ms, 1168 ms, 1233 ms
      * width=2 : 2024 ms, 1954 ms, 1854 ms
      * width=4 + reg_n=8 : 865 ms, 1022 ms, 1145 ms
+     * tile(m=11,n=128) width=4 + reg_n=8 : 947 ms, 842 ms, 840 ms
      * */
     int reg_size_n = 8;
     std::vector<size_t> tile_size_ms = {32, 11, 1};
-    std::vector<size_t> tile_size_ns = {32};
+    std::vector<size_t> tile_size_ns = {128};
     int m_index;
     for (m_index = 0; m_index < tile_size_ms.size(); m_index++) {
         if (M % (tile_size_ms[m_index]) == 0) {
