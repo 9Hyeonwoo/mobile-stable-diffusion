@@ -328,3 +328,87 @@ __kernel void tile_reg_n_linear(
         C[i * N + j + wn * local_j] = acc[wn];
     }
 }
+
+#define WIDTH 4
+#if WIDTH == 1
+    typedef float floatX;
+#elif WIDTH == 2
+    typedef float2 floatX;
+#elif WIDTH == 4
+    typedef float4 floatX;
+#elif WIDTH == 8
+    typedef float8 floatX;
+#endif
+
+__kernel void tile_reg_n_vector_linear(
+    __global floatX *A,
+    __global floatX *B,
+    __global float *bias,
+    __global float *C,
+    const int K
+) {
+
+    const int reg_size_n = 8;
+    const int local_i = get_local_size(0);
+    const int local_j = get_local_size(1);
+
+    const int group_j = get_group_id(1);
+
+    const int local_id_j = get_local_id(1);
+
+    int M = get_global_size(0);
+    int global_j = get_global_size(1);
+    int N = global_j * reg_size_n;
+
+    int i = get_global_id(0);
+    int j = group_j * local_j * reg_size_n + local_id_j;
+
+    float acc[reg_size_n];
+
+    for (int wn=0; wn<reg_size_n; wn++) {
+        acc[wn] = 0.0f;
+    }
+
+    floatX vecA, vecB;
+    const int K_div_width = K / WIDTH;
+    for (int k = 0; k < K_div_width; k++) {
+        vecA = A[i * K_div_width +  k];
+        for (int wn=0; wn<reg_size_n; wn++) {
+#if WIDTH == 1
+            vecB = B[(j + wn * local_j) * K_div_width + k];
+            acc[wn] += vecA * vecB;
+#elif WIDTH == 2
+            vecB = B[(j + wn * local_j) * K_div_width + k];
+            acc[wn] += vecA.x * vecB.x;
+            acc[wn] += vecA.y * vecB.y;
+#elif WIDTH == 4
+            vecB = B[(j + wn * local_j) * K_div_width + k];
+            acc[wn] += vecA.x * vecB.x;
+            acc[wn] += vecA.y * vecB.y;
+            acc[wn] += vecA.z * vecB.z;
+            acc[wn] += vecA.w * vecB.w;
+#elif WIDTH == 8
+            vecB = B[(j + wn * local_j) * K_div_width + k];
+            acc[wn] += vecA.s0 * vecB.s0;
+            acc[wn] += vecA.s1 * vecB.s1;
+            acc[wn] += vecA.s2 * vecB.s2;
+            acc[wn] += vecA.s3 * vecB.s3;
+            acc[wn] += vecA.s4 * vecB.s4;
+            acc[wn] += vecA.s5 * vecB.s5;
+            acc[wn] += vecA.s6 * vecB.s6;
+            acc[wn] += vecA.s7 * vecB.s7;
+#endif
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    if (bias != NULL) {
+        for (int wn=0; wn<reg_size_n; wn++) {
+            acc[wn] += bias[j + wn * local_j];
+        }
+    }
+
+    for (int wn=0; wn<reg_size_n; wn++) {
+        C[i * N + j + wn * local_j] = acc[wn];
+    }
+}
