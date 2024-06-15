@@ -227,12 +227,18 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     CHECK_ERROR(err);
 #elif LINEAR_KERNEL_VERSION == 4
     /** tile(m=11,n=32) with register n and vectorization
+     * width=16 + reg_n=2 : 1275 ms, 1265 ms, 1373 ms
      * width=8 : 1306 ms, 1175 ms, 1358 ms
      * width=4 : 1272 ms, 1168 ms, 1233 ms
      * width=2 : 2024 ms, 1954 ms, 1854 ms
      * width=4 + reg_n=8 : 865 ms, 1022 ms, 1145 ms
      * tile(m=11,n=128) width=4 + reg_n=8 : 947 ms, 842 ms, 840 ms
      * */
+    /**
+     * 개선 여지
+     * L/S Unit : Arithmetic Unit = 2 : 1 비율로 확인.
+     * full read 거의 못함.
+     */
     int reg_size_n = 8;
     std::vector<size_t> tile_size_ms = {32, 11, 1};
     std::vector<size_t> tile_size_ns = {128};

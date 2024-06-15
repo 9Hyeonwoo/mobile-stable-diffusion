@@ -338,6 +338,8 @@ __kernel void tile_reg_n_linear(
     typedef float4 floatX;
 #elif WIDTH == 8
     typedef float8 floatX;
+#elif WIDTH == 16
+    typedef float16 floatX;
 #endif
 
 __kernel void tile_reg_n_vector_linear(
@@ -374,21 +376,18 @@ __kernel void tile_reg_n_vector_linear(
     for (int k = 0; k < K_div_width; k++) {
         vecA = A[i * K_div_width +  k];
         for (int wn=0; wn<reg_size_n; wn++) {
-#if WIDTH == 1
             vecB = B[(j + wn * local_j) * K_div_width + k];
+#if WIDTH == 1
             acc[wn] += vecA * vecB;
 #elif WIDTH == 2
-            vecB = B[(j + wn * local_j) * K_div_width + k];
             acc[wn] += vecA.x * vecB.x;
             acc[wn] += vecA.y * vecB.y;
 #elif WIDTH == 4
-            vecB = B[(j + wn * local_j) * K_div_width + k];
             acc[wn] += vecA.x * vecB.x;
             acc[wn] += vecA.y * vecB.y;
             acc[wn] += vecA.z * vecB.z;
             acc[wn] += vecA.w * vecB.w;
 #elif WIDTH == 8
-            vecB = B[(j + wn * local_j) * K_div_width + k];
             acc[wn] += vecA.s0 * vecB.s0;
             acc[wn] += vecA.s1 * vecB.s1;
             acc[wn] += vecA.s2 * vecB.s2;
@@ -397,6 +396,23 @@ __kernel void tile_reg_n_vector_linear(
             acc[wn] += vecA.s5 * vecB.s5;
             acc[wn] += vecA.s6 * vecB.s6;
             acc[wn] += vecA.s7 * vecB.s7;
+#elif WIDTH == 16
+            acc[wn] += vecA.s0 * vecB.s0;
+            acc[wn] += vecA.s1 * vecB.s1;
+            acc[wn] += vecA.s2 * vecB.s2;
+            acc[wn] += vecA.s3 * vecB.s3;
+            acc[wn] += vecA.s4 * vecB.s4;
+            acc[wn] += vecA.s5 * vecB.s5;
+            acc[wn] += vecA.s6 * vecB.s6;
+            acc[wn] += vecA.s7 * vecB.s7;
+            acc[wn] += vecA.s8 * vecB.s8;
+            acc[wn] += vecA.s9 * vecB.s9;
+            acc[wn] += vecA.sA * vecB.sA;
+            acc[wn] += vecA.sB * vecB.sB;
+            acc[wn] += vecA.sC * vecB.sC;
+            acc[wn] += vecA.sD * vecB.sD;
+            acc[wn] += vecA.sE * vecB.sE;
+            acc[wn] += vecA.sF * vecB.sF;
 #endif
         }
         barrier(CLK_LOCAL_MEM_FENCE);
