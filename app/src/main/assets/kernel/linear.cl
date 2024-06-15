@@ -428,3 +428,111 @@ __kernel void tile_reg_n_vector_linear(
         C[i * N + j + wn * local_j] = acc[wn];
     }
 }
+
+__kernel void tile_reg_m_n_vector_linear(
+    __global floatX *A,
+    __global floatX *B,
+    __global float *bias,
+    __global float *C,
+    const int M,
+    const int K
+) {
+
+    const int reg_size_m = 2;
+    const int reg_size_n = 4;
+    const int local_i = get_local_size(0);
+    const int local_j = get_local_size(1);
+
+    const int group_i = get_group_id(0);
+    const int group_j = get_group_id(1);
+
+    const int local_id_i = get_local_id(0);
+    const int local_id_j = get_local_id(1);
+
+    const int global_j = get_global_size(1);
+    const int N = global_j * reg_size_n;
+
+    const int i = group_i * local_i * reg_size_m + local_id_i;
+    const int j = group_j * local_j * reg_size_n + local_id_j;
+
+    float acc[reg_size_m][reg_size_n];
+
+    for (int wm=0; wm<reg_size_m; wm++) {
+        for (int wn=0; wn<reg_size_n; wn++) {
+            acc[wm][wn] = 0.0f;
+        }
+    }
+
+    floatX vecA, vecB[reg_size_n];
+    const int K_div_width = K / WIDTH;
+    for (int k = 0; k < K_div_width; k++) {
+        for (int wn=0; wn<reg_size_n; wn++) {
+            vecB[wn] = B[(j + wn * local_j) * K_div_width + k];
+        }
+        for (int wm=0; wm<reg_size_m; wm++) {
+            int index_i = i + wm * local_i;
+            if (index_i >= M) {
+                break;
+            }
+            vecA = A[index_i * K_div_width + k];
+            for (int wn=0; wn<reg_size_n; wn++) {
+#if WIDTH == 1
+                acc[wm][wn] += vecA * vecB[wn];
+#elif WIDTH == 2
+                acc[wm][wn] += vecA.x * vecB[wn].x;
+                acc[wm][wn] += vecA.y * vecB[wn].y;
+#elif WIDTH == 4
+                acc[wm][wn] += vecA.x * vecB[wn].x;
+                acc[wm][wn] += vecA.y * vecB[wn].y;
+                acc[wm][wn] += vecA.z * vecB[wn].z;
+                acc[wm][wn] += vecA.w * vecB[wn].w;
+#elif WIDTH == 8
+                acc[wm][wn] += vecA.s0 * vecB[wn].s0;
+                acc[wm][wn] += vecA.s1 * vecB[wn].s1;
+                acc[wm][wn] += vecA.s2 * vecB[wn].s2;
+                acc[wm][wn] += vecA.s3 * vecB[wn].s3;
+                acc[wm][wn] += vecA.s4 * vecB[wn].s4;
+                acc[wm][wn] += vecA.s5 * vecB[wn].s5;
+                acc[wm][wn] += vecA.s6 * vecB[wn].s6;
+                acc[wm][wn] += vecA.s7 * vecB[wn].s7;
+#elif WIDTH == 16
+                acc[wm][wn] += vecA.s0 * vecB[wn].s0;
+                acc[wm][wn] += vecA.s1 * vecB[wn].s1;
+                acc[wm][wn] += vecA.s2 * vecB[wn].s2;
+                acc[wm][wn] += vecA.s3 * vecB[wn].s3;
+                acc[wm][wn] += vecA.s4 * vecB[wn].s4;
+                acc[wm][wn] += vecA.s5 * vecB[wn].s5;
+                acc[wm][wn] += vecA.s6 * vecB[wn].s6;
+                acc[wm][wn] += vecA.s7 * vecB[wn].s7;
+                acc[wm][wn] += vecA.s8 * vecB[wn].s8;
+                acc[wm][wn] += vecA.s9 * vecB[wn].s9;
+                acc[wm][wn] += vecA.sA * vecB[wn].sA;
+                acc[wm][wn] += vecA.sB * vecB[wn].sB;
+                acc[wm][wn] += vecA.sC * vecB[wn].sC;
+                acc[wm][wn] += vecA.sD * vecB[wn].sD;
+                acc[wm][wn] += vecA.sE * vecB[wn].sE;
+                acc[wm][wn] += vecA.sF * vecB[wn].sF;
+#endif
+            }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    if (bias != NULL) {
+        for (int wm=0; wm<reg_size_m; wm++) {
+            for (int wn=0; wn<reg_size_n; wn++) {
+                acc[wm][wn] += bias[j + wn * local_j];
+            }
+        }
+    }
+
+    for (int wm=0; wm<reg_size_m; wm++) {
+        int index_i = i + wm * local_i;
+        if (index_i >= M) {
+            break;
+        }
+        for (int wn=0; wn<reg_size_n; wn++) {
+            C[index_i * N + j + wn * local_j] = acc[wm][wn];
+        }
+    }
+}

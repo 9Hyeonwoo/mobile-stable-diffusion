@@ -286,6 +286,78 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  globalWorkSize, localWorkSize,
                                  num_events_in_list, event_wait_list, event);
     CHECK_ERROR(err);
+#elif LINEAR_KERNEL_VERSION == 5
+    /**
+     * tile(m=11,n=128) with register m and n and vectorization
+     * reg_size_m=2, reg_size_n=2 : 1.2s 대 나옴. 나아보이는게 없음.
+     * reg_size_m=2, reg_size_n=4 : VERSION=4 보다 조금 느림. 100ms 정도. reg_m 이 작아야 좋은건가..
+     */
+    int reg_size_m = 2;
+    int reg_size_n = 4;
+    std::vector<size_t> tile_size_ms = {32, 11, 1};
+    std::vector<size_t> tile_size_ns = {128};
+    int m_index;
+    for (m_index = 0; m_index < tile_size_ms.size(); m_index++) {
+        if (M % (tile_size_ms[m_index]) == 0) {
+            break;
+        }
+    }
+
+    int n_index;
+    for (n_index = 0; n_index < tile_size_ns.size(); n_index++) {
+        if (N % (tile_size_ns[n_index]) == 0) {
+            break;
+        }
+    }
+
+    if (m_index >= tile_size_ms.size()) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] M(%ld) %% tile_size_m != 0\n", __FILE__,
+                            __LINE__, M);
+        return CL_INVALID_VALUE;
+    }
+    if (n_index >= tile_size_ns.size()) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] N(%ld) %% tile_size_n != 0\n", __FILE__,
+                            __LINE__, N);
+        return CL_INVALID_VALUE;
+    }
+
+    size_t tile_size_m = tile_size_ms[m_index];
+    size_t tile_size_n = tile_size_ns[n_index];
+
+    auto globalWorkSizeM = M / reg_size_m;
+    auto localWorkSizeM = tile_size_m / reg_size_m;
+    if (tile_size_m % reg_size_m != 0) {
+        localWorkSizeM = tile_size_m / reg_size_m + 1;
+        globalWorkSizeM = (M / tile_size_m) * localWorkSizeM;
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG,
+                            "[%s:%d] globalWorkSizeM(%ld) M(%ld) tile_size_m(%ld) %% reg_size_m(%d) != 0\n", __FILE__,
+                            __LINE__, globalWorkSizeM, M, tile_size_ms[m_index], reg_size_m);
+    }
+    if (tile_size_ns[n_index] % reg_size_n != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] N(%ld) tile_size_n(%ld) %% reg_size_n(%d) != 0\n", __FILE__,
+                            __LINE__, N, tile_size_ns[n_index], reg_size_n);
+        return CL_INVALID_VALUE;
+    }
+
+
+    err = clSetKernelArg(kernel->tile_reg_m_n_vector_linear, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel->tile_reg_m_n_vector_linear, 1, sizeof(cl_mem), &bufferWeight);
+    err |= clSetKernelArg(kernel->tile_reg_m_n_vector_linear, 2, sizeof(cl_mem), &bufferBias);
+    err |= clSetKernelArg(kernel->tile_reg_m_n_vector_linear, 3, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel->tile_reg_m_n_vector_linear, 4, sizeof(int), &M);
+    err |= clSetKernelArg(kernel->tile_reg_m_n_vector_linear, 5, sizeof(int), &K);
+    CHECK_ERROR(err);
+
+    size_t globalWorkSize[2] = {globalWorkSizeM, N / reg_size_n};
+    size_t localWorkSize[2] = {localWorkSizeM, tile_size_n / reg_size_n };
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->tile_reg_m_n_vector_linear,
+                                 2, nullptr,
+                                 globalWorkSize, localWorkSize,
+                                 num_events_in_list, event_wait_list, event);
+    CHECK_ERROR(err);
 #elif LINEAR_KERNEL_VERSION == 1
     /* register : light throttle 15818 ms -> 8319 ms */
     size_t reg_size_n = 8;

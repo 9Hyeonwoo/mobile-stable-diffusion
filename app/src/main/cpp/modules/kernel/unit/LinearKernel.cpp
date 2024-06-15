@@ -39,6 +39,9 @@ LinearKernel::LinearKernel(
     tile_reg_n_vector_linear = clCreateKernel(program, "tile_reg_n_vector_linear", &err);
     CHECK_ERROR_THROW(err);
 
+    tile_reg_m_n_vector_linear = clCreateKernel(program, "tile_reg_m_n_vector_linear", &err);
+    CHECK_ERROR_THROW(err);
+
     clReleaseProgram(program);
 }
 
@@ -48,4 +51,5 @@ LinearKernel::~LinearKernel() {
     clReleaseKernel(tile_linear);
     clReleaseKernel(tile_reg_n_linear);
     clReleaseKernel(tile_reg_n_vector_linear);
+    clReleaseKernel(tile_reg_m_n_vector_linear);
 }

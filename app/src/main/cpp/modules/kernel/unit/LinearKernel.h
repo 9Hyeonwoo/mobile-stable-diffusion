@@ -19,6 +19,7 @@ public:
     cl_kernel tile_linear;
     cl_kernel tile_reg_n_linear;
     cl_kernel tile_reg_n_vector_linear;
+    cl_kernel tile_reg_m_n_vector_linear;
 };
 
 
