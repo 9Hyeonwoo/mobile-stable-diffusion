@@ -102,38 +102,40 @@ TextEncoder::~TextEncoder() {
  * @input: `token` tokenized text
  * @return: token embedding with size=(length of 'token'(CONTEXT_LENGTH=77) * (EMBEDDING_SIZE=1024))
  */
-std::vector<float> TextEncoder::token_embedding(const std::vector<long> &token) {
-    std::vector<float> result;
-    for (auto i: token) {
-        auto data = embedding.data<float>() + (i * EMBEDDING_SIZE);
-        result.insert(result.end(), data, data + EMBEDDING_SIZE);
+cl_mem TextEncoder::createTokenEmbeddingBuffer(const std::vector<long> &token) {
+    cl_int err;
+    auto buffer = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR,
+                                 sizeof(float) * token.size() * EMBEDDING_SIZE,
+                                 nullptr, &err);
+    CHECK_ERROR(err)
+
+    auto data = clEnqueueMapBuffer(cmdQueue, buffer, CL_TRUE, CL_MAP_WRITE, 0,
+                                            sizeof(float) * token.size() * EMBEDDING_SIZE, 0, nullptr, nullptr,
+                                            &err);
+    CHECK_ERROR(err)
+
+    for (auto i = 0; i < token.size(); i++) {
+        auto tokenEmbedding = embedding.data<float>() + (token[i] * EMBEDDING_SIZE);
+        std::copy(tokenEmbedding, tokenEmbedding + EMBEDDING_SIZE, static_cast<float *>(data) + i * EMBEDDING_SIZE);
     }
-    return result;
+
+    clEnqueueUnmapMemObject(cmdQueue, buffer, data, 0, nullptr, nullptr);
+
+    return buffer;
 }
 
 std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     cl_int err;
     cl_event event1, event2, event3, event4, event5, event6;
     cl_mem bufferEmbedding, bufferTemp;
-    std::vector<float> token_embedding_result;
-//    testEmbedding(token);
-//    PRINT_TIME(0,
-    token_embedding_result = token_embedding(token);
-//    );
 
     // elemwise_add
-    bufferEmbedding = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                            sizeof(float) * token_embedding_result.size(),
-                                            nullptr, &err);
-    CHECK_ERROR(err);
-    bufferTemp = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                       sizeof(float) * token_embedding_result.size(),
-                                       nullptr, &err);
-    CHECK_ERROR(err);
+    bufferEmbedding = createTokenEmbeddingBuffer(token);
+    // util::testBuffer(cmdQueue, bufferEmbedding, "encoder/test/embedding_test_fp32.npy");
 
-    err = clEnqueueWriteBuffer(cmdQueue, bufferEmbedding, CL_TRUE, 0,
-                               sizeof(float) * token_embedding_result.size(),
-                               token_embedding_result.data(), 0, nullptr, nullptr);
+    bufferTemp = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                       sizeof(float) * token.size() * EMBEDDING_SIZE,
+                                       nullptr, &err);
     CHECK_ERROR(err);
 
     err = clSetKernelArg(utilKernel->elemwise_add, 0, sizeof(cl_mem), &bufferEmbedding);
@@ -141,7 +143,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     err |= clSetKernelArg(utilKernel->elemwise_add, 2, sizeof(cl_mem), &bufferEmbedding);
     CHECK_ERROR(err);
 
-    size_t globalSize[] = {token_embedding_result.size()};
+    size_t globalSize[] = {token.size() * EMBEDDING_SIZE};
     err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->elemwise_add, 1, nullptr, globalSize, nullptr,
                                  0,
                                  nullptr,
@@ -205,10 +207,10 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     CHECK_ERROR(err);
 
     // max diff: 0.00002861022949218750
-    // util::testBuffer(cmdQueue, outBuffer, "encoder/test/ln_final_test_fp32.npy");
-    auto result = std::vector<float>(token_embedding_result.size());
+     util::testBuffer(cmdQueue, outBuffer, "encoder/test/ln_final_test_fp32.npy");
+    auto result = std::vector<float>(token.size() * EMBEDDING_SIZE);
     err = clEnqueueReadBuffer(cmdQueue, outBuffer, CL_TRUE, 0,
-                              sizeof(float) * token_embedding_result.size(),
+                              sizeof(float) * result.size(),
                               result.data(), 1, &event5, &event6);
 
     clWaitForEvents(1, &event6);
@@ -223,23 +225,4 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     clReleaseEvent(event6);
 
     return result;
-}
-
-void TextEncoder::testEmbedding(const std::vector<long> &token) {
-    // test with "a professional photograph of an astronaut riding a horse"
-    std::vector<float> token_embedding_result = token_embedding(token);
-    auto test = util::load_npy_file("encoder/test/embedding_test_fp32.npy");
-    int num = 0;
-    float maxDiff = 0;
-    for (int i = 0; i < token_embedding_result.size(); i++) {
-        if (token_embedding_result[i] != test.data<float>()[i]) {
-            num++;
-            auto diff = std::abs(token_embedding_result[i] - test.data<float>()[i]);
-            if (diff > maxDiff) {
-                maxDiff = diff;
-            }
-        }
-    }
-    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "embedding max diff: %f / num : %d ",
-                        maxDiff, num);
 }

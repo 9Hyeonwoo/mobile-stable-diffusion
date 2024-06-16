@@ -36,10 +36,7 @@ public:
     std::vector<float> encode(const std::vector<long> &token);
 
 private:
-    std::vector<float> token_embedding(const std::vector<long> &token);
-
-    // Checked! (2023/11/29)
-    void testEmbedding(const std::vector<long> &token);
+    cl_mem createTokenEmbeddingBuffer(const std::vector<long> &token);
 
     cl_context context;
     cl_command_queue cmdQueue;
