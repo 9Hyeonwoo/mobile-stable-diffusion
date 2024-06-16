@@ -1030,7 +1030,7 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                       const std::vector<float> &condition) {
     cl_int err;
     cl_event event0_0, event0_1, event0_2;
-    cl_event event1_0, event1_1, event1_2[2], event1_3, event1_4, event1_5, event1_6, event1_7, event1_8, event1_9, event1_10, event1_11;
+    cl_event event1_0, event1_1, event1_3, event1_4, event1_5, event1_6, event1_7, event1_8, event1_9, event1_10, event1_11;
     cl_event event1_12, event1_13, event1_14, event1_15, event1_16, event1_17, event1_18;
     cl_event event2_0, event2_1, event2_2;
     cl_event event3_0, event3_1, event3_2, event3_3, event3_4, event3_5, event3_6, event3_7, event3_8, event3_9, event3_10, event3_11;
@@ -1082,19 +1082,11 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                    nullptr, &err);
     CHECK_ERROR(err);
 
-    bufferInput = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                                 sizeof(float) * x.size(),
-                                 nullptr, &err);
+    bufferInput = util::clCreateBuffer(x, context, cmdQueue, &err);
     CHECK_ERROR(err);
-
-    err = clEnqueueWriteBuffer(cmdQueue, bufferInput, CL_FALSE, 0,
-                               sizeof(float) * x.size(),
-                               x.data(), 0, nullptr, &event1_0);
-    CHECK_ERROR(err);
-
 
     input_block_0_conv2d->init();
-    err = input_block_0_conv2d->forward(bufferInput, bufferInput_0, 1, &event1_0, &event1_1);
+    err = input_block_0_conv2d->forward(bufferInput, bufferInput_0, 0, nullptr, &event1_0);
     CHECK_ERROR(err);
     delete input_block_0_conv2d;
     input_block_0_conv2d = nullptr;
@@ -1110,27 +1102,20 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
                                    nullptr, &err);
     CHECK_ERROR(err);
 
-    bufferCondition = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                                     sizeof(float) * condition.size(),
-                                     nullptr, &err);
-    CHECK_ERROR(err);
-
-    err = clEnqueueWriteBuffer(cmdQueue, bufferCondition, CL_FALSE, 0,
-                               sizeof(float) * condition.size(),
-                               condition.data(), 0, nullptr, &event1_2[0]);
+    bufferCondition = util::clCreateBuffer(condition, context, cmdQueue, &err);
     CHECK_ERROR(err);
 
     input_block_1_res_block->init();
     err = input_block_1_res_block->forward(bufferInput_0, bufferEmbed, bufferInput_1,
                                            1, &event0_2,
-                                           1, &event1_1, &event1_2[1]);
+                                           1, &event1_0, &event1_1);
     CHECK_ERROR(err);
     delete input_block_1_res_block;
     input_block_1_res_block = nullptr;
 
     input_block_1_spatial->init();
     err = input_block_1_spatial->forward(bufferInput_1, bufferCondition, bufferInput_1,
-                                         2, event1_2, &event1_3);
+                                         1, &event1_1, &event1_3);
     CHECK_ERROR(err);
     delete input_block_1_spatial;
     input_block_1_spatial = nullptr;
@@ -1775,8 +1760,6 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     clReleaseEvent(event0_2);
     clReleaseEvent(event1_0);
     clReleaseEvent(event1_1);
-    clReleaseEvent(event1_2[0]);
-    clReleaseEvent(event1_2[1]);
     clReleaseEvent(event1_3);
     clReleaseEvent(event1_4);
     clReleaseEvent(event1_5);

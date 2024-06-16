@@ -212,3 +212,17 @@ void util::printEventTime(std::string message, cl_event event) {
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s, %0.3f\n",
                         message.c_str(), nanoSeconds / 1000000.0);
 }
+
+cl_mem util::clCreateBuffer(const std::vector<float> &data, cl_context context, cl_command_queue cmdQueue, cl_int *err) {
+    cl_mem buffer = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR,
+                                   sizeof(float) * data.size(), nullptr, err);
+    auto dest = clEnqueueMapBuffer(cmdQueue, buffer, CL_TRUE, CL_MAP_WRITE, 0,
+                                   sizeof(float) * data.size(), 0, nullptr, nullptr,
+                                   err);
+
+    std::copy(data.begin(), data.end(), static_cast<float *>(dest));
+
+    clEnqueueUnmapMemObject(cmdQueue, buffer, dest, 0, nullptr, nullptr);
+
+    return buffer;
+}
