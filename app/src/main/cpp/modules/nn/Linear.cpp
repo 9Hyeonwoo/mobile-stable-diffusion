@@ -241,7 +241,7 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
      */
     int reg_size_n = 8;
     std::vector<size_t> tile_size_ms = {32, 11, 1};
-    std::vector<size_t> tile_size_ns = {128};
+    std::vector<size_t> tile_size_ns = {128, 64};
     int m_index;
     for (m_index = 0; m_index < tile_size_ms.size(); m_index++) {
         if (M % (tile_size_ms[m_index]) == 0) {
