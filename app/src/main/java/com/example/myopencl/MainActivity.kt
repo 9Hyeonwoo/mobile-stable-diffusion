@@ -49,7 +49,6 @@ class MainActivity : AppCompatActivity() {
                     Log.d("__TEST__", "start initOpenCL")
                     initOpenCL(assets)
                     Log.d("__TEST__", "end initOpenCL")
-//                    val result = sample(FloatArray(77 * 1024))
                     /**
                      * decode() block
                     val result = decode()
@@ -57,13 +56,20 @@ class MainActivity : AppCompatActivity() {
                         drawImage(result)
                     }
                      */
-//                    val result = sample(FloatArray(77 * 1024))
                     initialized = true
                 }
-                /**
-                 * encode() block
-                 */
-                val encodeResult = encode(token)
+                takeIf { false }?.run {
+                    /**
+                     * encode() block
+                     */
+                    val encodeResult = encode(token)
+                }
+                takeIf { true }?.run {
+                    /**
+                     * sample() block
+                     */
+                    val result = sample(FloatArray(77 * 1024))
+                }
                 destroyOpenCL()
                 initialized = false
 //                MainScope().launch {

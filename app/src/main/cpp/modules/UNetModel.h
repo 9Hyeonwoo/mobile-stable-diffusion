@@ -33,7 +33,7 @@ public:
     void
     test(const std::vector<float> &x, long timestep, const std::vector<float> &condition);
 private:
-    std::vector<float> timestep_embedding(long timestep);
+    cl_mem createTimestepEmbedding(long timestep);
     void concat_buffer(cl_mem input1, cl_mem input2, cl_mem output,
                          cl_uint num_events_in_list, const cl_event *event_wait_list, cl_event *event);
 
