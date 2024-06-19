@@ -24,35 +24,19 @@
     }
 
 GroupNorm::GroupNorm(
-        cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-        AAssetManager *assetManager,
+        cl_context context, cl_command_queue cmdQueue,
         size_t num_groups, size_t num_channels, float eps,
-        const std::string &weight_name, const std::string &bias_name
+        const std::string &weight_name, const std::string &bias_name,
+        std::shared_ptr<GroupNormKernel> kernel
 ) : context(context), cmdQueue(cmdQueue), num_groups(num_groups), num_channels(num_channels),
     eps(eps), weight_name(weight_name), bias_name(bias_name), bufferWeight(nullptr),
-    bufferBias(nullptr) {
+    bufferBias(nullptr), kernel(kernel) {
     cl_int err;
     weightSize = num_channels;
     biasSize = num_channels;
-
-    auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                              "kernel/group_norm.cl");
-    kernel_mean = clCreateKernel(program, "local_reduction_mean", &err);
-    CHECK_ERROR_THROW(err);
-
-    kernel_var = clCreateKernel(program, "local_reduction_variance", &err);
-    CHECK_ERROR_THROW(err);
-
-    kernel_norm = clCreateKernel(program, "group_norm", &err);
-    CHECK_ERROR_THROW(err);
-
-    clReleaseProgram(program);
 }
 
 GroupNorm::~GroupNorm() {
-    clReleaseKernel(kernel_mean);
-    clReleaseKernel(kernel_var);
-    clReleaseKernel(kernel_norm);
     if (bufferWeight != nullptr) {
         clReleaseMemObject(bufferWeight);
     }
@@ -115,45 +99,45 @@ cl_int GroupNorm::forward(
                                            nullptr, &err);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(kernel_mean, 0, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel_mean, 1, sizeof(cl_mem), &bufferMean);
-    err |= clSetKernelArg(kernel_mean, 2, sizeof(float) * groupSize / reductionSize, nullptr);
-    err |= clSetKernelArg(kernel_mean, 3, sizeof(size_t), &reductionSize);
+    err = clSetKernelArg(kernel->local_reduction_mean, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel->local_reduction_mean, 1, sizeof(cl_mem), &bufferMean);
+    err |= clSetKernelArg(kernel->local_reduction_mean, 2, sizeof(float) * groupSize / reductionSize, nullptr);
+    err |= clSetKernelArg(kernel->local_reduction_mean, 3, sizeof(size_t), &reductionSize);
     CHECK_ERROR(err);
 
     size_t globalReductionSize[1] = {num_groups * WORK_GROUP_SIZE};
     size_t localReductionSize[1] = {WORK_GROUP_SIZE};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_mean, 1, nullptr, globalReductionSize,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->local_reduction_mean, 1, nullptr, globalReductionSize,
                                  localReductionSize,
                                  num_events_in_list, event_wait_list, &event1);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(kernel_var, 0, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel_var, 1, sizeof(cl_mem), &bufferMean);
-    err |= clSetKernelArg(kernel_var, 2, sizeof(cl_mem), &bufferVariance);
-    err |= clSetKernelArg(kernel_var, 3, sizeof(float) * groupSize / reductionSize, nullptr);
-    err |= clSetKernelArg(kernel_var, 4, sizeof(size_t), &reductionSize);
+    err = clSetKernelArg(kernel->local_reduction_variance, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel->local_reduction_variance, 1, sizeof(cl_mem), &bufferMean);
+    err |= clSetKernelArg(kernel->local_reduction_variance, 2, sizeof(cl_mem), &bufferVariance);
+    err |= clSetKernelArg(kernel->local_reduction_variance, 3, sizeof(float) * groupSize / reductionSize, nullptr);
+    err |= clSetKernelArg(kernel->local_reduction_variance, 4, sizeof(size_t), &reductionSize);
     CHECK_ERROR(err);
 
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_var, 1, nullptr, globalReductionSize,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->local_reduction_variance, 1, nullptr, globalReductionSize,
                                  localReductionSize, 1,
                                  &event1, &event2);
     CHECK_ERROR(err);
 
     size_t channelSize = input_size / num_channels;
-    err = clSetKernelArg(kernel_norm, 0, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel_norm, 1, sizeof(cl_mem), &bufferMean);
-    err |= clSetKernelArg(kernel_norm, 2, sizeof(cl_mem), &bufferVariance);
-    err |= clSetKernelArg(kernel_norm, 3, sizeof(cl_mem), &bufferWeight);
-    err |= clSetKernelArg(kernel_norm, 4, sizeof(cl_mem), &bufferBias);
-    err |= clSetKernelArg(kernel_norm, 5, sizeof(size_t), &groupSize);
-    err |= clSetKernelArg(kernel_norm, 6, sizeof(size_t), &channelSize);
-    err |= clSetKernelArg(kernel_norm, 7, sizeof(float), &eps);
-    err |= clSetKernelArg(kernel_norm, 8, sizeof(cl_mem), &output);
+    err = clSetKernelArg(kernel->group_norm, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel->group_norm, 1, sizeof(cl_mem), &bufferMean);
+    err |= clSetKernelArg(kernel->group_norm, 2, sizeof(cl_mem), &bufferVariance);
+    err |= clSetKernelArg(kernel->group_norm, 3, sizeof(cl_mem), &bufferWeight);
+    err |= clSetKernelArg(kernel->group_norm, 4, sizeof(cl_mem), &bufferBias);
+    err |= clSetKernelArg(kernel->group_norm, 5, sizeof(size_t), &groupSize);
+    err |= clSetKernelArg(kernel->group_norm, 6, sizeof(size_t), &channelSize);
+    err |= clSetKernelArg(kernel->group_norm, 7, sizeof(float), &eps);
+    err |= clSetKernelArg(kernel->group_norm, 8, sizeof(cl_mem), &output);
     CHECK_ERROR(err);
 
     size_t globalWorkSize[1] = {input_size};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_norm, 1, nullptr, globalWorkSize, nullptr, 1,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->group_norm, 1, nullptr, globalWorkSize, nullptr, 1,
                                  &event2, event);
     CHECK_ERROR(err);
 

@@ -32,11 +32,13 @@ ResBlock::ResBlock(
         const std::string &out_conv2d_weight_name, const std::string &out_conv2d_bias_name,
         const std::string& skip_conv2d_weight_name, const std::string& skip_conv2d_bias_name,
         std::shared_ptr<LinearKernel> linearKernel,
-        std::shared_ptr<ConvKernel> convKernel
+        std::shared_ptr<ConvKernel> convKernel,
+        std::shared_ptr<GroupNormKernel> groupNormKernel
 ) : context(context), cmdQueue(cmdQueue), in_channels(in_channels), out_channels(out_channels) {
     cl_int err;
-    in_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, in_channels, 1e-5,
-                                  in_group_norm_weight_name, in_group_norm_bias_name);
+    in_group_norm = new GroupNorm(context, cmdQueue, 32, in_channels, 1e-5,
+                                  in_group_norm_weight_name, in_group_norm_bias_name,
+                                  groupNormKernel);
     in_conv2d = new Conv2D(context, cmdQueue,
                            in_channels, out_channels, 3, 1, 1,
                            in_conv2d_weight_name, in_conv2d_bias_name, convKernel);
@@ -48,9 +50,10 @@ ResBlock::ResBlock(
                                   embed_linear_weight_name, embed_linear_bias_name,
                                   linearKernel);
     }
-    out_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, out_channels,
+    out_group_norm = new GroupNorm(context, cmdQueue, 32, out_channels,
                                    1e-5,
-                                   out_group_norm_weight_name, out_group_norm_bias_name);
+                                   out_group_norm_weight_name, out_group_norm_bias_name,
+                                   groupNormKernel);
     out_conv2d = new Conv2D(context, cmdQueue,
                             out_channels, out_channels, 3, 1, 1,
                             out_conv2d_weight_name, out_conv2d_bias_name, convKernel);

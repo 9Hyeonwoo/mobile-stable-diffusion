@@ -9,8 +9,6 @@
 
 #include "CL/opencl.h"
 
-#include <android/asset_manager_jni.h>
-
 #include "GroupNorm.h"
 #include "Linear.h"
 #include "BasicTransformerBlock.h"
@@ -19,12 +17,12 @@
 #include "../kernel/unit/UtilKernel.h"
 #include "../kernel/unit/CrossAttentionKernel.h"
 #include "../kernel/unit/GEGLUKernel.h"
+#include "../kernel/unit/GroupNormKernel.h"
 
 class SpatialTransformer {
 public:
     SpatialTransformer(
-            cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-            AAssetManager *assetManager,
+            cl_context context, cl_command_queue cmdQueue,
             size_t channels, size_t context_dim, size_t headSize, size_t headDim,
             const std::string &group_norm_weight_name,
             const std::string &group_norm_bias_name,
@@ -56,7 +54,8 @@ public:
             std::shared_ptr<LinearKernel> linearKernel,
             std::shared_ptr<UtilKernel> utilKernel,
             std::shared_ptr<CrossAttentionKernel> crossAttentionKernel,
-            std::shared_ptr<GEGLUKernel> gegluKernel
+            std::shared_ptr<GEGLUKernel> gegluKernel,
+            std::shared_ptr<GroupNormKernel> groupNormKernel
     );
 
     ~SpatialTransformer();

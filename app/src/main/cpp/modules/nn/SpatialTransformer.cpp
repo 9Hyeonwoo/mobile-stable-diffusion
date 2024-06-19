@@ -23,8 +23,7 @@
 
 
 SpatialTransformer::SpatialTransformer(
-        cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-        AAssetManager *assetManager,
+        cl_context context, cl_command_queue cmdQueue,
         size_t channels, size_t context_dim, size_t headSize, size_t headDim,
         const std::string &group_norm_weight_name, const std::string &group_norm_bias_name,
         const std::string &in_linear_weight_name, const std::string &in_linear_bias_name,
@@ -46,12 +45,14 @@ SpatialTransformer::SpatialTransformer(
         std::shared_ptr<LinearKernel> linearKernel,
         std::shared_ptr<UtilKernel> utilKernel,
         std::shared_ptr<CrossAttentionKernel> crossAttentionKernel,
-        std::shared_ptr<GEGLUKernel> gegluKernel
+        std::shared_ptr<GEGLUKernel> gegluKernel,
+        std::shared_ptr<GroupNormKernel> groupNormKernel
 ) : context(context), cmdQueue(cmdQueue), channels(channels), utilKernel(utilKernel) {
     cl_int err;
     size_t inner_dim = headSize * headDim;
-    groupNorm = new GroupNorm(context, cmdQueue, deviceId, assetManager, 32, channels, 1e-6,
-                              group_norm_weight_name, group_norm_bias_name);
+    groupNorm = new GroupNorm(context, cmdQueue, 32, channels, 1e-6,
+                              group_norm_weight_name, group_norm_bias_name,
+                              groupNormKernel);
 
     projInLinear = new Linear(context, cmdQueue,
                               channels, inner_dim,

@@ -15,6 +15,7 @@
 #include "Linear.h"
 #include "../kernel/unit/LinearKernel.h"
 #include "../kernel/unit/ConvKernel.h"
+#include "../kernel/unit/GroupNormKernel.h"
 
 class ResBlock {
 public:
@@ -31,7 +32,8 @@ public:
             const std::string &out_conv2d_weight_name, const std::string &out_conv2d_bias_name,
             const std::string &skip_conv2d_weight_name, const std::string &skip_conv2d_bias_name,
             std::shared_ptr<LinearKernel> linearKernel,
-            std::shared_ptr<ConvKernel> convKernel
+            std::shared_ptr<ConvKernel> convKernel,
+            std::shared_ptr<GroupNormKernel> groupNormKernel
     );
 
     ~ResBlock();

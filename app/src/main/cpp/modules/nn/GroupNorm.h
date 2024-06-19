@@ -9,15 +9,17 @@
 
 #include "CL/opencl.h"
 
-#include <android/asset_manager_jni.h>
 #include <string>
+#include "../kernel/unit/GroupNormKernel.h"
 
 class GroupNorm {
 public:
-    GroupNorm(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-              AAssetManager *assetManager,
-              size_t num_groups, size_t num_channels, float eps,
-              const std::string &weight_name, const std::string &bias_name);
+    GroupNorm(
+            cl_context context, cl_command_queue cmdQueue,
+            size_t num_groups, size_t num_channels, float eps,
+            const std::string &weight_name, const std::string &bias_name,
+            std::shared_ptr<GroupNormKernel> kernel
+    );
 
     ~GroupNorm();
 
@@ -38,9 +40,7 @@ private:
     cl_command_queue cmdQueue;
     cl_context context;
 
-    cl_kernel kernel_mean;
-    cl_kernel kernel_var;
-    cl_kernel kernel_norm;
+    std::shared_ptr<GroupNormKernel> kernel;
 
     const std::string weight_name;
     const std::string bias_name;

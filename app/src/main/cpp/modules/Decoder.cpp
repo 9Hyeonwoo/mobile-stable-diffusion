@@ -25,6 +25,7 @@ Decoder::Decoder(
     linearKernel = std::make_shared<LinearKernel>(context, deviceId, assetManager);
     utilKernel = std::make_shared<UtilKernel>(context, deviceId, assetManager);
     convKernel = std::make_shared<ConvKernel>(context, deviceId, assetManager);
+    groupNormKernel = std::make_shared<GroupNormKernel>(context, deviceId, assetManager);
 
     post_quant_conv2d = new Conv2D(context, cmdQueue,
                                    4, 4, 1, 1, 0,
@@ -48,7 +49,7 @@ Decoder::Decoder(
                                    "decoder/mid/decoder_mid_block_1_conv2_weight.npy",
                                    "decoder/mid/decoder_mid_block_1_conv2_bias.npy",
                                    "", "",
-                                   linearKernel, convKernel);
+                                   linearKernel, convKernel, groupNormKernel);
 
     mid_attn_block = new AttnBlock(context, cmdQueue, deviceId, assetManager,
                                    512,
@@ -62,7 +63,7 @@ Decoder::Decoder(
                                    "decoder/mid/decoder_mid_attn_1_v_bias.npy",
                                    "decoder/mid/decoder_mid_attn_1_proj_out_weight.npy",
                                    "decoder/mid/decoder_mid_attn_1_proj_out_bias.npy",
-                                   convKernel, utilKernel);
+                                   convKernel, utilKernel, groupNormKernel);
 
     mid_res_block_2 = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                    512, 0, 512,
@@ -76,7 +77,7 @@ Decoder::Decoder(
                                    "decoder/mid/decoder_mid_block_2_conv2_weight.npy",
                                    "decoder/mid/decoder_mid_block_2_conv2_bias.npy",
                                    "", "",
-                                   linearKernel, convKernel);
+                                   linearKernel, convKernel, groupNormKernel);
 
     for (int i = 0; i < 3; i++) {
         auto folder_prefix =
@@ -101,7 +102,7 @@ Decoder::Decoder(
                                           out_conv2d_weight_name,
                                           out_conv2d_bias_name,
                                           "", "",
-                                          linearKernel, convKernel);
+                                          linearKernel, convKernel, groupNormKernel);
     }
 
     up_3_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
@@ -133,7 +134,7 @@ Decoder::Decoder(
                                           out_conv2d_weight_name,
                                           out_conv2d_bias_name,
                                           "", "",
-                                          linearKernel, convKernel);
+                                          linearKernel, convKernel, groupNormKernel);
     }
 
     up_2_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
@@ -174,7 +175,7 @@ Decoder::Decoder(
                                           out_group_norm_weight_name, out_group_norm_bias_name,
                                           out_conv2d_weight_name, out_conv2d_bias_name,
                                           in_skip_conv2d_weight_name, in_skip_conv2d_bias_name,
-                                          linearKernel, convKernel);
+                                          linearKernel, convKernel, groupNormKernel);
     }
 
     up_1_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
@@ -215,13 +216,14 @@ Decoder::Decoder(
                                           out_group_norm_weight_name, out_group_norm_bias_name,
                                           out_conv2d_weight_name, out_conv2d_bias_name,
                                           in_skip_conv2d_weight_name, in_skip_conv2d_bias_name,
-                                          linearKernel, convKernel);
+                                          linearKernel, convKernel, groupNormKernel);
     }
 
-    out_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager,
+    out_group_norm = new GroupNorm(context, cmdQueue,
                                    32, 128, 1e-6,
                                    "decoder/out/decoder_norm_out_weight.npy",
-                                   "decoder/out/decoder_norm_out_bias.npy");
+                                   "decoder/out/decoder_norm_out_bias.npy",
+                                   groupNormKernel);
 
     out_conv2d = new Conv2D(context, cmdQueue,
                             128, 3, 3, 1, 1,

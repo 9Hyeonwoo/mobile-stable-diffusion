@@ -13,6 +13,7 @@
 #include "Conv2D.h"
 #include "../kernel/unit/ConvKernel.h"
 #include "../kernel/unit/UtilKernel.h"
+#include "../kernel/unit/GroupNormKernel.h"
 
 class AttnBlock {
 public:
@@ -26,7 +27,8 @@ public:
             const std::string &v_conv2d_weight_name, const std::string &v_conv2d_bias_name,
             const std::string &out_conv2d_weight_name, const std::string &out_conv2d_bias_name,
             std::shared_ptr<ConvKernel> convKernel,
-            std::shared_ptr<UtilKernel> utilKernel
+            std::shared_ptr<UtilKernel> utilKernel,
+            std::shared_ptr<GroupNormKernel> groupNormKernel
     );
 
     ~AttnBlock();

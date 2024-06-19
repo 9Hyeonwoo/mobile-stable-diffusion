@@ -34,12 +34,14 @@ AttnBlock::AttnBlock(
         const std::string &v_conv2d_weight_name, const std::string &v_conv2d_bias_name,
         const std::string &out_conv2d_weight_name, const std::string &out_conv2d_bias_name,
         std::shared_ptr<ConvKernel> convKernel,
-        std::shared_ptr<UtilKernel> utilKernel
+        std::shared_ptr<UtilKernel> utilKernel,
+        std::shared_ptr<GroupNormKernel> groupNormKernel
 ) : context(context), cmdQueue(cmdQueue), in_channels(in_channels), utilKernel(utilKernel) {
 
-    groupNorm = new GroupNorm(context, cmdQueue, deviceId, assetManager,
+    groupNorm = new GroupNorm(context, cmdQueue,
                               32, in_channels, 1e-6,
-                              group_norm_weight, group_norm_bias);
+                              group_norm_weight, group_norm_bias,
+                              groupNormKernel);
 
     to_q_conv2d = new Conv2D(context, cmdQueue,
                              in_channels, in_channels, 1, 1, 0,
