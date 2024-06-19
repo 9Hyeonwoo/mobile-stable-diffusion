@@ -45,6 +45,9 @@ UtilKernel::UtilKernel(cl_context context, cl_device_id deviceId, AAssetManager 
     batch_matmul_scale = clCreateKernel(program, "batch_matmul_scale", &err);
     CHECK_ERROR_THROW(err);
 
+    chunkwise_add = clCreateKernel(program, "chunkwise_add", &err);
+    CHECK_ERROR_THROW(err);
+
     clReleaseProgram(program);
 }
 
@@ -57,4 +60,5 @@ UtilKernel::~UtilKernel() {
     clReleaseKernel(silu);
     clReleaseKernel(batch_matmul);
     clReleaseKernel(batch_matmul_scale);
+    clReleaseKernel(chunkwise_add);
 }

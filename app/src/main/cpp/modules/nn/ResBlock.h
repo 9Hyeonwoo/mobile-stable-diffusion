@@ -9,19 +9,18 @@
 
 #include "CL/opencl.h"
 
-#include <android/asset_manager_jni.h>
 #include "GroupNorm.h"
 #include "Conv2D.h"
 #include "Linear.h"
 #include "../kernel/unit/LinearKernel.h"
 #include "../kernel/unit/ConvKernel.h"
 #include "../kernel/unit/GroupNormKernel.h"
+#include "../kernel/unit/UtilKernel.h"
 
 class ResBlock {
 public:
     ResBlock(
-            cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-            AAssetManager *assetManager,
+            cl_context context, cl_command_queue cmdQueue,
             size_t in_channels, size_t emb_channels, size_t out_channels,
             const std::string &in_group_norm_weight_name,
             const std::string &in_group_norm_bias_name,
@@ -33,7 +32,8 @@ public:
             const std::string &skip_conv2d_weight_name, const std::string &skip_conv2d_bias_name,
             std::shared_ptr<LinearKernel> linearKernel,
             std::shared_ptr<ConvKernel> convKernel,
-            std::shared_ptr<GroupNormKernel> groupNormKernel
+            std::shared_ptr<GroupNormKernel> groupNormKernel,
+            std::shared_ptr<UtilKernel> utilKernel
     );
 
     ~ResBlock();
@@ -51,9 +51,7 @@ private:
     size_t in_channels;
     size_t out_channels;
 
-    cl_kernel kernel_silu;
-    cl_kernel kernel_chunk_add;
-    cl_kernel kernel_elem_add;
+    std::shared_ptr<UtilKernel> utilKernel;
 
     GroupNorm *in_group_norm;
     Conv2D *in_conv2d;

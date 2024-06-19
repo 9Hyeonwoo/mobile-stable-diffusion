@@ -22,8 +22,7 @@
     }
 
 ResBlock::ResBlock(
-        cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-        AAssetManager *assetManager,
+        cl_context context, cl_command_queue cmdQueue,
         size_t in_channels, size_t emb_channels, size_t out_channels,
         const std::string &in_group_norm_weight_name, const std::string &in_group_norm_bias_name,
         const std::string &in_conv2d_weight_name, const std::string &in_conv2d_bias_name,
@@ -33,8 +32,9 @@ ResBlock::ResBlock(
         const std::string& skip_conv2d_weight_name, const std::string& skip_conv2d_bias_name,
         std::shared_ptr<LinearKernel> linearKernel,
         std::shared_ptr<ConvKernel> convKernel,
-        std::shared_ptr<GroupNormKernel> groupNormKernel
-) : context(context), cmdQueue(cmdQueue), in_channels(in_channels), out_channels(out_channels) {
+        std::shared_ptr<GroupNormKernel> groupNormKernel,
+        std::shared_ptr<UtilKernel> utilKernel
+) : context(context), cmdQueue(cmdQueue), in_channels(in_channels), out_channels(out_channels), utilKernel(utilKernel) {
     cl_int err;
     in_group_norm = new GroupNorm(context, cmdQueue, 32, in_channels, 1e-5,
                                   in_group_norm_weight_name, in_group_norm_bias_name,
@@ -65,18 +65,6 @@ ResBlock::ResBlock(
     } else {
         skip_conv2d = nullptr;
     }
-
-    auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                              "kernel/util.cl");
-
-    kernel_silu = clCreateKernel(program, "silu", &err);
-    CHECK_ERROR_THROW(err);
-    kernel_chunk_add = clCreateKernel(program, "chunkwise_add", &err);
-    CHECK_ERROR_THROW(err);
-    kernel_elem_add = clCreateKernel(program, "elemwise_add", &err);
-    CHECK_ERROR_THROW(err);
-
-    clReleaseProgram(program);
 }
 
 ResBlock::~ResBlock() {
@@ -86,9 +74,6 @@ ResBlock::~ResBlock() {
     delete out_group_norm;
     delete out_conv2d;
     delete skip_conv2d;
-    clReleaseKernel(kernel_silu);
-    clReleaseKernel(kernel_chunk_add);
-    clReleaseKernel(kernel_elem_add);
 }
 
 void ResBlock::init() {
@@ -145,12 +130,12 @@ cl_int ResBlock::forward(
         // util::testBuffer(cmdQueue, bufferInGroupNorm, "unet/input_block/test/test_input_block_4_res_in_norm.npy");
     }
 
-    err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &bufferInGroupNorm);
-    err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &bufferInGroupNorm);
+    err = clSetKernelArg(utilKernel->silu, 0, sizeof(cl_mem), &bufferInGroupNorm);
+    err |= clSetKernelArg(utilKernel->silu, 1, sizeof(cl_mem), &bufferInGroupNorm);
     CHECK_ERROR(err);
 
     size_t inSILUGlobalSize[3] = {inputBytes / sizeof(float)};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr, inSILUGlobalSize, nullptr, 1,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->silu, 1, nullptr, inSILUGlobalSize, nullptr, 1,
                                  &event0_0, &event0_1);
 
     err = in_conv2d->forward(bufferInGroupNorm, bufferInConv2d, 1, &event0_1, &event0_2[0]);
@@ -182,12 +167,12 @@ cl_int ResBlock::forward(
                                  nullptr, &err);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &embed);
-    err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &bufferEmbedTemp);
+    err = clSetKernelArg(utilKernel->silu, 0, sizeof(cl_mem), &embed);
+    err |= clSetKernelArg(utilKernel->silu, 1, sizeof(cl_mem), &bufferEmbedTemp);
     CHECK_ERROR(err);
 
     embSILUGlobalSize[0] = embedBytes / sizeof(float);
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr, embSILUGlobalSize, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->silu, 1, nullptr, embSILUGlobalSize, nullptr,
                                  num_events_embed, event_wait_list_embed, &event1_0);
     CHECK_ERROR(err);
 
@@ -198,14 +183,14 @@ cl_int ResBlock::forward(
     // util::testBuffer(cmdQueue, bufferEmbed, "unet/input_block/test/test_resblock_embed.npy");
 
     chunkSize = outSize / out_channels;
-    err = clSetKernelArg(kernel_chunk_add, 0, sizeof(cl_mem), &bufferInConv2d);
-    err |= clSetKernelArg(kernel_chunk_add, 1, sizeof(cl_mem), &bufferEmbed);
-    err |= clSetKernelArg(kernel_chunk_add, 2, sizeof(cl_mem), &bufferInConv2d);
-    err |= clSetKernelArg(kernel_chunk_add, 3, sizeof(size_t), &chunkSize);
+    err = clSetKernelArg(utilKernel->chunkwise_add, 0, sizeof(cl_mem), &bufferInConv2d);
+    err |= clSetKernelArg(utilKernel->chunkwise_add, 1, sizeof(cl_mem), &bufferEmbed);
+    err |= clSetKernelArg(utilKernel->chunkwise_add, 2, sizeof(cl_mem), &bufferInConv2d);
+    err |= clSetKernelArg(utilKernel->chunkwise_add, 3, sizeof(size_t), &chunkSize);
     CHECK_ERROR(err);
 
     chunkAddGlobalSize[0] = outSize;
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_chunk_add, 1, nullptr, chunkAddGlobalSize,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->chunkwise_add, 1, nullptr, chunkAddGlobalSize,
                                  nullptr,
                                  2, event0_2, &event2_0);
     CHECK_ERROR(err);
@@ -234,12 +219,12 @@ cl_int ResBlock::forward(
     err = out_group_norm->forward(bufferInConv2d, bufferInConv2d, 1, event_emb, &event3_0);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &bufferInConv2d);
-    err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &bufferInConv2d);
+    err = clSetKernelArg(utilKernel->silu, 0, sizeof(cl_mem), &bufferInConv2d);
+    err |= clSetKernelArg(utilKernel->silu, 1, sizeof(cl_mem), &bufferInConv2d);
     CHECK_ERROR(err);
 
     size_t outSILUGlobalSize[3] = {outSize};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr, outSILUGlobalSize, nullptr, 1,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->silu, 1, nullptr, outSILUGlobalSize, nullptr, 1,
                                  &event3_0, &event3_1);
     CHECK_ERROR(err);
 
@@ -270,24 +255,24 @@ cl_int ResBlock::forward(
             // util::testBuffer(cmdQueue, bufferSkip, "unet/input_block/test/test_input_block_4_res_skip.npy");
         }
 
-        err = clSetKernelArg(kernel_elem_add, 0, sizeof(cl_mem), &bufferSkip);
-        err |= clSetKernelArg(kernel_elem_add, 1, sizeof(cl_mem), &bufferOut);
-        err |= clSetKernelArg(kernel_elem_add, 2, sizeof(cl_mem), &output);
+        err = clSetKernelArg(utilKernel->elemwise_add, 0, sizeof(cl_mem), &bufferSkip);
+        err |= clSetKernelArg(utilKernel->elemwise_add, 1, sizeof(cl_mem), &bufferOut);
+        err |= clSetKernelArg(utilKernel->elemwise_add, 2, sizeof(cl_mem), &output);
         CHECK_ERROR(err);
 
         size_t elemAddGlobalSize[1] = {outSize};
-        err = clEnqueueNDRangeKernel(cmdQueue, kernel_elem_add, 1, nullptr, elemAddGlobalSize,
+        err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->elemwise_add, 1, nullptr, elemAddGlobalSize,
                                      nullptr,
                                      2, event3_2, event);
         CHECK_ERROR(err);
     } else {
-        err = clSetKernelArg(kernel_elem_add, 0, sizeof(cl_mem), &input);
-        err |= clSetKernelArg(kernel_elem_add, 1, sizeof(cl_mem), &bufferOut);
-        err |= clSetKernelArg(kernel_elem_add, 2, sizeof(cl_mem), &output);
+        err = clSetKernelArg(utilKernel->elemwise_add, 0, sizeof(cl_mem), &input);
+        err |= clSetKernelArg(utilKernel->elemwise_add, 1, sizeof(cl_mem), &bufferOut);
+        err |= clSetKernelArg(utilKernel->elemwise_add, 2, sizeof(cl_mem), &output);
         CHECK_ERROR(err);
 
         size_t elemAddGlobalSize[1] = {outSize};
-        err = clEnqueueNDRangeKernel(cmdQueue, kernel_elem_add, 1, nullptr, elemAddGlobalSize,
+        err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->elemwise_add, 1, nullptr, elemAddGlobalSize,
                                      nullptr,
                                      1, event3_2, event);
         CHECK_ERROR(err);

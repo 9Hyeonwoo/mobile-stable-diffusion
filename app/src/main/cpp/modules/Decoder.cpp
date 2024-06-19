@@ -37,7 +37,7 @@ Decoder::Decoder(
                            "decoder/decoder_conv_in_weight.npy",
                            "decoder/decoder_conv_in_bias.npy", convKernel);
 
-    mid_res_block_1 = new ResBlock(context, cmdQueue, deviceId, assetManager,
+    mid_res_block_1 = new ResBlock(context, cmdQueue,
                                    512, 0, 512,
                                    "decoder/mid/decoder_mid_block_1_norm1_weight.npy",
                                    "decoder/mid/decoder_mid_block_1_norm1_bias.npy",
@@ -49,7 +49,7 @@ Decoder::Decoder(
                                    "decoder/mid/decoder_mid_block_1_conv2_weight.npy",
                                    "decoder/mid/decoder_mid_block_1_conv2_bias.npy",
                                    "", "",
-                                   linearKernel, convKernel, groupNormKernel);
+                                   linearKernel, convKernel, groupNormKernel, utilKernel);
 
     mid_attn_block = new AttnBlock(context, cmdQueue, deviceId, assetManager,
                                    512,
@@ -65,7 +65,7 @@ Decoder::Decoder(
                                    "decoder/mid/decoder_mid_attn_1_proj_out_bias.npy",
                                    convKernel, utilKernel, groupNormKernel);
 
-    mid_res_block_2 = new ResBlock(context, cmdQueue, deviceId, assetManager,
+    mid_res_block_2 = new ResBlock(context, cmdQueue,
                                    512, 0, 512,
                                    "decoder/mid/decoder_mid_block_2_norm1_weight.npy",
                                    "decoder/mid/decoder_mid_block_2_norm1_bias.npy",
@@ -77,7 +77,7 @@ Decoder::Decoder(
                                    "decoder/mid/decoder_mid_block_2_conv2_weight.npy",
                                    "decoder/mid/decoder_mid_block_2_conv2_bias.npy",
                                    "", "",
-                                   linearKernel, convKernel, groupNormKernel);
+                                   linearKernel, convKernel, groupNormKernel, utilKernel);
 
     for (int i = 0; i < 3; i++) {
         auto folder_prefix =
@@ -90,7 +90,7 @@ Decoder::Decoder(
         auto out_group_norm_bias_name = folder_prefix + "_norm2_bias.npy";
         auto out_conv2d_weight_name = folder_prefix + "_conv2_weight.npy";
         auto out_conv2d_bias_name = folder_prefix + "_conv2_bias.npy";
-        up_3_res_blocks[i] = new ResBlock(context, cmdQueue, deviceId, assetManager,
+        up_3_res_blocks[i] = new ResBlock(context, cmdQueue,
                                           512, 0, 512,
                                           in_group_norm_weight_name,
                                           in_group_norm_bias_name,
@@ -102,7 +102,7 @@ Decoder::Decoder(
                                           out_conv2d_weight_name,
                                           out_conv2d_bias_name,
                                           "", "",
-                                          linearKernel, convKernel, groupNormKernel);
+                                          linearKernel, convKernel, groupNormKernel, utilKernel);
     }
 
     up_3_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
@@ -122,7 +122,7 @@ Decoder::Decoder(
         auto out_group_norm_bias_name = folder_prefix + "_norm2_bias.npy";
         auto out_conv2d_weight_name = folder_prefix + "_conv2_weight.npy";
         auto out_conv2d_bias_name = folder_prefix + "_conv2_bias.npy";
-        up_2_res_blocks[i] = new ResBlock(context, cmdQueue, deviceId, assetManager,
+        up_2_res_blocks[i] = new ResBlock(context, cmdQueue,
                                           512, 0, 512,
                                           in_group_norm_weight_name,
                                           in_group_norm_bias_name,
@@ -134,7 +134,7 @@ Decoder::Decoder(
                                           out_conv2d_weight_name,
                                           out_conv2d_bias_name,
                                           "", "",
-                                          linearKernel, convKernel, groupNormKernel);
+                                          linearKernel, convKernel, groupNormKernel, utilKernel);
     }
 
     up_2_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
@@ -167,7 +167,7 @@ Decoder::Decoder(
             in_skip_conv2d_weight_name = "";
             in_skip_conv2d_bias_name = "";
         }
-        up_1_res_blocks[i] = new ResBlock(context, cmdQueue, deviceId, assetManager,
+        up_1_res_blocks[i] = new ResBlock(context, cmdQueue,
                                           in_channel, 0, out_channel,
                                           in_group_norm_weight_name, in_group_norm_bias_name,
                                           in_conv2d_weight_name, in_conv2d_bias_name,
@@ -175,7 +175,7 @@ Decoder::Decoder(
                                           out_group_norm_weight_name, out_group_norm_bias_name,
                                           out_conv2d_weight_name, out_conv2d_bias_name,
                                           in_skip_conv2d_weight_name, in_skip_conv2d_bias_name,
-                                          linearKernel, convKernel, groupNormKernel);
+                                          linearKernel, convKernel, groupNormKernel, utilKernel);
     }
 
     up_1_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
@@ -208,7 +208,7 @@ Decoder::Decoder(
             in_skip_conv2d_weight_name = "";
             in_skip_conv2d_bias_name = "";
         }
-        up_0_res_blocks[i] = new ResBlock(context, cmdQueue, deviceId, assetManager,
+        up_0_res_blocks[i] = new ResBlock(context, cmdQueue,
                                           in_channel, 0, out_channel,
                                           in_group_norm_weight_name, in_group_norm_bias_name,
                                           in_conv2d_weight_name, in_conv2d_bias_name,
@@ -216,7 +216,7 @@ Decoder::Decoder(
                                           out_group_norm_weight_name, out_group_norm_bias_name,
                                           out_conv2d_weight_name, out_conv2d_bias_name,
                                           in_skip_conv2d_weight_name, in_skip_conv2d_bias_name,
-                                          linearKernel, convKernel, groupNormKernel);
+                                          linearKernel, convKernel, groupNormKernel, utilKernel);
     }
 
     out_group_norm = new GroupNorm(context, cmdQueue,
