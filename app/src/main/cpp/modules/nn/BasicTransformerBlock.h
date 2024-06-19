@@ -16,6 +16,7 @@
 #include "../kernel/unit/LayerNormKernel.h"
 #include "../kernel/unit/LinearKernel.h"
 #include "../kernel/unit/UtilKernel.h"
+#include "../kernel/unit/CrossAttentionKernel.h"
 
 class BasicTransformerBlock {
 public:
@@ -44,7 +45,8 @@ public:
                           const std::string &ff_net_linear_bias_name,
                           std::shared_ptr<LayerNormKernel> layerNormKernel,
                           std::shared_ptr<LinearKernel> linearKernel,
-                          std::shared_ptr<UtilKernel> utilKernel
+                          std::shared_ptr<UtilKernel> utilKernel,
+                          std::shared_ptr<CrossAttentionKernel> crossAttentionKernel
     );
 
     ~BasicTransformerBlock();

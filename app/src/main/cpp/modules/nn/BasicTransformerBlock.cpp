@@ -40,7 +40,8 @@ BasicTransformerBlock::BasicTransformerBlock(
         const std::string &ff_net_linear_weight_name, const std::string &ff_net_linear_bias_name,
         std::shared_ptr<LayerNormKernel> layerNormKernel,
         std::shared_ptr<LinearKernel> linearKernel,
-        std::shared_ptr<UtilKernel> utilKernel
+        std::shared_ptr<UtilKernel> utilKernel,
+        std::shared_ptr<CrossAttentionKernel> crossAttentionKernel
 ) : cmdQueue(cmdQueue), context(context), utilKernel(utilKernel) {
 
     layerNorm1 = new LayerNorm(context, cmdQueue, dim,
@@ -49,7 +50,7 @@ BasicTransformerBlock::BasicTransformerBlock(
                                layer_norm_2_weight_name, layer_norm_2_bias_name, layerNormKernel);
     layerNorm3 = new LayerNorm(context, cmdQueue, dim,
                                layer_norm_3_weight_name, layer_norm_3_bias_name, layerNormKernel);
-    crossAttention1 = new CrossAttention(context, cmdQueue, deviceId, assetManager,
+    crossAttention1 = new CrossAttention(context, cmdQueue,
                                          dim, 0, headSize, headDim,
                                          cross_1_q_linear_weight_name,
                                          cross_1_k_linear_weight_name,
@@ -57,8 +58,9 @@ BasicTransformerBlock::BasicTransformerBlock(
                                          cross_1_out_linear_weight_name,
                                          cross_1_out_linear_bias_name,
                                          linearKernel,
-                                         utilKernel);
-    crossAttention2 = new CrossAttention(context, cmdQueue, deviceId, assetManager,
+                                         utilKernel,
+                                         crossAttentionKernel);
+    crossAttention2 = new CrossAttention(context, cmdQueue,
                                          dim, context_dim, headSize, headDim,
                                          cross_2_q_linear_weight_name,
                                          cross_2_k_linear_weight_name,
@@ -66,7 +68,8 @@ BasicTransformerBlock::BasicTransformerBlock(
                                          cross_2_out_linear_weight_name,
                                          cross_2_out_linear_bias_name,
                                          linearKernel,
-                                         utilKernel);
+                                         utilKernel,
+                                         crossAttentionKernel);
     feedForward = new FeedForward(context, cmdQueue, deviceId, assetManager, dim,
                                   ff_geglu_linear_weight_name, ff_geglu_linear_bias_name,
                                   ff_net_linear_weight_name, ff_net_linear_bias_name,

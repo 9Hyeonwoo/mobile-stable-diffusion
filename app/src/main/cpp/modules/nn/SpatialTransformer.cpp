@@ -44,7 +44,8 @@ SpatialTransformer::SpatialTransformer(
         const std::string &out_linear_weight_name, const std::string &out_linear_bias_name,
         std::shared_ptr<LayerNormKernel> layerNormKernel,
         std::shared_ptr<LinearKernel> linearKernel,
-        std::shared_ptr<UtilKernel> utilKernel
+        std::shared_ptr<UtilKernel> utilKernel,
+        std::shared_ptr<CrossAttentionKernel> crossAttentionKernel
 ) : context(context), cmdQueue(cmdQueue), channels(channels), utilKernel(utilKernel) {
     cl_int err;
     size_t inner_dim = headSize * headDim;
@@ -75,7 +76,8 @@ SpatialTransformer::SpatialTransformer(
                                             ff_net_linear_weight_name, ff_net_linear_bias_name,
                                             layerNormKernel,
                                             linearKernel,
-                                            utilKernel);
+                                            utilKernel,
+                                            crossAttentionKernel);
 
     projOutLinear = new Linear(context, cmdQueue,
                                channels, inner_dim,

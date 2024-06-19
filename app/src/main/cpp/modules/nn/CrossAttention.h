@@ -8,15 +8,14 @@
 #define CL_TARGET_OPENCL_VERSION 200
 
 #include "CL/opencl.h"
-#include <android/asset_manager_jni.h>
 #include "Linear.h"
 #include "../kernel/unit/LinearKernel.h"
 #include "../kernel/unit/UtilKernel.h"
+#include "../kernel/unit/CrossAttentionKernel.h"
 
 class CrossAttention {
 public:
-    CrossAttention(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-                   AAssetManager *assetManager,
+    CrossAttention(cl_context context, cl_command_queue cmdQueue,
                    size_t query_dim, size_t context_dim, size_t headSize, size_t headDim,
                    const std::string &q_linear_weight_name,
                    const std::string &k_linear_weight_name,
@@ -24,7 +23,8 @@ public:
                    const std::string &out_linear_weight_name,
                    const std::string &out_linear_bias_name,
                    std::shared_ptr<LinearKernel> linearKernel,
-                   std::shared_ptr<UtilKernel> utilKernel
+                   std::shared_ptr<UtilKernel> utilKernel,
+                   std::shared_ptr<CrossAttentionKernel> crossAttentionKernel
     );
 
     ~CrossAttention();
@@ -46,10 +46,8 @@ private:
     Linear *toVLinear;
     Linear *toOutLinear;
 
-    cl_kernel kernel_einsum_bik_bjk_bij;
-    cl_kernel kernel_einsum_bij_bjk_bik;
-
     std::shared_ptr<UtilKernel> utilKernel;
+    std::shared_ptr<CrossAttentionKernel> crossAttentionKernel;
 };
 
 

@@ -23,17 +23,17 @@
     }
 
 CrossAttention::CrossAttention(
-        cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-        AAssetManager *assetManager,
+        cl_context context, cl_command_queue cmdQueue,
         size_t query_dim, size_t context_dim, size_t headSize, size_t headDim,
         const std::string &q_linear_weight_name,
         const std::string &k_linear_weight_name,
         const std::string &v_linear_weight_name,
         const std::string &out_linear_weight_name, const std::string &out_linear_bias_name,
         std::shared_ptr<LinearKernel> linearKernel,
-        std::shared_ptr<UtilKernel> utilKernel
-) : context(context), cmdQueue(cmdQueue), headSize(headSize), utilKernel(utilKernel) {
-    cl_int err;
+        std::shared_ptr<UtilKernel> utilKernel,
+        std::shared_ptr<CrossAttentionKernel> crossAttentionKernel
+) : context(context), cmdQueue(cmdQueue), headSize(headSize), utilKernel(utilKernel),
+    crossAttentionKernel(crossAttentionKernel) {
 
     scale = 1.f / sqrt(static_cast<float>(headDim));
 
@@ -61,17 +61,6 @@ CrossAttention::CrossAttention(
                              out_linear_weight_name,
                              out_linear_bias_name,
                              linearKernel);
-
-    cl_program program = util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                         "kernel/cross_attention.cl");
-
-    kernel_einsum_bik_bjk_bij = clCreateKernel(program, "einsum_bik_bjk_bij", &err);
-    CHECK_ERROR_THROW(err);
-
-    kernel_einsum_bij_bjk_bik = clCreateKernel(program, "einsum_bij_bjk_bik", &err);
-    CHECK_ERROR_THROW(err);
-
-    clReleaseProgram(program);
 }
 
 CrossAttention::~CrossAttention() {
@@ -79,8 +68,6 @@ CrossAttention::~CrossAttention() {
     delete toKLinear;
     delete toVLinear;
     delete toOutLinear;
-    clReleaseKernel(kernel_einsum_bik_bjk_bij);
-    clReleaseKernel(kernel_einsum_bij_bjk_bik);
 }
 
 void CrossAttention::init() {
@@ -225,16 +212,16 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     CHECK_ERROR(err);
 
     size_t kSize = toQLinear->weightShape[0] / headSize;
-    err = clSetKernelArg(kernel_einsum_bik_bjk_bij, 0, sizeof(cl_mem), &bufferPermuteQ);
-    err |= clSetKernelArg(kernel_einsum_bik_bjk_bij, 1, sizeof(cl_mem), &bufferPermuteK);
-    err |= clSetKernelArg(kernel_einsum_bik_bjk_bij, 2, sizeof(cl_mem), &bufferEinsumQK);
-    err |= clSetKernelArg(kernel_einsum_bik_bjk_bij, 3, sizeof(size_t), &kSize);
-    err |= clSetKernelArg(kernel_einsum_bik_bjk_bij, 4, sizeof(float), &scale);
+    err = clSetKernelArg(crossAttentionKernel->einsum_bik_bjk_bij, 0, sizeof(cl_mem), &bufferPermuteQ);
+    err |= clSetKernelArg(crossAttentionKernel->einsum_bik_bjk_bij, 1, sizeof(cl_mem), &bufferPermuteK);
+    err |= clSetKernelArg(crossAttentionKernel->einsum_bik_bjk_bij, 2, sizeof(cl_mem), &bufferEinsumQK);
+    err |= clSetKernelArg(crossAttentionKernel->einsum_bik_bjk_bij, 3, sizeof(size_t), &kSize);
+    err |= clSetKernelArg(crossAttentionKernel->einsum_bik_bjk_bij, 4, sizeof(float), &scale);
     CHECK_ERROR(err);
 
     size_t einsumQKGlobalSize[3] = {headSize, inputSize / toQLinear->weightShape[1],
                                     conditionSize / toKLinear->weightShape[1]};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_einsum_bik_bjk_bij, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, crossAttentionKernel->einsum_bik_bjk_bij, 3, nullptr,
                                  einsumQKGlobalSize, nullptr, 2, event0_1, &event0_2);
     CHECK_ERROR(err);
 
@@ -271,15 +258,15 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     // util::testBuffer(cmdQueue, bufferEinsumQK, "unet/input_block/test/test_basic_attn2_softmax.npy");
 
     size_t jSize = conditionSize / toKLinear->weightShape[1];
-    err = clSetKernelArg(kernel_einsum_bij_bjk_bik, 0, sizeof(cl_mem), &bufferEinsumQK);
-    err |= clSetKernelArg(kernel_einsum_bij_bjk_bik, 1, sizeof(cl_mem), &bufferPermuteV);
-    err |= clSetKernelArg(kernel_einsum_bij_bjk_bik, 2, sizeof(cl_mem), &bufferEinsumV);
-    err |= clSetKernelArg(kernel_einsum_bij_bjk_bik, 3, sizeof(size_t), &jSize);
+    err = clSetKernelArg(crossAttentionKernel->einsum_bij_bjk_bik, 0, sizeof(cl_mem), &bufferEinsumQK);
+    err |= clSetKernelArg(crossAttentionKernel->einsum_bij_bjk_bik, 1, sizeof(cl_mem), &bufferPermuteV);
+    err |= clSetKernelArg(crossAttentionKernel->einsum_bij_bjk_bik, 2, sizeof(cl_mem), &bufferEinsumV);
+    err |= clSetKernelArg(crossAttentionKernel->einsum_bij_bjk_bik, 3, sizeof(size_t), &jSize);
     CHECK_ERROR(err);
 
     size_t einsumVGlobalSize[3] = {headSize, inputSize / toQLinear->weightShape[1],
                                    toVLinear->weightShape[0] / headSize};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_einsum_bij_bjk_bik, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, crossAttentionKernel->einsum_bij_bjk_bik, 3, nullptr,
                                  einsumVGlobalSize, nullptr, 2, event2_1, &event2_2);
     CHECK_ERROR(err);
 
