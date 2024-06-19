@@ -21,32 +21,22 @@
     }
 
 GEGLU::GEGLU(
-        cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-        AAssetManager *assetManager,
+        cl_context context, cl_command_queue cmdQueue,
         size_t in_features, size_t out_features,
         const std::string &linear_weight_name, const std::string &linear_bias_name,
-        std::shared_ptr<LinearKernel> linearKernel
-) : context(context), cmdQueue(cmdQueue) {
-    cl_int err;
+        std::shared_ptr<LinearKernel> linearKernel,
+        std::shared_ptr<GEGLUKernel> gegluKernel
+) : context(context), cmdQueue(cmdQueue), kernel(gegluKernel) {
 
     linear = new Linear(context, cmdQueue,
                         in_features, out_features * 2,
                         linear_weight_name, linear_bias_name, linearKernel);
 
     weightShape = linear->weightShape;
-
-    auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                              "kernel/geglu.cl");
-
-    kernel_gelu_multiply = clCreateKernel(program, "gelu_multiply", &err);
-    CHECK_ERROR_THROW(err);
-
-    clReleaseProgram(program);
 }
 
 GEGLU::~GEGLU() {
     delete linear;
-    clReleaseKernel(kernel_gelu_multiply);
 }
 
 void GEGLU::init() {
@@ -77,12 +67,12 @@ cl_int GEGLU::forward(
     // max diff: 0.00001072883605957031
     // util::testBuffer(cmdQueue, bufferLinear, "unet/input_block/test/test_basic_ff_geglu_proj.npy");
 
-    err = clSetKernelArg(kernel_gelu_multiply, 0, sizeof(cl_mem), &bufferLinear);
-    err = clSetKernelArg(kernel_gelu_multiply, 1, sizeof(cl_mem), &output);
+    err = clSetKernelArg(kernel->gelu_multiply, 0, sizeof(cl_mem), &bufferLinear);
+    err = clSetKernelArg(kernel->gelu_multiply, 1, sizeof(cl_mem), &output);
     CHECK_ERROR(err);
 
     size_t globalSize[2] = {bufferSize / linear->weightShape[0], linear->weightShape[0] / 2};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_gelu_multiply, 2, nullptr, globalSize, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->gelu_multiply, 2, nullptr, globalSize, nullptr,
                                  1, &event0, event);
     CHECK_ERROR(err);
 

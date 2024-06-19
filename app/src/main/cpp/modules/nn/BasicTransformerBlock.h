@@ -12,16 +12,15 @@
 #include "CrossAttention.h"
 #include "FeedForward.h"
 
-#include <android/asset_manager_jni.h>
 #include "../kernel/unit/LayerNormKernel.h"
 #include "../kernel/unit/LinearKernel.h"
 #include "../kernel/unit/UtilKernel.h"
 #include "../kernel/unit/CrossAttentionKernel.h"
+#include "../kernel/unit/GEGLUKernel.h"
 
 class BasicTransformerBlock {
 public:
-    BasicTransformerBlock(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-                          AAssetManager *assetManager,
+    BasicTransformerBlock(cl_context context, cl_command_queue cmdQueue,
                           size_t dim, size_t context_dim, size_t headSize, size_t headDim,
                           const std::string &layer_norm_1_weight_name,
                           const std::string &layer_norm_1_bias_name,
@@ -46,7 +45,8 @@ public:
                           std::shared_ptr<LayerNormKernel> layerNormKernel,
                           std::shared_ptr<LinearKernel> linearKernel,
                           std::shared_ptr<UtilKernel> utilKernel,
-                          std::shared_ptr<CrossAttentionKernel> crossAttentionKernel
+                          std::shared_ptr<CrossAttentionKernel> crossAttentionKernel,
+                          std::shared_ptr<GEGLUKernel> gegluKernel
     );
 
     ~BasicTransformerBlock();

@@ -45,7 +45,8 @@ SpatialTransformer::SpatialTransformer(
         std::shared_ptr<LayerNormKernel> layerNormKernel,
         std::shared_ptr<LinearKernel> linearKernel,
         std::shared_ptr<UtilKernel> utilKernel,
-        std::shared_ptr<CrossAttentionKernel> crossAttentionKernel
+        std::shared_ptr<CrossAttentionKernel> crossAttentionKernel,
+        std::shared_ptr<GEGLUKernel> gegluKernel
 ) : context(context), cmdQueue(cmdQueue), channels(channels), utilKernel(utilKernel) {
     cl_int err;
     size_t inner_dim = headSize * headDim;
@@ -57,7 +58,7 @@ SpatialTransformer::SpatialTransformer(
                               in_linear_weight_name, in_linear_bias_name,
                               linearKernel);
 
-    transformer = new BasicTransformerBlock(context, cmdQueue, deviceId, assetManager,
+    transformer = new BasicTransformerBlock(context, cmdQueue,
                                             inner_dim, context_dim, headSize, headDim,
                                             layer_norm_1_weight_name, layer_norm_1_bias_name,
                                             layer_norm_2_weight_name, layer_norm_2_bias_name,
@@ -77,7 +78,8 @@ SpatialTransformer::SpatialTransformer(
                                             layerNormKernel,
                                             linearKernel,
                                             utilKernel,
-                                            crossAttentionKernel);
+                                            crossAttentionKernel,
+                                            gegluKernel);
 
     projOutLinear = new Linear(context, cmdQueue,
                                channels, inner_dim,

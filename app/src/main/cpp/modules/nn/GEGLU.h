@@ -9,19 +9,20 @@
 
 #include "CL/opencl.h"
 
-#include <android/asset_manager_jni.h>
-
 #include "Linear.h"
 #include <vector>
 #include "../kernel/unit/LinearKernel.h"
+#include "../kernel/unit/GEGLUKernel.h"
 
 class GEGLU {
 public:
-    GEGLU(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-          AAssetManager *assetManager,
-          size_t in_features, size_t out_features,
-          const std::string &linear_weight_name, const std::string &linear_bias_name,
-          std::shared_ptr<LinearKernel> linearKernel);
+    GEGLU(
+            cl_context context, cl_command_queue cmdQueue,
+            size_t in_features, size_t out_features,
+            const std::string &linear_weight_name, const std::string &linear_bias_name,
+            std::shared_ptr<LinearKernel> linearKernel,
+            std::shared_ptr<GEGLUKernel> gegluKernel
+    );
 
     ~GEGLU();
 
@@ -35,7 +36,7 @@ private:
     cl_command_queue cmdQueue;
     cl_context context;
 
-    cl_kernel kernel_gelu_multiply;
+    std::shared_ptr<GEGLUKernel> kernel;
 
     Linear *linear;
 };

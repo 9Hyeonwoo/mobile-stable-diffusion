@@ -17,6 +17,7 @@
 #include "kernel/unit/UtilKernel.h"
 #include "kernel/unit/ConvKernel.h"
 #include "kernel/unit/CrossAttentionKernel.h"
+#include "kernel/unit/GEGLUKernel.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -157,6 +158,7 @@ private:
     std::shared_ptr<UtilKernel> utilKernel;
     std::shared_ptr<ConvKernel> convKernel;
     std::shared_ptr<CrossAttentionKernel> crossAttentionKernel;
+    std::shared_ptr<GEGLUKernel> gegluKernel;
 };
 
 

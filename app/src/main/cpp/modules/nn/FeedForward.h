@@ -9,20 +9,21 @@
 
 #include "CL/opencl.h"
 
-#include <android/asset_manager_jni.h>
-
 #include "Linear.h"
 #include "GEGLU.h"
 #include "../kernel/unit/LinearKernel.h"
+#include "../kernel/unit/GEGLUKernel.h"
 
 class FeedForward {
 public:
-    FeedForward(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-                AAssetManager *assetManager,
-                size_t dim,
-                const std::string &geglu_linear_weight_name, const std::string &geglu_linear_bias_name,
-                const std::string &net_linear_weight_name, const std::string &net_linear_bias_name,
-                std::shared_ptr<LinearKernel> linearKernel);
+    FeedForward(
+            cl_context context, cl_command_queue cmdQueue,
+            size_t dim,
+            const std::string &geglu_linear_weight_name, const std::string &geglu_linear_bias_name,
+            const std::string &net_linear_weight_name, const std::string &net_linear_bias_name,
+            std::shared_ptr<LinearKernel> linearKernel,
+            std::shared_ptr<GEGLUKernel> gegluKernel
+    );
 
     ~FeedForward();
 
@@ -30,6 +31,7 @@ public:
                    const cl_event *event_wait_list, cl_event *event);
 
     void init();
+
 private:
     cl_context context;
     cl_command_queue cmdQueue;

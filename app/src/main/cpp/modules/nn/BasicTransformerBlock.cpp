@@ -22,8 +22,7 @@
     }
 
 BasicTransformerBlock::BasicTransformerBlock(
-        cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-        AAssetManager *assetManager,
+        cl_context context, cl_command_queue cmdQueue,
         size_t dim, size_t context_dim, size_t headSize, size_t headDim,
         const std::string &layer_norm_1_weight_name, const std::string &layer_norm_1_bias_name,
         const std::string &layer_norm_2_weight_name, const std::string &layer_norm_2_bias_name,
@@ -41,7 +40,8 @@ BasicTransformerBlock::BasicTransformerBlock(
         std::shared_ptr<LayerNormKernel> layerNormKernel,
         std::shared_ptr<LinearKernel> linearKernel,
         std::shared_ptr<UtilKernel> utilKernel,
-        std::shared_ptr<CrossAttentionKernel> crossAttentionKernel
+        std::shared_ptr<CrossAttentionKernel> crossAttentionKernel,
+        std::shared_ptr<GEGLUKernel> gegluKernel
 ) : cmdQueue(cmdQueue), context(context), utilKernel(utilKernel) {
 
     layerNorm1 = new LayerNorm(context, cmdQueue, dim,
@@ -70,10 +70,10 @@ BasicTransformerBlock::BasicTransformerBlock(
                                          linearKernel,
                                          utilKernel,
                                          crossAttentionKernel);
-    feedForward = new FeedForward(context, cmdQueue, deviceId, assetManager, dim,
+    feedForward = new FeedForward(context, cmdQueue, dim,
                                   ff_geglu_linear_weight_name, ff_geglu_linear_bias_name,
                                   ff_net_linear_weight_name, ff_net_linear_bias_name,
-                                  linearKernel);
+                                  linearKernel, gegluKernel);
 }
 
 void BasicTransformerBlock::init() {

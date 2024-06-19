@@ -30,6 +30,7 @@ UNetModel::UNetModel(
     utilKernel = std::make_shared<UtilKernel>(context, deviceId, assetManager);
     convKernel = std::make_shared<ConvKernel>(context, deviceId, assetManager);
     crossAttentionKernel = std::make_shared<CrossAttentionKernel>(context, deviceId, assetManager);
+    gegluKernel = std::make_shared<GEGLUKernel>(context, deviceId, assetManager);
     time_embed_0 = new Linear(context, cmdQueue,
                               320, 1280,
                               "unet/time_embed/time_embed_0_weight.npy",
@@ -97,7 +98,7 @@ void UNetModel::initInputBlock1() {
                                                    "unet/input_block/1/input_block_1_ff_net_linear_bias.npy",
                                                    "unet/input_block/1/input_block_1_spatial_out_linear_weight.npy",
                                                    "unet/input_block/1/input_block_1_spatial_out_linear_bias.npy",
-                                                   layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                   layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 }
 
 void UNetModel::initInputBlock2() {
@@ -144,7 +145,7 @@ void UNetModel::initInputBlock2() {
                                                    "unet/input_block/2/input_blocks_2_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                    "unet/input_block/2/input_blocks_2_1_proj_out_weight.npy",
                                                    "unet/input_block/2/input_blocks_2_1_proj_out_bias.npy",
-                                                   layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                   layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 
 }
 
@@ -201,7 +202,7 @@ void UNetModel::initInputBlock4() {
                                                    "unet/input_block/4/input_blocks_4_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                    "unet/input_block/4/input_blocks_4_1_proj_out_weight.npy",
                                                    "unet/input_block/4/input_blocks_4_1_proj_out_bias.npy",
-                                                   layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                   layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 }
 
 void UNetModel::initInputBlock5() {
@@ -248,7 +249,7 @@ void UNetModel::initInputBlock5() {
                                                    "unet/input_block/5/input_blocks_5_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                    "unet/input_block/5/input_blocks_5_1_proj_out_weight.npy",
                                                    "unet/input_block/5/input_blocks_5_1_proj_out_bias.npy",
-                                                   layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                   layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 
 }
 
@@ -305,7 +306,7 @@ void UNetModel::initInputBlock7() {
                                                    "unet/input_block/7/input_blocks_7_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                    "unet/input_block/7/input_blocks_7_1_proj_out_weight.npy",
                                                    "unet/input_block/7/input_blocks_7_1_proj_out_bias.npy",
-                                                   layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                   layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 }
 
 void UNetModel::initInputBlock8() {
@@ -352,7 +353,7 @@ void UNetModel::initInputBlock8() {
                                                    "unet/input_block/8/input_blocks_8_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                    "unet/input_block/8/input_blocks_8_1_proj_out_weight.npy",
                                                    "unet/input_block/8/input_blocks_8_1_proj_out_bias.npy",
-                                                   layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                   layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 }
 
 void UNetModel::initInputBlock9() {
@@ -442,7 +443,7 @@ void UNetModel::initMiddleBlock() {
                                                     "unet/middle_block/1/middle_block_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                     "unet/middle_block/1/middle_block_1_proj_out_weight.npy",
                                                     "unet/middle_block/1/middle_block_1_proj_out_bias.npy",
-                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 
     middle_block_2_res_block = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                             1280, TIME_EMBED_DIM, 1280,
@@ -566,7 +567,7 @@ void UNetModel::initOutputBlock3() {
                                                     "unet/output_block/3/output_blocks_3_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                     "unet/output_block/3/output_blocks_3_1_proj_out_weight.npy",
                                                     "unet/output_block/3/output_blocks_3_1_proj_out_bias.npy",
-                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 }
 
 void UNetModel::initOutputBlock4() {
@@ -614,7 +615,7 @@ void UNetModel::initOutputBlock4() {
                                                     "unet/output_block/4/output_blocks_4_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                     "unet/output_block/4/output_blocks_4_1_proj_out_weight.npy",
                                                     "unet/output_block/4/output_blocks_4_1_proj_out_bias.npy",
-                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 }
 
 void UNetModel::initOutputBlock5() {
@@ -662,7 +663,7 @@ void UNetModel::initOutputBlock5() {
                                                     "unet/output_block/5/output_blocks_5_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                     "unet/output_block/5/output_blocks_5_1_proj_out_weight.npy",
                                                     "unet/output_block/5/output_blocks_5_1_proj_out_bias.npy",
-                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 
     output_block_5_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
                                             1280, 1280, 3, 1, 1,
@@ -716,7 +717,7 @@ void UNetModel::initOutputBlock6() {
                                                     "unet/output_block/6/output_blocks_6_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                     "unet/output_block/6/output_blocks_6_1_proj_out_weight.npy",
                                                     "unet/output_block/6/output_blocks_6_1_proj_out_bias.npy",
-                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 }
 
 void UNetModel::initOutputBlock7() {
@@ -764,7 +765,7 @@ void UNetModel::initOutputBlock7() {
                                                     "unet/output_block/7/output_blocks_7_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                     "unet/output_block/7/output_blocks_7_1_proj_out_weight.npy",
                                                     "unet/output_block/7/output_blocks_7_1_proj_out_bias.npy",
-                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 }
 
 void UNetModel::initOutputBlock8() {
@@ -812,7 +813,7 @@ void UNetModel::initOutputBlock8() {
                                                     "unet/output_block/8/output_blocks_8_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                     "unet/output_block/8/output_blocks_8_1_proj_out_weight.npy",
                                                     "unet/output_block/8/output_blocks_8_1_proj_out_bias.npy",
-                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 
     output_block_8_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
                                             640, 640, 3, 1, 1,
@@ -866,7 +867,7 @@ void UNetModel::initOutputBlock9() {
                                                     "unet/output_block/9/output_blocks_9_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                     "unet/output_block/9/output_blocks_9_1_proj_out_weight.npy",
                                                     "unet/output_block/9/output_blocks_9_1_proj_out_bias.npy",
-                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                    layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 }
 
 void UNetModel::initOutputBlock10() {
@@ -914,7 +915,7 @@ void UNetModel::initOutputBlock10() {
                                                      "unet/output_block/10/output_blocks_10_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                      "unet/output_block/10/output_blocks_10_1_proj_out_weight.npy",
                                                      "unet/output_block/10/output_blocks_10_1_proj_out_bias.npy",
-                                                     layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                     layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 }
 
 void UNetModel::initOutputBlock11() {
@@ -962,7 +963,7 @@ void UNetModel::initOutputBlock11() {
                                                      "unet/output_block/11/output_blocks_11_1_transformer_blocks_0_ff_net_2_bias.npy",
                                                      "unet/output_block/11/output_blocks_11_1_proj_out_weight.npy",
                                                      "unet/output_block/11/output_blocks_11_1_proj_out_bias.npy",
-                                                     layerNormKernel, linearKernel, utilKernel, crossAttentionKernel);
+                                                     layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel);
 }
 
 void UNetModel::initOut() {
