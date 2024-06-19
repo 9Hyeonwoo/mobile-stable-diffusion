@@ -56,6 +56,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         modules/kernel/unit/CrossAttentionKernel.cpp
         modules/kernel/unit/GEGLUKernel.cpp
         modules/kernel/unit/GroupNormKernel.cpp
+        modules/kernel/unit/UpSampleKernel.cpp
 )
 
 # add libraries for OpenCL
