@@ -23,29 +23,19 @@
     }
 
 UpSample::UpSample(
-        cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-        AAssetManager *assetManager,
+        cl_context context, cl_command_queue cmdQueue,
         size_t in_channel, size_t out_channel, size_t kernel_size, int stride, int padding,
         const std::string &weight_name, const std::string &bias_name,
-        std::shared_ptr<ConvKernel> convKernel
-) : context(context), cmdQueue(cmdQueue), scale(2) {
-    cl_int err;
+        std::shared_ptr<ConvKernel> convKernel,
+        std::shared_ptr<UpSampleKernel> upSampleKernel
+) : context(context), cmdQueue(cmdQueue), scale(2), kernel(upSampleKernel) {
 
     conv2d = new Conv2D(context, cmdQueue,
                         in_channel, out_channel, kernel_size, stride, padding,
                         weight_name, bias_name, convKernel);
-
-    auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                              "kernel/up_sample.cl");
-
-    kernel_up_sample = clCreateKernel(program, "up_sample_nearest", &err);
-    CHECK_ERROR_THROW(err);
-
-    clReleaseProgram(program);
 }
 
 UpSample::~UpSample() {
-    clReleaseKernel(kernel_up_sample);
     delete conv2d;
 }
 
@@ -100,13 +90,13 @@ cl_int UpSample::forward(
                                     nullptr, &err);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(kernel_up_sample, 0, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel_up_sample, 1, sizeof(cl_mem), &bufferUpSample);
-    err |= clSetKernelArg(kernel_up_sample, 2, sizeof(size_t), &scale);
+    err = clSetKernelArg(kernel->up_sample_nearest, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel->up_sample_nearest, 1, sizeof(cl_mem), &bufferUpSample);
+    err |= clSetKernelArg(kernel->up_sample_nearest, 2, sizeof(size_t), &scale);
     CHECK_ERROR(err);
 
     size_t upSampleGlobalSize[3] = {inputChannel, height, height};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_up_sample, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->up_sample_nearest, 3, nullptr,
                                  upSampleGlobalSize, nullptr, num_events_in_list, event_wait_list,
                                  &event0);
     CHECK_ERROR(err);

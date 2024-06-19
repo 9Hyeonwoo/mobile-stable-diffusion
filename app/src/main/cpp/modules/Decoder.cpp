@@ -26,6 +26,7 @@ Decoder::Decoder(
     utilKernel = std::make_shared<UtilKernel>(context, deviceId, assetManager);
     convKernel = std::make_shared<ConvKernel>(context, deviceId, assetManager);
     groupNormKernel = std::make_shared<GroupNormKernel>(context, deviceId, assetManager);
+    upSampleKernel = std::make_shared<UpSampleKernel>(context, deviceId, assetManager);
 
     post_quant_conv2d = new Conv2D(context, cmdQueue,
                                    4, 4, 1, 1, 0,
@@ -105,11 +106,11 @@ Decoder::Decoder(
                                           linearKernel, convKernel, groupNormKernel, utilKernel);
     }
 
-    up_3_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
+    up_3_up_sample = new UpSample(context, cmdQueue,
                                   512, 512, 3, 1, 1,
                                   "decoder/up/3/decoder_up_3_upsample_conv_weight.npy",
                                   "decoder/up/3/decoder_up_3_upsample_conv_bias.npy",
-                                  convKernel);
+                                  convKernel, upSampleKernel);
 
     for (int i = 0; i < 3; i++) {
         auto folder_prefix =
@@ -137,11 +138,11 @@ Decoder::Decoder(
                                           linearKernel, convKernel, groupNormKernel, utilKernel);
     }
 
-    up_2_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
+    up_2_up_sample = new UpSample(context, cmdQueue,
                                   512, 512, 3, 1, 1,
                                   "decoder/up/2/decoder_up_2_upsample_conv_weight.npy",
                                   "decoder/up/2/decoder_up_2_upsample_conv_bias.npy",
-                                  convKernel);
+                                  convKernel, upSampleKernel);
 
     for (int i = 0; i < 3; i++) {
         auto folder_prefix =
@@ -178,11 +179,11 @@ Decoder::Decoder(
                                           linearKernel, convKernel, groupNormKernel, utilKernel);
     }
 
-    up_1_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
+    up_1_up_sample = new UpSample(context, cmdQueue,
                                   256, 256, 3, 1, 1,
                                   "decoder/up/1/decoder_up_1_upsample_conv_weight.npy",
                                   "decoder/up/1/decoder_up_1_upsample_conv_bias.npy",
-                                  convKernel);
+                                  convKernel, upSampleKernel);
 
     for (int i = 0; i < 3; i++) {
         auto folder_prefix =

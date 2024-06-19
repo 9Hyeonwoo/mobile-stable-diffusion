@@ -32,6 +32,7 @@ UNetModel::UNetModel(
     crossAttentionKernel = std::make_shared<CrossAttentionKernel>(context, deviceId, assetManager);
     gegluKernel = std::make_shared<GEGLUKernel>(context, deviceId, assetManager);
     groupNormKernel = std::make_shared<GroupNormKernel>(context, deviceId, assetManager);
+    upSampleKernel = std::make_shared<UpSampleKernel>(context, deviceId, assetManager);
     time_embed_0 = new Linear(context, cmdQueue,
                               320, 1280,
                               "unet/time_embed/time_embed_0_weight.npy",
@@ -516,11 +517,11 @@ void UNetModel::initOutputBlock2() {
                                             "unet/output_block/2/output_blocks_2_0_skip_connection_bias.npy",
                                             linearKernel, convKernel, groupNormKernel, utilKernel);
 
-    output_block_2_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
+    output_block_2_up_sample = new UpSample(context, cmdQueue,
                                             1280, 1280, 3, 1, 1,
                                             "unet/output_block/2/output_blocks_2_1_conv_weight.npy",
                                             "unet/output_block/2/output_blocks_2_1_conv_bias.npy",
-                                            convKernel);
+                                            convKernel, upSampleKernel);
 }
 
 void UNetModel::initOutputBlock3() {
@@ -666,11 +667,11 @@ void UNetModel::initOutputBlock5() {
                                                     "unet/output_block/5/output_blocks_5_1_proj_out_bias.npy",
                                                     layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel, groupNormKernel);
 
-    output_block_5_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
+    output_block_5_up_sample = new UpSample(context, cmdQueue,
                                             1280, 1280, 3, 1, 1,
                                             "unet/output_block/5/output_blocks_5_2_conv_weight.npy",
                                             "unet/output_block/5/output_blocks_5_2_conv_bias.npy",
-                                            convKernel);
+                                            convKernel, upSampleKernel);
 }
 
 void UNetModel::initOutputBlock6() {
@@ -816,11 +817,11 @@ void UNetModel::initOutputBlock8() {
                                                     "unet/output_block/8/output_blocks_8_1_proj_out_bias.npy",
                                                     layerNormKernel, linearKernel, utilKernel, crossAttentionKernel, gegluKernel, groupNormKernel);
 
-    output_block_8_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
+    output_block_8_up_sample = new UpSample(context, cmdQueue,
                                             640, 640, 3, 1, 1,
                                             "unet/output_block/8/output_blocks_8_2_conv_weight.npy",
                                             "unet/output_block/8/output_blocks_8_2_conv_bias.npy",
-                                            convKernel);
+                                            convKernel, upSampleKernel);
 }
 
 void UNetModel::initOutputBlock9() {

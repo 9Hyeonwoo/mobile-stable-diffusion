@@ -10,19 +10,18 @@
 
 #include "CL/opencl.h"
 
-#include <android/asset_manager_jni.h>
-
 #include "Conv2D.h"
 #include "../kernel/unit/ConvKernel.h"
+#include "../kernel/unit/UpSampleKernel.h"
 
 class UpSample {
 public:
     UpSample(
-            cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-            AAssetManager *assetManager,
+            cl_context context, cl_command_queue cmdQueue,
             size_t in_channel, size_t out_channel, size_t kernel_size, int stride, int padding,
             const std::string &weight_name, const std::string &bias_name,
-            std::shared_ptr<ConvKernel> convKernel
+            std::shared_ptr<ConvKernel> convKernel,
+            std::shared_ptr<UpSampleKernel> upSampleKernel
     );
 
     ~UpSample();
@@ -36,7 +35,7 @@ private:
     cl_context context;
     cl_command_queue cmdQueue;
 
-    cl_kernel kernel_up_sample;
+    std::shared_ptr<UpSampleKernel> kernel;
 
     Conv2D *conv2d;
 

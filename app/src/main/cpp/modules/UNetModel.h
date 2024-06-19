@@ -19,6 +19,7 @@
 #include "kernel/unit/CrossAttentionKernel.h"
 #include "kernel/unit/GEGLUKernel.h"
 #include "kernel/unit/GroupNormKernel.h"
+#include "kernel/unit/UpSampleKernel.h"
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -161,6 +162,7 @@ private:
     std::shared_ptr<CrossAttentionKernel> crossAttentionKernel;
     std::shared_ptr<GEGLUKernel> gegluKernel;
     std::shared_ptr<GroupNormKernel> groupNormKernel;
+    std::shared_ptr<UpSampleKernel> upSampleKernel;
 };
 
 
