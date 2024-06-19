@@ -24,16 +24,17 @@ Decoder::Decoder(
 
     linearKernel = std::make_shared<LinearKernel>(context, deviceId, assetManager);
     utilKernel = std::make_shared<UtilKernel>(context, deviceId, assetManager);
+    convKernel = std::make_shared<ConvKernel>(context, deviceId, assetManager);
 
-    post_quant_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+    post_quant_conv2d = new Conv2D(context, cmdQueue,
                                    4, 4, 1, 1, 0,
                                    "decoder/post_quant_conv_weight.npy",
-                                   "decoder/post_quant_conv_bias.npy");
+                                   "decoder/post_quant_conv_bias.npy", convKernel);
 
-    in_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+    in_conv2d = new Conv2D(context, cmdQueue,
                            4, 512, 3, 1, 1,
                            "decoder/decoder_conv_in_weight.npy",
-                           "decoder/decoder_conv_in_bias.npy");
+                           "decoder/decoder_conv_in_bias.npy", convKernel);
 
     mid_res_block_1 = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                    512, 0, 512,
@@ -47,7 +48,7 @@ Decoder::Decoder(
                                    "decoder/mid/decoder_mid_block_1_conv2_weight.npy",
                                    "decoder/mid/decoder_mid_block_1_conv2_bias.npy",
                                    "", "",
-                                   linearKernel);
+                                   linearKernel, convKernel);
 
     mid_attn_block = new AttnBlock(context, cmdQueue, deviceId, assetManager,
                                    512,
@@ -60,7 +61,8 @@ Decoder::Decoder(
                                    "decoder/mid/decoder_mid_attn_1_v_weight.npy",
                                    "decoder/mid/decoder_mid_attn_1_v_bias.npy",
                                    "decoder/mid/decoder_mid_attn_1_proj_out_weight.npy",
-                                   "decoder/mid/decoder_mid_attn_1_proj_out_bias.npy");
+                                   "decoder/mid/decoder_mid_attn_1_proj_out_bias.npy",
+                                   convKernel);
 
     mid_res_block_2 = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                    512, 0, 512,
@@ -74,7 +76,7 @@ Decoder::Decoder(
                                    "decoder/mid/decoder_mid_block_2_conv2_weight.npy",
                                    "decoder/mid/decoder_mid_block_2_conv2_bias.npy",
                                    "", "",
-                                   linearKernel);
+                                   linearKernel, convKernel);
 
     for (int i = 0; i < 3; i++) {
         auto folder_prefix =
@@ -99,13 +101,14 @@ Decoder::Decoder(
                                           out_conv2d_weight_name,
                                           out_conv2d_bias_name,
                                           "", "",
-                                          linearKernel);
+                                          linearKernel, convKernel);
     }
 
     up_3_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
                                   512, 512, 3, 1, 1,
                                   "decoder/up/3/decoder_up_3_upsample_conv_weight.npy",
-                                  "decoder/up/3/decoder_up_3_upsample_conv_bias.npy");
+                                  "decoder/up/3/decoder_up_3_upsample_conv_bias.npy",
+                                  convKernel);
 
     for (int i = 0; i < 3; i++) {
         auto folder_prefix =
@@ -130,13 +133,14 @@ Decoder::Decoder(
                                           out_conv2d_weight_name,
                                           out_conv2d_bias_name,
                                           "", "",
-                                          linearKernel);
+                                          linearKernel, convKernel);
     }
 
     up_2_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
                                   512, 512, 3, 1, 1,
                                   "decoder/up/2/decoder_up_2_upsample_conv_weight.npy",
-                                  "decoder/up/2/decoder_up_2_upsample_conv_bias.npy");
+                                  "decoder/up/2/decoder_up_2_upsample_conv_bias.npy",
+                                  convKernel);
 
     for (int i = 0; i < 3; i++) {
         auto folder_prefix =
@@ -170,13 +174,14 @@ Decoder::Decoder(
                                           out_group_norm_weight_name, out_group_norm_bias_name,
                                           out_conv2d_weight_name, out_conv2d_bias_name,
                                           in_skip_conv2d_weight_name, in_skip_conv2d_bias_name,
-                                          linearKernel);
+                                          linearKernel, convKernel);
     }
 
     up_1_up_sample = new UpSample(context, cmdQueue, deviceId, assetManager,
                                   256, 256, 3, 1, 1,
                                   "decoder/up/1/decoder_up_1_upsample_conv_weight.npy",
-                                  "decoder/up/1/decoder_up_1_upsample_conv_bias.npy");
+                                  "decoder/up/1/decoder_up_1_upsample_conv_bias.npy",
+                                  convKernel);
 
     for (int i = 0; i < 3; i++) {
         auto folder_prefix =
@@ -210,7 +215,7 @@ Decoder::Decoder(
                                           out_group_norm_weight_name, out_group_norm_bias_name,
                                           out_conv2d_weight_name, out_conv2d_bias_name,
                                           in_skip_conv2d_weight_name, in_skip_conv2d_bias_name,
-                                          linearKernel);
+                                          linearKernel, convKernel);
     }
 
     out_group_norm = new GroupNorm(context, cmdQueue, deviceId, assetManager,
@@ -218,10 +223,10 @@ Decoder::Decoder(
                                    "decoder/out/decoder_norm_out_weight.npy",
                                    "decoder/out/decoder_norm_out_bias.npy");
 
-    out_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+    out_conv2d = new Conv2D(context, cmdQueue,
                             128, 3, 3, 1, 1,
                             "decoder/out/decoder_conv_out_weight.npy",
-                            "decoder/out/decoder_conv_out_bias.npy");
+                            "decoder/out/decoder_conv_out_bias.npy", convKernel);
 
     post_quant_conv2d->init();
     in_conv2d->init();

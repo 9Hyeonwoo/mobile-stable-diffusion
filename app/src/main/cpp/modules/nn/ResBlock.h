@@ -14,19 +14,25 @@
 #include "Conv2D.h"
 #include "Linear.h"
 #include "../kernel/unit/LinearKernel.h"
+#include "../kernel/unit/ConvKernel.h"
 
 class ResBlock {
 public:
-    ResBlock(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-             AAssetManager *assetManager,
-             size_t in_channels, size_t emb_channels, size_t out_channels,
-             const std::string &in_group_norm_weight_name, const std::string &in_group_norm_bias_name,
-             const std::string &in_conv2d_weight_name, const std::string &in_conv2d_bias_name,
-             const std::string& embed_linear_weight_name, const std::string& embed_linear_bias_name,
-             const std::string &out_group_norm_weight_name, const std::string &out_group_norm_bias_name,
-             const std::string &out_conv2d_weight_name, const std::string &out_conv2d_bias_name,
-             const std::string& skip_conv2d_weight_name, const std::string& skip_conv2d_bias_name,
-             std::shared_ptr<LinearKernel> linearKernel);
+    ResBlock(
+            cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
+            AAssetManager *assetManager,
+            size_t in_channels, size_t emb_channels, size_t out_channels,
+            const std::string &in_group_norm_weight_name,
+            const std::string &in_group_norm_bias_name,
+            const std::string &in_conv2d_weight_name, const std::string &in_conv2d_bias_name,
+            const std::string &embed_linear_weight_name, const std::string &embed_linear_bias_name,
+            const std::string &out_group_norm_weight_name,
+            const std::string &out_group_norm_bias_name,
+            const std::string &out_conv2d_weight_name, const std::string &out_conv2d_bias_name,
+            const std::string &skip_conv2d_weight_name, const std::string &skip_conv2d_bias_name,
+            std::shared_ptr<LinearKernel> linearKernel,
+            std::shared_ptr<ConvKernel> convKernel
+    );
 
     ~ResBlock();
 

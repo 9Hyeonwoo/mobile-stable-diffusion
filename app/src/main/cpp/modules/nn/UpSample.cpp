@@ -26,13 +26,14 @@ UpSample::UpSample(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager,
         size_t in_channel, size_t out_channel, size_t kernel_size, int stride, int padding,
-        const std::string &weight_name, const std::string &bias_name
+        const std::string &weight_name, const std::string &bias_name,
+        std::shared_ptr<ConvKernel> convKernel
 ) : context(context), cmdQueue(cmdQueue), scale(2) {
     cl_int err;
 
-    conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+    conv2d = new Conv2D(context, cmdQueue,
                         in_channel, out_channel, kernel_size, stride, padding,
-                        weight_name, bias_name);
+                        weight_name, bias_name, convKernel);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/up_sample.cl");

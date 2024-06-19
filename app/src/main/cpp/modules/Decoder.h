@@ -18,6 +18,7 @@
 #include "CL/opencl.h"
 #include "kernel/unit/LinearKernel.h"
 #include "kernel/unit/UtilKernel.h"
+#include "kernel/unit/ConvKernel.h"
 
 class Decoder {
 public:
@@ -60,6 +61,7 @@ private:
 
     std::shared_ptr<LinearKernel> linearKernel;
     std::shared_ptr<UtilKernel> utilKernel;
+    std::shared_ptr<ConvKernel> convKernel;
 };
 
 

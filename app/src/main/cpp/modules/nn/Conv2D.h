@@ -12,13 +12,14 @@
 #define CL_TARGET_OPENCL_VERSION 200
 
 #include "CL/opencl.h"
+#include "../kernel/unit/ConvKernel.h"
 
 class Conv2D {
 public:
-    Conv2D(cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
-           AAssetManager *assetManager,
+    Conv2D(cl_context context, cl_command_queue cmdQueue,
            size_t in_channel, size_t out_channel, size_t kernel_size, int stride, int padding,
-           const std::string &weight_name, const std::string &bias_name);
+           const std::string &weight_name, const std::string &bias_name,
+           std::shared_ptr<ConvKernel> kernel);
 
     ~Conv2D();
 
@@ -35,12 +36,7 @@ private:
     cl_context context;
     cl_command_queue cmdQueue;
 
-    cl_kernel kernel;
-    cl_kernel kernel_im2col;
-    cl_kernel kernel_conv2d_matmul;
-    cl_kernel kernel_im2win;
-    cl_kernel kernel_im2win_matmul;
-    cl_kernel kernel_im2win_batch_matmul;
+    std::shared_ptr<ConvKernel> kernel;
 
     cl_mem bufferWeight;
     cl_mem bufferBias;

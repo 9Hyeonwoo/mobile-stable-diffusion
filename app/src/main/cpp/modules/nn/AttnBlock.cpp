@@ -32,7 +32,8 @@ AttnBlock::AttnBlock(
         const std::string &q_conv2d_weight_name, const std::string &q_conv2d_bias_name,
         const std::string &k_conv2d_weight_name, const std::string &k_conv2d_bias_name,
         const std::string &v_conv2d_weight_name, const std::string &v_conv2d_bias_name,
-        const std::string &out_conv2d_weight_name, const std::string &out_conv2d_bias_name
+        const std::string &out_conv2d_weight_name, const std::string &out_conv2d_bias_name,
+        std::shared_ptr<ConvKernel> convKernel
 ) : context(context), cmdQueue(cmdQueue), in_channels(in_channels) {
     cl_int err;
 
@@ -40,21 +41,21 @@ AttnBlock::AttnBlock(
                               32, in_channels, 1e-6,
                               group_norm_weight, group_norm_bias);
 
-    to_q_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+    to_q_conv2d = new Conv2D(context, cmdQueue,
                              in_channels, in_channels, 1, 1, 0,
-                             q_conv2d_weight_name, q_conv2d_bias_name);
+                             q_conv2d_weight_name, q_conv2d_bias_name, convKernel);
 
-    to_k_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+    to_k_conv2d = new Conv2D(context, cmdQueue,
                              in_channels, in_channels, 1, 1, 0,
-                             k_conv2d_weight_name, k_conv2d_bias_name);
+                             k_conv2d_weight_name, k_conv2d_bias_name, convKernel);
 
-    to_v_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+    to_v_conv2d = new Conv2D(context, cmdQueue,
                              in_channels, in_channels, 1, 1, 0,
-                             v_conv2d_weight_name, v_conv2d_bias_name);
+                             v_conv2d_weight_name, v_conv2d_bias_name, convKernel);
 
-    out_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
+    out_conv2d = new Conv2D(context, cmdQueue,
                             in_channels, in_channels, 1, 1, 0,
-                            out_conv2d_weight_name, out_conv2d_bias_name);
+                            out_conv2d_weight_name, out_conv2d_bias_name, convKernel);
 
     auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
                                                               "kernel/util.cl");
