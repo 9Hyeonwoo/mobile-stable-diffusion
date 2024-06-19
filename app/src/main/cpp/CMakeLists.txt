@@ -52,6 +52,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         modules/kernel/unit/LinearKernel.cpp
         modules/kernel/unit/MultiHeadAttentionKernel.cpp
         modules/kernel/unit/UtilKernel.cpp
+        modules/kernel/unit/ConvKernel.cpp
 )
 
 # add libraries for OpenCL
