@@ -39,6 +39,12 @@ UtilKernel::UtilKernel(cl_context context, cl_device_id deviceId, AAssetManager 
     silu = clCreateKernel(program, "silu", &err);
     CHECK_ERROR_THROW(err);
 
+    batch_matmul = clCreateKernel(program, "batch_matmul", &err);
+    CHECK_ERROR_THROW(err);
+
+    batch_matmul_scale = clCreateKernel(program, "batch_matmul_scale", &err);
+    CHECK_ERROR_THROW(err);
+
     clReleaseProgram(program);
 }
 
@@ -49,4 +55,6 @@ UtilKernel::~UtilKernel() {
     clReleaseKernel(gelu);
     clReleaseKernel(softmax);
     clReleaseKernel(silu);
+    clReleaseKernel(batch_matmul);
+    clReleaseKernel(batch_matmul_scale);
 }

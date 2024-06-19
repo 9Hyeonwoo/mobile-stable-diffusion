@@ -33,9 +33,9 @@ AttnBlock::AttnBlock(
         const std::string &k_conv2d_weight_name, const std::string &k_conv2d_bias_name,
         const std::string &v_conv2d_weight_name, const std::string &v_conv2d_bias_name,
         const std::string &out_conv2d_weight_name, const std::string &out_conv2d_bias_name,
-        std::shared_ptr<ConvKernel> convKernel
-) : context(context), cmdQueue(cmdQueue), in_channels(in_channels) {
-    cl_int err;
+        std::shared_ptr<ConvKernel> convKernel,
+        std::shared_ptr<UtilKernel> utilKernel
+) : context(context), cmdQueue(cmdQueue), in_channels(in_channels), utilKernel(utilKernel) {
 
     groupNorm = new GroupNorm(context, cmdQueue, deviceId, assetManager,
                               32, in_channels, 1e-6,
@@ -56,26 +56,6 @@ AttnBlock::AttnBlock(
     out_conv2d = new Conv2D(context, cmdQueue,
                             in_channels, in_channels, 1, 1, 0,
                             out_conv2d_weight_name, out_conv2d_bias_name, convKernel);
-
-    auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                              "kernel/util.cl");
-
-    kernel_permute3D_0_2_1 = clCreateKernel(program, "permute3D__0_2_1", &err);
-    CHECK_ERROR_THROW(err);
-
-    kernel_batch_matmul = clCreateKernel(program, "batch_matmul", &err);
-    CHECK_ERROR_THROW(err);
-
-    kernel_softmax = clCreateKernel(program, "softmax", &err);
-    CHECK_ERROR_THROW(err);
-
-    kernel_elem_add = clCreateKernel(program, "elemwise_add", &err);
-    CHECK_ERROR_THROW(err);
-
-    kernel_batch_matmul_scale = clCreateKernel(program, "batch_matmul_scale", &err);
-    CHECK_ERROR_THROW(err);
-
-    clReleaseProgram(program);
 }
 
 AttnBlock::~AttnBlock() {
@@ -84,11 +64,6 @@ AttnBlock::~AttnBlock() {
     delete to_k_conv2d;
     delete to_v_conv2d;
     delete out_conv2d;
-    clReleaseKernel(kernel_permute3D_0_2_1);
-    clReleaseKernel(kernel_batch_matmul);
-    clReleaseKernel(kernel_softmax);
-    clReleaseKernel(kernel_elem_add);
-    clReleaseKernel(kernel_batch_matmul_scale);
 }
 
 void AttnBlock::init() {
@@ -162,26 +137,26 @@ cl_int AttnBlock::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
     err = to_v_conv2d->forward(bufferNorm, bufferV, 1, &events[0], &events[7]);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(kernel_permute3D_0_2_1, 0, sizeof(cl_mem), &bufferQ);
-    err |= clSetKernelArg(kernel_permute3D_0_2_1, 1, sizeof(cl_mem), &bufferPermuteQ);
+    err = clSetKernelArg(utilKernel->permute3D_0_2_1, 0, sizeof(cl_mem), &bufferQ);
+    err |= clSetKernelArg(utilKernel->permute3D_0_2_1, 1, sizeof(cl_mem), &bufferPermuteQ);
     CHECK_ERROR(err);
 
     size_t global_size[3] = {1, in_channels, heightXwidth};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_0_2_1, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->permute3D_0_2_1, 3, nullptr,
                                  global_size, nullptr, 1, &events[1], &events[3]);
     CHECK_ERROR(err);
 
     float scale = 1.f / sqrtf(static_cast<float>(in_channels));
     /* naive - batch matmul
-    err = clSetKernelArg(kernel_batch_matmul, 0, sizeof(cl_mem), &bufferPermuteQ);
-    err |= clSetKernelArg(kernel_batch_matmul, 1, sizeof(cl_mem), &bufferK);
-    err |= clSetKernelArg(kernel_batch_matmul, 2, sizeof(cl_mem), &bufferQK);
-    err |= clSetKernelArg(kernel_batch_matmul, 3, sizeof(size_t), &in_channels);
-    err |= clSetKernelArg(kernel_batch_matmul, 4, sizeof(float), &scale);
+    err = clSetKernelArg(utilKernel->batch_matmul, 0, sizeof(cl_mem), &bufferPermuteQ);
+    err |= clSetKernelArg(utilKernel->batch_matmul, 1, sizeof(cl_mem), &bufferK);
+    err |= clSetKernelArg(utilKernel->batch_matmul, 2, sizeof(cl_mem), &bufferQK);
+    err |= clSetKernelArg(utilKernel->batch_matmul, 3, sizeof(size_t), &in_channels);
+    err |= clSetKernelArg(utilKernel->batch_matmul, 4, sizeof(float), &scale);
     CHECK_ERROR(err);
 
     size_t QKGlobalSize[3] = {1, heightXwidth, heightXwidth};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_batch_matmul, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->batch_matmul, 3, nullptr,
                                  QKGlobalSize, nullptr, 2, &events[2], &events[4]);
     CHECK_ERROR(err);
     naive - batch matmul */
@@ -200,55 +175,55 @@ cl_int AttnBlock::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
                             __LINE__, in_channels);
         return CL_INVALID_VALUE;
     }
-    err = clSetKernelArg(kernel_batch_matmul_scale, 0, sizeof(cl_mem), &bufferPermuteQ);
-    err |= clSetKernelArg(kernel_batch_matmul_scale, 1, sizeof(cl_mem), &bufferK);
-    err |= clSetKernelArg(kernel_batch_matmul_scale, 2, sizeof(cl_mem), &bufferQK);
-    err |= clSetKernelArg(kernel_batch_matmul_scale, 3, sizeof(size_t), &heightXwidth);
-    err |= clSetKernelArg(kernel_batch_matmul_scale, 4, sizeof(size_t), &heightXwidth);
-    err |= clSetKernelArg(kernel_batch_matmul_scale, 5, sizeof(size_t), &in_channels);
-    err |= clSetKernelArg(kernel_batch_matmul_scale, 6, sizeof(float), &scale);
+    err = clSetKernelArg(utilKernel->batch_matmul_scale, 0, sizeof(cl_mem), &bufferPermuteQ);
+    err |= clSetKernelArg(utilKernel->batch_matmul_scale, 1, sizeof(cl_mem), &bufferK);
+    err |= clSetKernelArg(utilKernel->batch_matmul_scale, 2, sizeof(cl_mem), &bufferQK);
+    err |= clSetKernelArg(utilKernel->batch_matmul_scale, 3, sizeof(size_t), &heightXwidth);
+    err |= clSetKernelArg(utilKernel->batch_matmul_scale, 4, sizeof(size_t), &heightXwidth);
+    err |= clSetKernelArg(utilKernel->batch_matmul_scale, 5, sizeof(size_t), &in_channels);
+    err |= clSetKernelArg(utilKernel->batch_matmul_scale, 6, sizeof(float), &scale);
     CHECK_ERROR(err);
 
     size_t QxKGlobalSize[3] = {1, heightXwidth/reg_size, heightXwidth/reg_size};
     size_t QxKLocalSize[3] = {1, tile_size/reg_size, tile_size/reg_size};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_batch_matmul_scale, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->batch_matmul_scale, 3, nullptr,
                                  QxKGlobalSize, QxKLocalSize, 2, &events[2], &events[4]);
     CHECK_ERROR(err);
     /* optimized batch matmul - Q x K */
 
-    err = clSetKernelArg(kernel_softmax, 0, sizeof(cl_mem), &bufferQK);
-    err |= clSetKernelArg(kernel_softmax, 1, sizeof(cl_mem), &bufferQK);
-    err |= clSetKernelArg(kernel_softmax, 2, sizeof(float) * WORK_GROUP_SIZE, nullptr);
-    err |= clSetKernelArg(kernel_softmax, 3, sizeof(float) * heightXwidth, nullptr);
-    err |= clSetKernelArg(kernel_softmax, 4, sizeof(size_t), &heightXwidth);
+    err = clSetKernelArg(utilKernel->softmax, 0, sizeof(cl_mem), &bufferQK);
+    err |= clSetKernelArg(utilKernel->softmax, 1, sizeof(cl_mem), &bufferQK);
+    err |= clSetKernelArg(utilKernel->softmax, 2, sizeof(float) * WORK_GROUP_SIZE, nullptr);
+    err |= clSetKernelArg(utilKernel->softmax, 3, sizeof(float) * heightXwidth, nullptr);
+    err |= clSetKernelArg(utilKernel->softmax, 4, sizeof(size_t), &heightXwidth);
     CHECK_ERROR(err);
 
     size_t softmaxGlobalSize[1] = {heightXwidth * WORK_GROUP_SIZE};
     size_t softmaxLocalSize[1] = {WORK_GROUP_SIZE};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_softmax, 1, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->softmax, 1, nullptr,
                                  softmaxGlobalSize, softmaxLocalSize, 1, &events[4], &events[5]);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(kernel_permute3D_0_2_1, 0, sizeof(cl_mem), &bufferQK);
-    err |= clSetKernelArg(kernel_permute3D_0_2_1, 1, sizeof(cl_mem), &bufferPermuteQK);
+    err = clSetKernelArg(utilKernel->permute3D_0_2_1, 0, sizeof(cl_mem), &bufferQK);
+    err |= clSetKernelArg(utilKernel->permute3D_0_2_1, 1, sizeof(cl_mem), &bufferPermuteQK);
     CHECK_ERROR(err);
 
     size_t QKGlobalSize[3] = {1, heightXwidth, heightXwidth};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_permute3D_0_2_1, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->permute3D_0_2_1, 3, nullptr,
                                  QKGlobalSize, nullptr, 1, &events[5], &events[6]);
     CHECK_ERROR(err);
 
     float identity = 1.f;
     /* naive batch matmul - V x QK
-    err = clSetKernelArg(kernel_batch_matmul, 0, sizeof(cl_mem), &bufferV);
-    err |= clSetKernelArg(kernel_batch_matmul, 1, sizeof(cl_mem), &bufferPermuteQK);
-    err |= clSetKernelArg(kernel_batch_matmul, 2, sizeof(cl_mem), &bufferQ);
-    err |= clSetKernelArg(kernel_batch_matmul, 3, sizeof(size_t), &heightXwidth);
-    err |= clSetKernelArg(kernel_batch_matmul, 4, sizeof(float), &identity);
+    err = clSetKernelArg(utilKernel->batch_matmul, 0, sizeof(cl_mem), &bufferV);
+    err |= clSetKernelArg(utilKernel->batch_matmul, 1, sizeof(cl_mem), &bufferPermuteQK);
+    err |= clSetKernelArg(utilKernel->batch_matmul, 2, sizeof(cl_mem), &bufferQ);
+    err |= clSetKernelArg(utilKernel->batch_matmul, 3, sizeof(size_t), &heightXwidth);
+    err |= clSetKernelArg(utilKernel->batch_matmul, 4, sizeof(float), &identity);
     CHECK_ERROR(err);
 
     size_t VQKGlobalSize[3] = {1, in_channels, heightXwidth};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_batch_matmul, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->batch_matmul, 3, nullptr,
                                  VQKGlobalSize, nullptr, 2, &events[6], &events[8]);
     CHECK_ERROR(err);
     naive batch matmul - V x QK */
@@ -272,18 +247,18 @@ cl_int AttnBlock::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
                             __LINE__, heightXwidth, tile_size_k);
         return CL_INVALID_VALUE;
     }
-    err = clSetKernelArg(kernel_batch_matmul_scale, 0, sizeof(cl_mem), &bufferV);
-    err |= clSetKernelArg(kernel_batch_matmul_scale, 1, sizeof(cl_mem), &bufferPermuteQK);
-    err |= clSetKernelArg(kernel_batch_matmul_scale, 2, sizeof(cl_mem), &bufferQ);
-    err |= clSetKernelArg(kernel_batch_matmul_scale, 3, sizeof(size_t), &in_channels);
-    err |= clSetKernelArg(kernel_batch_matmul_scale, 4, sizeof(size_t), &heightXwidth);
-    err |= clSetKernelArg(kernel_batch_matmul_scale, 5, sizeof(size_t), &heightXwidth);
-    err |= clSetKernelArg(kernel_batch_matmul_scale, 6, sizeof(float), &identity);
+    err = clSetKernelArg(utilKernel->batch_matmul_scale, 0, sizeof(cl_mem), &bufferV);
+    err |= clSetKernelArg(utilKernel->batch_matmul_scale, 1, sizeof(cl_mem), &bufferPermuteQK);
+    err |= clSetKernelArg(utilKernel->batch_matmul_scale, 2, sizeof(cl_mem), &bufferQ);
+    err |= clSetKernelArg(utilKernel->batch_matmul_scale, 3, sizeof(size_t), &in_channels);
+    err |= clSetKernelArg(utilKernel->batch_matmul_scale, 4, sizeof(size_t), &heightXwidth);
+    err |= clSetKernelArg(utilKernel->batch_matmul_scale, 5, sizeof(size_t), &heightXwidth);
+    err |= clSetKernelArg(utilKernel->batch_matmul_scale, 6, sizeof(float), &identity);
     CHECK_ERROR(err);
 
     size_t VQKGlobalSize[3] = {1, in_channels/reg_size, heightXwidth/reg_size};
     size_t VQKLocalSize[3] = {1, tile_size/reg_size, tile_size/reg_size};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_batch_matmul_scale, 3, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->batch_matmul_scale, 3, nullptr,
                                  VQKGlobalSize, VQKLocalSize, 2, &events[6], &events[8]);
     CHECK_ERROR(err);
     /*optimized batch matmul - V x QK */
@@ -292,13 +267,13 @@ cl_int AttnBlock::forward(cl_mem input, cl_mem output, cl_uint num_events_in_lis
     err = out_conv2d->forward(bufferQ, bufferK, 1, &events[8], &events[9]);
     CHECK_ERROR(err);
 
-    err = clSetKernelArg(kernel_elem_add, 0, sizeof(cl_mem), &bufferK);
-    err |= clSetKernelArg(kernel_elem_add, 1, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel_elem_add, 2, sizeof(cl_mem), &output);
+    err = clSetKernelArg(utilKernel->elemwise_add, 0, sizeof(cl_mem), &bufferK);
+    err |= clSetKernelArg(utilKernel->elemwise_add, 1, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(utilKernel->elemwise_add, 2, sizeof(cl_mem), &output);
     CHECK_ERROR(err);
 
     size_t elemAddGlobalSize[1] = {inputBytes / sizeof(float)};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_elem_add, 1, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->elemwise_add, 1, nullptr,
                                  elemAddGlobalSize, nullptr, 1, &events[9], event);
     CHECK_ERROR(err);
 

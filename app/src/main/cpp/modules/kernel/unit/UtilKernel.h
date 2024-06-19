@@ -20,6 +20,8 @@ public:
     cl_kernel gelu;
     cl_kernel softmax;
     cl_kernel silu;
+    cl_kernel batch_matmul;
+    cl_kernel batch_matmul_scale;
 };
 
 

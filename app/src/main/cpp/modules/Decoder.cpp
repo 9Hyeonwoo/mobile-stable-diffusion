@@ -62,7 +62,7 @@ Decoder::Decoder(
                                    "decoder/mid/decoder_mid_attn_1_v_bias.npy",
                                    "decoder/mid/decoder_mid_attn_1_proj_out_weight.npy",
                                    "decoder/mid/decoder_mid_attn_1_proj_out_bias.npy",
-                                   convKernel);
+                                   convKernel, utilKernel);
 
     mid_res_block_2 = new ResBlock(context, cmdQueue, deviceId, assetManager,
                                    512, 0, 512,
