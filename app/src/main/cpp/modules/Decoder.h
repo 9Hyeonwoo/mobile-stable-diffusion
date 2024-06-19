@@ -17,6 +17,7 @@
 
 #include "CL/opencl.h"
 #include "kernel/unit/LinearKernel.h"
+#include "kernel/unit/UtilKernel.h"
 
 class Decoder {
 public:
@@ -32,8 +33,6 @@ public:
 private:
     cl_context context;
     cl_command_queue cmdQueue;
-
-    cl_kernel kernel_silu;
 
     Conv2D *post_quant_conv2d;
 
@@ -60,6 +59,7 @@ private:
     Conv2D *out_conv2d;
 
     std::shared_ptr<LinearKernel> linearKernel;
+    std::shared_ptr<UtilKernel> utilKernel;
 };
 
 

@@ -21,9 +21,9 @@ Decoder::Decoder(
         cl_context context, cl_command_queue cmdQueue, cl_device_id deviceId,
         AAssetManager *assetManager
 ) : context(context), cmdQueue(cmdQueue) {
-    cl_int err;
 
     linearKernel = std::make_shared<LinearKernel>(context, deviceId, assetManager);
+    utilKernel = std::make_shared<UtilKernel>(context, deviceId, assetManager);
 
     post_quant_conv2d = new Conv2D(context, cmdQueue, deviceId, assetManager,
                                    4, 4, 1, 1, 0,
@@ -223,13 +223,6 @@ Decoder::Decoder(
                             "decoder/out/decoder_conv_out_weight.npy",
                             "decoder/out/decoder_conv_out_bias.npy");
 
-    auto program = util::create_and_build_program_with_source(context, deviceId, assetManager,
-                                                              "kernel/util.cl");
-    kernel_silu = clCreateKernel(program, "silu", &err);
-    CHECK_ERROR_THROW(err);
-
-    clReleaseProgram(program);
-
     post_quant_conv2d->init();
     in_conv2d->init();
     mid_res_block_1->init();
@@ -277,7 +270,6 @@ Decoder::~Decoder() {
     }
     delete out_group_norm;
     delete out_conv2d;
-    clReleaseKernel(kernel_silu);
 }
 
 std::vector<float> Decoder::decode(const std::vector<float> &x) {
@@ -526,12 +518,12 @@ std::vector<float> Decoder::decode(const std::vector<float> &x) {
     delete out_group_norm;
     out_group_norm = nullptr;
 
-    err = clSetKernelArg(kernel_silu, 0, sizeof(cl_mem), &buffer_128_512);
-    err |= clSetKernelArg(kernel_silu, 1, sizeof(cl_mem), &buffer_128_512);
+    err = clSetKernelArg(utilKernel->silu, 0, sizeof(cl_mem), &buffer_128_512);
+    err |= clSetKernelArg(utilKernel->silu, 1, sizeof(cl_mem), &buffer_128_512);
     CHECK_ERROR_THROW(err);
 
     size_t outWorkSize[3] = {128 * 512 * 512};
-    err = clEnqueueNDRangeKernel(cmdQueue, kernel_silu, 1, nullptr,
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->silu, 1, nullptr,
                                  outWorkSize, nullptr,
                                  1, &event[21], &event[22]);
     CHECK_ERROR_THROW(err);
