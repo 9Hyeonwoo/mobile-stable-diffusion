@@ -8,6 +8,7 @@
 #include "modules/Decoder.h"
 #include "modules/util.h"
 #include <chrono>
+#include <android/thermal.h>
 
 #define CL_TARGET_OPENCL_VERSION 200
 
@@ -27,6 +28,7 @@ cl_device_id deviceId;
 
 DDIMSampler *sampler;
 AAssetManager *assetManager;
+AThermalManager* thermalManager;
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_myopencl_MainActivity_initOpenCL(
@@ -49,6 +51,8 @@ Java_com_example_myopencl_MainActivity_initOpenCL(
     CHECK_ERROR(err);
 
     assetManager = AAssetManager_fromJava(env, _assetManager);
+
+    thermalManager = AThermal_acquireManager();
 
     // auto clazz = env->FindClass("com/example/myopencl/MainActivity");
     // auto methodId = env->GetMethodID(clazz, "unet", "([FJ[F)[F");
@@ -231,7 +235,8 @@ Java_com_example_myopencl_MainActivity_sample(JNIEnv *env, jobject thiz, jfloatA
     auto result = unet.forward(x, 981, c);
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "u-net exec time: %lld ms", duration.count());
+    AThermalStatus thermalStatus = AThermal_getCurrentThermalStatus(thermalManager);
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "thermal(%d) u-net exec time: %lld ms", thermalStatus, duration.count());
 
 //    auto result = util::load_npy_file("sampler/test/test_seed_45_img.npy").as_vec<float>();
 //    unet.test(result, 981, c);
@@ -270,4 +275,5 @@ Java_com_example_myopencl_MainActivity_destroyOpenCL(JNIEnv *env, jobject thiz) 
     clReleaseCommandQueue(cmdQueue);
     clReleaseContext(context);
 
+    AThermal_releaseManager(thermalManager);
 }
