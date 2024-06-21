@@ -7,6 +7,7 @@
 #include <android/log.h>
 #include "../util.h"
 
+#define DEBUG 0
 #define LOG_TAG "GROUP_NORM"
 
 #define WORK_GROUP_SIZE 64
@@ -22,6 +23,8 @@
       __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "[%s:%d] OpenCL error %d\n", __FILE__, __LINE__, err); \
       throw std::runtime_error("OpenCL error."); \
     }
+
+static int count = 0;
 
 GroupNorm::GroupNorm(
         cl_context context, cl_command_queue cmdQueue,
@@ -140,6 +143,23 @@ cl_int GroupNorm::forward(
     err = clEnqueueNDRangeKernel(cmdQueue, kernel->group_norm, 1, nullptr, globalWorkSize, nullptr, 1,
                                  &event2, event);
     CHECK_ERROR(err);
+
+#if DEBUG
+    clWaitForEvents(1, event);
+    if (count == 0)
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "try, component, index, input size, group size, num group, weight size, workgroup size, kernel, time(ms)\n");
+    auto message =
+            "0, GroupNorm, " +
+            std::to_string(count++) + ", " +
+            std::to_string(input_size) + ", " +
+            std::to_string(groupSize) + ", " +
+            std::to_string(num_groups) + ", " +
+            std::to_string(weightSize) + ", " +
+            std::to_string(WORK_GROUP_SIZE);
+    util::printEventTime(message + ", local_reduction_mean", event1);
+    util::printEventTime(message + ", local_reduction_variance", event2);
+    util::printEventTime(message + ", group_norm", *event);
+#endif
 
     clReleaseMemObject(bufferMean);
     clReleaseMemObject(bufferVariance);
