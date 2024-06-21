@@ -7,6 +7,7 @@
 #include "../util.h"
 #include <android/log.h>
 
+#define DEBUG 0
 #define LOG_TAG "RES_BLOCK"
 
 #define CHECK_ERROR(err) \
@@ -20,6 +21,8 @@
       __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "[%s:%d] OpenCL error %d\n", __FILE__, __LINE__, err); \
       throw std::runtime_error("OpenCL error."); \
     }
+
+static int count = 0;
 
 ResBlock::ResBlock(
         cl_context context, cl_command_queue cmdQueue,
@@ -279,7 +282,20 @@ cl_int ResBlock::forward(
         // max diff: 0.00000953674316406250
         // util::testBuffer(cmdQueue, output, "unet/input_block/test/test_resblock_skip_connection.npy");
     }
-
+#if DEBUG
+    clWaitForEvents(1, event);
+    if (count == 0)
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "try, component, index, input size, embed size, out size, kernel, time(ms)\n");
+    auto message =
+            "0, ResBlock, " +
+            std::to_string(count++) + ", " +
+            std::to_string(inputBytes / sizeof(float)) + ", " +
+            std::to_string(embedBytes / sizeof(float)) + ", " +
+            std::to_string(outSize);
+    util::printEventTime(message + ", input_silu", event0_1);
+    util::printEventTime(message + ", embed_silu", event1_0);
+    util::printEventTime(message + ", in_conv2d_silu", event3_1);
+#endif
     /* skip_connection */
 
     clReleaseEvent(event0_0);
