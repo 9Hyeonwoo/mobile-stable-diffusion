@@ -6,6 +6,7 @@
 #include <android/log.h>
 #include "../util.h"
 
+#define DEBUG 0
 #define LOG_TAG "CONV2D"
 
 #define WORK_GROUP_SIZE (64 * 64)
@@ -21,6 +22,8 @@
       __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "[%s:%d] OpenCL error %d\n", __FILE__, __LINE__, err); \
       throw std::runtime_error("OpenCL error."); \
     }
+
+static int count = 0;
 
 Conv2D::Conv2D(
         cl_context context,
@@ -290,6 +293,22 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  1, &_event[0], event);
     CHECK_ERROR(err);
      im2win matmul - register */
+
+#if DEBUG
+    clWaitForEvents(1, event);
+    if (count == 0)
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "try, component, index, input size, output size, in channel, out channel, kernel size, kernel, time(ms)\n");
+    auto message =
+            "0, Conv2D, " +
+            std::to_string(count++) + ", " +
+            std::to_string(inputSize) + ", " +
+            std::to_string(outputSize) + ", " +
+            std::to_string(weightShape[1]) + ", " +
+            std::to_string(weightShape[0]) + ", " +
+            std::to_string(weightShape[2]);
+    util::printEventTime(message + ", im2win", _event[0]);
+    util::printEventTime(message + ", im2win_matmul", *event);
+#endif
 
     clReleaseMemObject(bufferWin);
     /* im2win version */
