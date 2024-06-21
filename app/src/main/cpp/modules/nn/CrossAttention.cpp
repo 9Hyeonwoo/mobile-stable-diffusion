@@ -6,6 +6,7 @@
 #include <android/log.h>
 #include "../util.h"
 
+#define DEBUG 0
 #define LOG_TAG "CROSS_ATTENTION"
 
 #define WORK_GROUP_SIZE 64
@@ -298,6 +299,26 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
 
     // max diff: 0.00000205636024475098
     // util::testBuffer(cmdQueue, output, "unet/input_block/test/test_cross_to_out.npy");
+
+#if DEBUG
+    clWaitForEvents(1, event);
+    if (cnt == 0)
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "try, component, index, b size(same), i size(same), j size(1st), k size(1st), j size(2nd), k size(2nd), chunk size(soft), output size(soft), kernel, time(ms)\n");
+    auto message =
+            "0, CrossAttention, " +
+            std::to_string(cnt) + ", " +
+            std::to_string(headSize) + ", " +
+            std::to_string(inputSize / toQLinear->weightShape[1]) + ", " +
+            std::to_string(conditionSize / toKLinear->weightShape[1]) + ", " +
+            std::to_string(kSize) + ", " +
+            std::to_string(jSize) + ", " +
+            std::to_string(toVLinear->weightShape[0] / headSize) + ", " +
+            std::to_string(chunkSize) + ", " +
+            std::to_string(headSize * (inputSize / toQLinear->weightShape[1]) * chunkSize);
+    util::printEventTime(message + ", einsum_bik_bjk_bij", event0_2);
+    util::printEventTime(message + ", softmax", event2_1[1]);
+    util::printEventTime(message + ", einsum_bij_bjk_bik", event2_2);
+#endif
 
     clReleaseEvent(event0_0);
     clReleaseEvent(event0_1[0]);
