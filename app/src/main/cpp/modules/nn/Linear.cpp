@@ -441,7 +441,7 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
 #if DEBUG
     clWaitForEvents(1, event);
     if (count == 0)
-        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "try, component, index, input size, out feature, in feature, tile size m, tile size n, tile size k, reg size m, reg size n, kernel, time(ms)\n");
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "try, component, index, input size, out feature, in feature, tile size m, tile size n, reg size n, kernel, time(ms)\n");
     auto message =
             "0, Linear, " +
             std::to_string(count++) + ", " +
@@ -450,8 +450,6 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
             std::to_string(weightShape[1]) +  ", " +
             std::to_string(tile_size_m) + ", " +
             std::to_string(tile_size_n) + ", " +
-            std::to_string(tile_size_k) + ", " +
-            std::to_string(reg_size_m) + ", " +
             std::to_string(reg_size_n);
     util::printEventTime(message + ", register_linear", *event);
 #endif
