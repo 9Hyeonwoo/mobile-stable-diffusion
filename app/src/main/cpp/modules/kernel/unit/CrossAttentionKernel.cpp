@@ -35,10 +35,14 @@ CrossAttentionKernel::CrossAttentionKernel(
     einsum_bij_bjk_bik = clCreateKernel(program, "einsum_bij_bjk_bik", &err);
     CHECK_ERROR_THROW(err);
 
+    optimized_einsum_bik_bjk_bij = clCreateKernel(program, "optimized_einsum_bik_bjk_bij", &err);
+    CHECK_ERROR_THROW(err);
+
     clReleaseProgram(program);
 }
 
 CrossAttentionKernel::~CrossAttentionKernel() {
     clReleaseKernel(einsum_bik_bjk_bij);
     clReleaseKernel(einsum_bij_bjk_bik);
+    clReleaseKernel(optimized_einsum_bik_bjk_bij);
 }

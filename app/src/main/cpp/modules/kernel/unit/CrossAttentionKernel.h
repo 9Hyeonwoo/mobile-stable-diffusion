@@ -16,6 +16,8 @@ public:
 
     cl_kernel einsum_bik_bjk_bij;
     cl_kernel einsum_bij_bjk_bik;
+
+    cl_kernel optimized_einsum_bik_bjk_bij;
 };
 
 

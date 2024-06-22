@@ -5,6 +5,7 @@
 #include "CrossAttention.h"
 #include <android/log.h>
 #include "../util.h"
+#include "../setting.h"
 
 #define DEBUG 0
 #define LOG_TAG "CROSS_ATTENTION"
@@ -212,6 +213,7 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
                                  permuteVGlobalSize, nullptr, 1, &event2_0, &event2_1[0]);
     CHECK_ERROR(err);
 
+#if CROSS_ATTENTION_KERNEL_VERSION == 0
     size_t kSize = toQLinear->weightShape[0] / headSize;
     err = clSetKernelArg(crossAttentionKernel->einsum_bik_bjk_bij, 0, sizeof(cl_mem), &bufferPermuteQ);
     err |= clSetKernelArg(crossAttentionKernel->einsum_bik_bjk_bij, 1, sizeof(cl_mem), &bufferPermuteK);
@@ -225,9 +227,60 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     err = clEnqueueNDRangeKernel(cmdQueue, crossAttentionKernel->einsum_bik_bjk_bij, 3, nullptr,
                                  einsumQKGlobalSize, nullptr, 2, event0_1, &event0_2);
     CHECK_ERROR(err);
+#elif CROSS_ATTENTION_KERNEL_VERSION == 1
+    int reg_size_m = 8;
+    std::vector<size_t> tile_size_ms = {128};
+    std::vector<size_t> tile_size_ns = {32, 11, 1};
 
-    // max diff: 0.00001931190490722656
-    // util::testBuffer(cmdQueue, bufferEinsumQK, "unet/input_block/test/test_cross_einsum.npy");
+    size_t B = headSize;
+    size_t M = inputSize / toQLinear->weightShape[1];
+    size_t N = conditionSize / toKLinear->weightShape[1];
+
+    int m_index;
+    for (m_index = 0; m_index < tile_size_ms.size(); m_index++) {
+        if (M % (tile_size_ms[m_index]) == 0) {
+            break;
+        } else if (m_index == tile_size_ms.size() - 1) {
+            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] M(%ld) %% tile_size_m != 0\n", __FILE__,
+                            __LINE__, M);
+            return CL_INVALID_VALUE;
+        }
+    }
+
+    int n_index;
+    for (n_index = 0; n_index < tile_size_ns.size(); n_index++) {
+        if (N % (tile_size_ns[n_index]) == 0) {
+            break;
+        } else if (n_index == tile_size_ns.size() - 1) {
+            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] N(%ld) %% tile_size_n != 0\n", __FILE__,
+                            __LINE__, N);
+            return CL_INVALID_VALUE;
+        }
+    }
+    size_t tile_size_m = tile_size_ms[m_index];
+    size_t tile_size_n = tile_size_ns[n_index];
+    size_t kSize = toQLinear->weightShape[0] / headSize;
+
+    err = clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bjk_bij, 0, sizeof(cl_mem), &bufferPermuteQ);
+    err |= clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bjk_bij, 1, sizeof(cl_mem), &bufferPermuteK);
+    err |= clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bjk_bij, 2, sizeof(cl_mem), &bufferEinsumQK);
+    err |= clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bjk_bij, 3, sizeof(int), &kSize);
+    err |= clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bjk_bij, 4, sizeof(float), &scale);
+    CHECK_ERROR(err);
+
+    size_t einsumQKGlobalSize[3] = {B, M / reg_size_m, N };
+    size_t einsumQKLocalSize[3] = {1, tile_size_m / reg_size_m, tile_size_n };
+    err = clEnqueueNDRangeKernel(cmdQueue, crossAttentionKernel->optimized_einsum_bik_bjk_bij, 3, nullptr,
+                                 einsumQKGlobalSize, einsumQKLocalSize, 2, event0_1, &event0_2);
+    CHECK_ERROR(err);
+#endif
+
+    if (cnt == 0) {
+        // max diff: 0.00001931190490722656
+        // util::testBuffer(cmdQueue, bufferEinsumQK, "unet/input_block/test/test_cross_einsum.npy");
+    }
     // max diff: 0.00003862380981445312
     // util::testBuffer(cmdQueue, bufferEinsumQK, "unet/input_block/test/test_basic_attn2_einsum_qk.npy");
 
