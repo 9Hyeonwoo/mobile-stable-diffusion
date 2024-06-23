@@ -63,6 +63,44 @@ __kernel void permute3D__0_2_1(__global float *src,
     dst[dst_idx] = src[src_idx];
 }
 
+__kernel void permute3D(
+    __global float *src,
+    __global float *dst,
+    const int dst_first_dim,
+    const int dst_second_dim,
+    const int dst_third_dim
+) {
+     int permute[3] = {dst_first_dim, dst_second_dim, dst_third_dim};
+    int iSize = get_global_size(0);
+    int jSize = get_global_size(1);
+    int kSize = get_global_size(2);
+
+    int offset = get_global_offset(0) * jSize * kSize + get_global_offset(1) * kSize + get_global_offset(2);
+
+    int i = get_group_id(0) * get_local_size(0) + get_local_id(0);
+    int j = get_group_id(1) * get_local_size(1) + get_local_id(1);
+    int k = get_group_id(2) * get_local_size(2) + get_local_id(2);
+
+    int src_idx = i * jSize * kSize + j * kSize + k + offset;
+
+    int dst_idx = 0;
+    for (int index = 0; index < 3; index++) {
+        if (permute[index] == 0) {
+            dst_idx *=iSize;
+            dst_idx += i;
+        } else if (permute[index] == 1) {
+            dst_idx *= jSize;
+            dst_idx += j;
+        } else if (permute[index] == 2) {
+            dst_idx *= kSize;
+            dst_idx += k;
+        }
+    }
+    dst_idx += offset;
+
+    dst[dst_idx] = src[src_idx];
+}
+
 __kernel void gelu(__global float *src,
                    __global float *dst)
 {
