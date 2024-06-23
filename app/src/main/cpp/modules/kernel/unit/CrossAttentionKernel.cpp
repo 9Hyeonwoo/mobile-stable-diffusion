@@ -41,6 +41,9 @@ CrossAttentionKernel::CrossAttentionKernel(
     optimized_einsum_bik_bkj_bij = clCreateKernel(program, "optimized_einsum_bik_bkj_bij", &err);
     CHECK_ERROR_THROW(err);
 
+    optimized_einsum_bik_bkj_bij_general = clCreateKernel(program, "optimized_einsum_bik_bkj_bij_general", &err);
+    CHECK_ERROR_THROW(err);
+
     clReleaseProgram(program);
 }
 
@@ -49,4 +52,5 @@ CrossAttentionKernel::~CrossAttentionKernel() {
     clReleaseKernel(einsum_bij_bjk_bik);
     clReleaseKernel(optimized_einsum_bik_bjk_bij);
     clReleaseKernel(optimized_einsum_bik_bkj_bij);
+    clReleaseKernel(optimized_einsum_bik_bkj_bij_general);
 }

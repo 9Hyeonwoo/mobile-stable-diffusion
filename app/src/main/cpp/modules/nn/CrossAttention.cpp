@@ -11,6 +11,7 @@
 #define LOG_TAG "CROSS_ATTENTION"
 
 #define WORK_GROUP_SIZE 64
+#define WIDTH 4
 
 #define CHECK_ERROR(err) \
     if (err != CL_SUCCESS) { \
@@ -100,6 +101,17 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
 
     inputSize = inputBytes / sizeof(float);
     conditionSize = conditionBytes / sizeof(float);
+    size_t B = headSize;
+    size_t M = inputSize / toQLinear->weightShape[1];
+#if CROSS_ATTENTION_KERNEL_VERSION == 0 || CROSS_ATTENTION_KERNEL_VERSION == 1
+    size_t N_first = conditionSize / toKLinear->weightShape[1];
+#elif CROSS_ATTENTION_KERNEL_VERSION == 2
+    size_t N_first = conditionSize / toKLinear->weightShape[1];
+    if (N_first % WIDTH != 0) {
+        N_first += WIDTH - N_first % WIDTH;
+    }
+#endif
+    size_t K_first = toQLinear->weightShape[0] / headSize;
 
     bufferQ = clCreateBuffer(context, CL_MEM_READ_WRITE,
                              sizeof(float) * inputSize / toQLinear->weightShape[1] *
@@ -126,8 +138,7 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     CHECK_ERROR(err);
 
     bufferPermuteK = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                    sizeof(float) * conditionSize / toKLinear->weightShape[1] *
-                                    toKLinear->weightShape[0],
+                                    sizeof(float) * B * K_first * N_first,
                                     nullptr, &err);
     CHECK_ERROR(err);
 
@@ -190,6 +201,7 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     // max diff: 0.00001204013824462891
     // util::testBuffer(cmdQueue, bufferPermuteQ, "unet/input_block/test/test_cross_q_permute.npy");
 
+#if CROSS_ATTENTION_KERNEL_VERSION == 0 || CROSS_ATTENTION_KERNEL_VERSION == 1
     err = clSetKernelArg(utilKernel->permute3D_1_0_2, 0, sizeof(cl_mem), &bufferK);
     err |= clSetKernelArg(utilKernel->permute3D_1_0_2, 1, sizeof(cl_mem), &bufferPermuteK);
     CHECK_ERROR(err);
@@ -202,6 +214,24 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
 
     // max diff: 0.00000947713851928711
     // util::testBuffer(cmdQueue, bufferPermuteK, "unet/input_block/test/test_cross_k_permute.npy");
+#elif CROSS_ATTENTION_KERNEL_VERSION == 2
+    int permuteKDim[3] = {1, 2, 0};
+    err = clSetKernelArg(utilKernel->permute3D_copy, 0, sizeof(cl_mem), &bufferK);
+    err |= clSetKernelArg(utilKernel->permute3D_copy, 1, sizeof(cl_mem), &bufferPermuteK);
+    err |= clSetKernelArg(utilKernel->permute3D_copy, 2, sizeof(int), &permuteKDim[0]);
+    err |= clSetKernelArg(utilKernel->permute3D_copy, 3, sizeof(int), &permuteKDim[1]);
+    err |= clSetKernelArg(utilKernel->permute3D_copy, 4, sizeof(int), &permuteKDim[2]);
+    err |= clSetKernelArg(utilKernel->permute3D_copy, 5, sizeof(int), &N_first);
+    err |= clSetKernelArg(utilKernel->permute3D_copy, 6, sizeof(int), &B);
+    err |= clSetKernelArg(utilKernel->permute3D_copy, 7, sizeof(int), &K_first);
+    CHECK_ERROR(err);
+
+    size_t permuteKGlobalSize[3] = {conditionSize / toKLinear->weightShape[1], headSize,
+                                    toKLinear->weightShape[0] / headSize};
+    err = clEnqueueNDRangeKernel(cmdQueue, utilKernel->permute3D_copy, 3, nullptr,
+                                 permuteKGlobalSize, nullptr, 1, &event1_0, &event0_1[1]);
+    CHECK_ERROR(err);
+#endif
 
     err = clSetKernelArg(utilKernel->permute3D_1_0_2, 0, sizeof(cl_mem), &bufferV);
     err |= clSetKernelArg(utilKernel->permute3D_1_0_2, 1, sizeof(cl_mem), &bufferPermuteV);
@@ -232,10 +262,6 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     std::vector<size_t> tile_size_ms = {128};
     std::vector<size_t> tile_size_ns = {32, 11, 1};
 
-    size_t B = headSize;
-    size_t M = inputSize / toQLinear->weightShape[1];
-    size_t N = conditionSize / toKLinear->weightShape[1];
-
     int m_index;
     for (m_index = 0; m_index < tile_size_ms.size(); m_index++) {
         if (M % (tile_size_ms[m_index]) == 0) {
@@ -250,12 +276,12 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
 
     int n_index;
     for (n_index = 0; n_index < tile_size_ns.size(); n_index++) {
-        if (N % (tile_size_ns[n_index]) == 0) {
+        if (N_first % (tile_size_ns[n_index]) == 0) {
             break;
         } else if (n_index == tile_size_ns.size() - 1) {
             __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
                             "[%s:%d] N(%ld) %% tile_size_n != 0\n", __FILE__,
-                            __LINE__, N);
+                            __LINE__, N_first);
             return CL_INVALID_VALUE;
         }
     }
@@ -270,9 +296,54 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     err |= clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bjk_bij, 4, sizeof(float), &scale);
     CHECK_ERROR(err);
 
-    size_t einsumQKGlobalSize[3] = {B, M / reg_size_m, N };
+    size_t einsumQKGlobalSize[3] = {B, M / reg_size_m, N_first };
     size_t einsumQKLocalSize[3] = {1, tile_size_m / reg_size_m, tile_size_n };
     err = clEnqueueNDRangeKernel(cmdQueue, crossAttentionKernel->optimized_einsum_bik_bjk_bij, 3, nullptr,
+                                 einsumQKGlobalSize, einsumQKLocalSize, 2, event0_1, &event0_2);
+    CHECK_ERROR(err);
+#elif CROSS_ATTENTION_KERNEL_VERSION == 2
+    int reg_size_m = 4;
+    std::vector<size_t> tile_size_ms = {32};
+    std::vector<size_t> tile_size_ns = {80, 64, 11, 1};
+
+    int m_index;
+    for (m_index = 0; m_index < tile_size_ms.size(); m_index++) {
+        if (M % (tile_size_ms[m_index]) == 0) {
+            break;
+        } else if (m_index == tile_size_ms.size() - 1) {
+            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                                "[%s:%d] M(%ld) %% tile_size_m != 0\n", __FILE__,
+                                __LINE__, M);
+            return CL_INVALID_VALUE;
+        }
+    }
+
+    int n_index;
+    for (n_index = 0; n_index < tile_size_ns.size(); n_index++) {
+        if (N_first % (tile_size_ns[n_index]) == 0) {
+            break;
+        } else if (n_index == tile_size_ns.size() - 1) {
+            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                                "[%s:%d] N(%ld) %% tile_size_n != 0\n", __FILE__,
+                                __LINE__, N_first);
+            return CL_INVALID_VALUE;
+        }
+    }
+    size_t tile_size_m = tile_size_ms[m_index];
+    size_t tile_size_n = tile_size_ns[n_index];
+    size_t N_first_orig = conditionSize / toKLinear->weightShape[1];
+
+    err = clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bkj_bij_general, 0, sizeof(cl_mem), &bufferPermuteQ);
+    err |= clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bkj_bij_general, 1, sizeof(cl_mem), &bufferPermuteK);
+    err |= clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bkj_bij_general, 2, sizeof(cl_mem), &bufferEinsumQK);
+    err |= clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bkj_bij_general, 3, sizeof(int), &N_first_orig);
+    err |= clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bkj_bij_general, 4, sizeof(int), &K_first);
+    err |= clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bkj_bij_general, 5, sizeof(float), &scale);
+    CHECK_ERROR(err);
+
+    size_t einsumQKGlobalSize[3] = {B, M / reg_size_m, N_first / WIDTH};
+    size_t einsumQKLocalSize[3] = {1, tile_size_m / reg_size_m, tile_size_n / WIDTH };
+    err = clEnqueueNDRangeKernel(cmdQueue, crossAttentionKernel->optimized_einsum_bik_bkj_bij_general, 3, nullptr,
                                  einsumQKGlobalSize, einsumQKLocalSize, 2, event0_1, &event0_2);
     CHECK_ERROR(err);
 #endif
@@ -324,7 +395,7 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     err = clEnqueueNDRangeKernel(cmdQueue, crossAttentionKernel->einsum_bij_bjk_bik, 3, nullptr,
                                  einsumVGlobalSize, nullptr, 2, event2_1, &event2_2);
     CHECK_ERROR(err);
-#elif CROSS_ATTENTION_KERNEL_VERSION == 1
+#elif CROSS_ATTENTION_KERNEL_VERSION == 1 || CROSS_ATTENTION_KERNEL_VERSION == 2
     int reg_size_m_2 = 4;
     int WIDTH_2 = 4;
     std::vector<size_t> tile_size_ms_2 = {32};
@@ -413,10 +484,10 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
             std::to_string(headSize) + ", " +
             std::to_string(inputSize / toQLinear->weightShape[1]) + ", " +
             std::to_string(conditionSize / toKLinear->weightShape[1]) + ", " +
-            std::to_string(kSize) + ", " +
+            std::to_string(K_first) + ", " +
             #if CROSS_ATTENTION_KERNEL_VERSION == 0
             std::to_string(jSize) + ", " +
-            #elif CROSS_ATTENTION_KERNEL_VERSION == 1
+            #elif CROSS_ATTENTION_KERNEL_VERSION == 1 || CROSS_ATTENTION_KERNEL_VERSION == 2
             std::to_string(kSize_2) + ", " +
             #endif
             std::to_string(toVLinear->weightShape[0] / headSize) + ", " +
