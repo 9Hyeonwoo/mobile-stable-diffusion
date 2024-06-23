@@ -24,6 +24,7 @@ public:
     cl_kernel batch_matmul;
     cl_kernel batch_matmul_scale;
     cl_kernel chunkwise_add;
+    cl_kernel permute3D_copy;
 };
 
 

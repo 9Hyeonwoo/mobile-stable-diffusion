@@ -51,6 +51,9 @@ UtilKernel::UtilKernel(cl_context context, cl_device_id deviceId, AAssetManager 
     chunkwise_add = clCreateKernel(program, "chunkwise_add", &err);
     CHECK_ERROR_THROW(err);
 
+    permute3D_copy = clCreateKernel(program, "permute3D_copy", &err);
+    CHECK_ERROR_THROW(err);
+
     clReleaseProgram(program);
 }
 
@@ -65,4 +68,5 @@ UtilKernel::~UtilKernel() {
     clReleaseKernel(batch_matmul);
     clReleaseKernel(batch_matmul_scale);
     clReleaseKernel(chunkwise_add);
+    clReleaseKernel(permute3D_copy);
 }

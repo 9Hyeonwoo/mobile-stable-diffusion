@@ -324,3 +324,46 @@ __kernel void batch_matmul_scale(
         }
     }
 }
+
+__kernel void permute3D_copy(
+    __global float *src,
+    __global float *dst,
+    const int dst_first_dim,
+    const int dst_second_dim,
+    const int dst_third_dim,
+    const int dst_iSize,
+    const int dst_jSize,
+    const int dst_kSize
+) {
+    int permute[3] = {dst_first_dim, dst_second_dim, dst_third_dim};
+    int iSize = get_global_size(0);
+    int jSize = get_global_size(1);
+    int kSize = get_global_size(2);
+
+    int offset = get_global_offset(0) * jSize * kSize + get_global_offset(1) * kSize + get_global_offset(2);
+    int dstOffset = get_global_offset(0) * dst_jSize * dst_kSize + get_global_offset(1) * dst_kSize + get_global_offset(2);
+
+    int i = get_group_id(0) * get_local_size(0) + get_local_id(0);
+    int j = get_group_id(1) * get_local_size(1) + get_local_id(1);
+    int k = get_group_id(2) * get_local_size(2) + get_local_id(2);
+
+    int src_idx = i * jSize * kSize + j * kSize + k + offset;
+
+    int dst_idx = 0;
+    for (int index = 0; index < 3; index++) {
+        switch (permute[index]) {
+            case 0:
+                dst_idx = dst_idx * dst_iSize + i;
+                break;
+            case 1:
+                dst_idx = dst_idx * dst_jSize + j;
+                break;
+            case 2:
+                dst_idx = dst_idx * dst_kSize + k;
+                break;
+        }
+    }
+    dst_idx += dstOffset;
+
+    dst[dst_idx] = src[src_idx];
+}
