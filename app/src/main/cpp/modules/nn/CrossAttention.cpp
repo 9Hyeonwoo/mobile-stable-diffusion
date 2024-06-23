@@ -311,6 +311,7 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     // max diff: 0.00000250339508056641
     // util::testBuffer(cmdQueue, bufferEinsumQK, "unet/input_block/test/test_basic_attn2_softmax.npy");
 
+#if CROSS_ATTENTION_KERNEL_VERSION == 0
     size_t jSize = conditionSize / toKLinear->weightShape[1];
     err = clSetKernelArg(crossAttentionKernel->einsum_bij_bjk_bik, 0, sizeof(cl_mem), &bufferEinsumQK);
     err |= clSetKernelArg(crossAttentionKernel->einsum_bij_bjk_bik, 1, sizeof(cl_mem), &bufferPermuteV);
@@ -323,9 +324,58 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
     err = clEnqueueNDRangeKernel(cmdQueue, crossAttentionKernel->einsum_bij_bjk_bik, 3, nullptr,
                                  einsumVGlobalSize, nullptr, 2, event2_1, &event2_2);
     CHECK_ERROR(err);
+#elif CROSS_ATTENTION_KERNEL_VERSION == 1
+    int reg_size_m_2 = 4;
+    int WIDTH_2 = 4;
+    std::vector<size_t> tile_size_ms_2 = {32};
+    std::vector<size_t> tile_size_ns_2 = {64, 11, 1};
 
-    // max diff: 0.00000193715095520020
-    // util::testBuffer(cmdQueue, bufferEinsumV, "unet/input_block/test/test_cross_einsum_v.npy");
+    size_t N_2 = toVLinear->weightShape[0] / headSize;
+
+    int m_index_2;
+    for (m_index_2 = 0; m_index_2 < tile_size_ms_2.size(); m_index_2++) {
+        if (M % (tile_size_ms_2[m_index_2]) == 0) {
+            break;
+        } else if (m_index_2 == tile_size_ms_2.size() - 1) {
+            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                                "[%s:%d] M(%ld) %% tile_size_m_2 != 0\n", __FILE__,
+                                __LINE__, M);
+            return CL_INVALID_VALUE;
+        }
+    }
+
+    int n_index_2;
+    for (n_index_2 = 0; n_index_2 < tile_size_ns_2.size(); n_index_2++) {
+        if (N_2 % (tile_size_ns_2[n_index_2]) == 0) {
+            break;
+        } else if (n_index_2 == tile_size_ns_2.size() - 1) {
+            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                                "[%s:%d] N_2(%ld) %% tile_size_n_2 != 0\n", __FILE__,
+                                __LINE__, N_2);
+            return CL_INVALID_VALUE;
+        }
+    }
+    size_t tile_size_m_2 = tile_size_ms_2[m_index_2];
+    size_t tile_size_n_2 = tile_size_ns_2[n_index_2];
+    size_t kSize_2 = conditionSize / toKLinear->weightShape[1];
+
+    err = clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bkj_bij, 0, sizeof(cl_mem), &bufferEinsumQK);
+    err |= clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bkj_bij, 1, sizeof(cl_mem), &bufferPermuteV);
+    err |= clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bkj_bij, 2, sizeof(cl_mem), &bufferEinsumV);
+    err |= clSetKernelArg(crossAttentionKernel->optimized_einsum_bik_bkj_bij, 3, sizeof(int), &kSize_2);
+    CHECK_ERROR(err);
+
+    size_t einsumVGlobalSize[3] = {B, M / reg_size_m_2, N_2 / WIDTH_2};
+    size_t einsumVLocalSize[3] = {1, tile_size_m_2 / reg_size_m_2, tile_size_n_2 / WIDTH_2 };
+    err = clEnqueueNDRangeKernel(cmdQueue, crossAttentionKernel->optimized_einsum_bik_bkj_bij, 3, nullptr,
+                                 einsumVGlobalSize, einsumVLocalSize, 2, event2_1, &event2_2);
+    CHECK_ERROR(err);
+#endif
+
+    if (cnt == 0) {
+        // max diff: 0.00000193715095520020
+        // util::testBuffer(cmdQueue, bufferEinsumV, "unet/input_block/test/test_cross_einsum_v.npy");
+    }
     if (cnt == 1) {
         // max diff: 0.00001007318496704102
         // util::testBuffer(cmdQueue, bufferEinsumV,"unet/input_block/test/test_basic_attn2_einsum_v.npy");
@@ -364,7 +414,11 @@ CrossAttention::forward(cl_mem input, cl_mem condition, cl_mem output, cl_uint n
             std::to_string(inputSize / toQLinear->weightShape[1]) + ", " +
             std::to_string(conditionSize / toKLinear->weightShape[1]) + ", " +
             std::to_string(kSize) + ", " +
+            #if CROSS_ATTENTION_KERNEL_VERSION == 0
             std::to_string(jSize) + ", " +
+            #elif CROSS_ATTENTION_KERNEL_VERSION == 1
+            std::to_string(kSize_2) + ", " +
+            #endif
             std::to_string(toVLinear->weightShape[0] / headSize) + ", " +
             std::to_string(chunkSize) + ", " +
             std::to_string(headSize * (inputSize / toQLinear->weightShape[1]) * chunkSize);
