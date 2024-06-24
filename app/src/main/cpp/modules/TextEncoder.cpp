@@ -207,7 +207,7 @@ std::vector<float> TextEncoder::encode(const std::vector<long> &token) {
     CHECK_ERROR(err);
 
     // max diff: 0.00002861022949218750
-     util::testBuffer(cmdQueue, outBuffer, "encoder/test/ln_final_test_fp32.npy");
+    // util::testBuffer(cmdQueue, outBuffer, "encoder/test/ln_final_test_fp32.npy");
     auto result = std::vector<float>(token.size() * EMBEDDING_SIZE);
     err = clEnqueueReadBuffer(cmdQueue, outBuffer, CL_TRUE, 0,
                               sizeof(float) * result.size(),

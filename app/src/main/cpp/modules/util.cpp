@@ -133,9 +133,10 @@ cl_mem util::load_npy_file(const std::string &_filename, size_t *num_vals, cl_co
                                    &errcode_ret);
     CHECK_ERROR(errcode_ret)
 
-    size_t nread = fread(data,1, num_bytes,fp);
+    size_t nread = fread(data, 1, num_bytes, fp);
     if (nread != num_bytes) {
-        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "nread(%ld) != num_bytes(%ld)", nread, num_bytes);
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "nread(%ld) != num_bytes(%ld)", nread,
+                            num_bytes);
         throw std::runtime_error("nread != num_bytes");
     }
 

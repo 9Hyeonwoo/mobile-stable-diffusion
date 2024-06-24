@@ -27,17 +27,18 @@ FeedForward::FeedForward(
         const std::string &geglu_linear_bias_name,
         const std::string &net_linear_weight_name, const std::string &net_linear_bias_name,
         std::shared_ptr<LinearKernel> linearKernel,
-        std::shared_ptr<GEGLUKernel> gegluKernel
+        std::shared_ptr<GEGLUKernel> gegluKernel,
+        std::shared_ptr<UtilKernel> utilKernel
 ) : context(context), cmdQueue(cmdQueue) {
 
     geglu = new GEGLU(context, cmdQueue,
                       dim, dim * 4,
                       geglu_linear_weight_name, geglu_linear_bias_name,
-                      linearKernel, gegluKernel);
+                      linearKernel, gegluKernel, utilKernel);
     netLinear = new Linear(context, cmdQueue,
                            dim * 4, dim,
                            net_linear_weight_name, net_linear_bias_name,
-                           linearKernel);
+                           linearKernel, utilKernel);
 }
 
 FeedForward::~FeedForward() {

@@ -57,7 +57,7 @@ SpatialTransformer::SpatialTransformer(
     projInLinear = new Linear(context, cmdQueue,
                               channels, inner_dim,
                               in_linear_weight_name, in_linear_bias_name,
-                              linearKernel);
+                              linearKernel, utilKernel);
 
     transformer = new BasicTransformerBlock(context, cmdQueue,
                                             inner_dim, context_dim, headSize, headDim,
@@ -85,7 +85,7 @@ SpatialTransformer::SpatialTransformer(
     projOutLinear = new Linear(context, cmdQueue,
                                channels, inner_dim,
                                out_linear_weight_name, out_linear_bias_name,
-                               linearKernel);
+                               linearKernel, utilKernel);
 }
 
 SpatialTransformer::~SpatialTransformer() {

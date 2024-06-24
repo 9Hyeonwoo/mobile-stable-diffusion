@@ -48,22 +48,22 @@ CrossAttention::CrossAttention(
                            query_dim, headSize * headDim,
                            q_linear_weight_name,
                            "",
-                           linearKernel);
+                           linearKernel, utilKernel);
     toKLinear = new Linear(context, cmdQueue,
                            context_dim, headSize * headDim,
                            k_linear_weight_name,
                            "",
-                           linearKernel);
+                           linearKernel, utilKernel);
     toVLinear = new Linear(context, cmdQueue,
                            context_dim, headSize * headDim,
                            v_linear_weight_name,
                            "",
-                           linearKernel);
+                           linearKernel, utilKernel);
     toOutLinear = new Linear(context, cmdQueue,
                              headSize * headDim, query_dim,
                              out_linear_weight_name,
                              out_linear_bias_name,
-                             linearKernel);
+                             linearKernel, utilKernel);
 }
 
 CrossAttention::~CrossAttention() {

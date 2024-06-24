@@ -37,14 +37,14 @@ UNetModel::UNetModel(
                               320, 1280,
                               "unet/time_embed/time_embed_0_weight.npy",
                               "unet/time_embed/time_embed_0_bias.npy",
-                              linearKernel);
+                              linearKernel, utilKernel);
     time_embed_0->init();
 
     time_embed_2 = new Linear(context, cmdQueue,
                               1280, 1280,
                               "unet/time_embed/time_embed_2_weight.npy",
                               "unet/time_embed/time_embed_2_bias.npy",
-                              linearKernel);
+                              linearKernel, utilKernel);
     time_embed_2->init();
 }
 

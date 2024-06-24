@@ -45,12 +45,12 @@ MultiHeadAttention::MultiHeadAttention(
     attnInProj0 = new Linear(context, cmdQueue,
                              embed_dim, embed_dim * 3,
                              in_proj_weight_name, in_proj_bias_name,
-                             linearKernel);
+                             linearKernel, utilKernel);
 
     attnOutProj0 = new Linear(context, cmdQueue,
                                 embed_dim, embed_dim,
                               out_proj_weight_name, out_proj_bias_name,
-                              linearKernel);
+                              linearKernel, utilKernel);
 
     bufferAttentionMask = attentionMask;
 }

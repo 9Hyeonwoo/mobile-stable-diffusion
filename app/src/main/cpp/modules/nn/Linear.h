@@ -14,13 +14,15 @@
 #include <vector>
 #include <string>
 #include "../kernel/unit/LinearKernel.h"
+#include "../kernel/unit/UtilKernel.h"
 
 class Linear {
 public:
     Linear(cl_context context, cl_command_queue cmdQueue,
            size_t in_features, size_t out_features,
            const std::string &weight_name, const std::string &bias_name,
-           std::shared_ptr<LinearKernel> kernel);
+           std::shared_ptr<LinearKernel> kernel,
+           std::shared_ptr<UtilKernel> utilKernel);
 
     ~Linear();
 
@@ -42,6 +44,7 @@ private:
     const std::string bias_name;
 
     std::shared_ptr<LinearKernel> kernel;
+    std::shared_ptr<UtilKernel> utilKernel;
 };
 
 

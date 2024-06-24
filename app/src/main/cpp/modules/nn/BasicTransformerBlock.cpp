@@ -73,7 +73,7 @@ BasicTransformerBlock::BasicTransformerBlock(
     feedForward = new FeedForward(context, cmdQueue, dim,
                                   ff_geglu_linear_weight_name, ff_geglu_linear_bias_name,
                                   ff_net_linear_weight_name, ff_net_linear_bias_name,
-                                  linearKernel, gegluKernel);
+                                  linearKernel, gegluKernel, utilKernel);
 }
 
 void BasicTransformerBlock::init() {

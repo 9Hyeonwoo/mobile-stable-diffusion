@@ -63,12 +63,12 @@ ResidualAttentionBlock::ResidualAttentionBlock(
     mlp_c_fc = new Linear(context, cmdQueue,
                           d_model, d_model * 4,
                           mlp_c_fc_weight_name, mlp_c_fc_bias_name,
-                          linearKernel);
+                          linearKernel, utilKernel);
 
     mlp_c_proj = new Linear(context, cmdQueue,
                             d_model * 4, d_model,
                             mlp_c_proj_weight_name, mlp_c_proj_bias_name,
-                            linearKernel);
+                            linearKernel, utilKernel);
 }
 
 ResidualAttentionBlock::~ResidualAttentionBlock() {

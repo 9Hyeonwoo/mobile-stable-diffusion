@@ -8,6 +8,7 @@
 #include "../setting.h"
 
 #define DEBUG 0
+#define WIDTH 4
 #define LOG_TAG "LINEAR"
 
 #define CHECK_ERROR(err) \
@@ -28,9 +29,10 @@ Linear::Linear(
         cl_context context, cl_command_queue cmdQueue,
         size_t in_features, size_t out_features,
         const std::string &weight_name, const std::string &bias_name,
-        std::shared_ptr<LinearKernel> kernel
+        std::shared_ptr<LinearKernel> kernel,
+        std::shared_ptr<UtilKernel> utilKernel
 ) : context(context), cmdQueue(cmdQueue), weight_name(weight_name), bias_name(bias_name),
-    bufferWeight(nullptr), bufferBias(nullptr), kernel(kernel) {
+    bufferWeight(nullptr), bufferBias(nullptr), kernel(kernel), utilKernel(utilKernel) {
     weightShape = std::vector<size_t>({out_features, in_features});
 }
 
@@ -280,7 +282,7 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     CHECK_ERROR(err);
 
     size_t globalWorkSize[2] = {M, N / reg_size_n};
-    size_t localWorkSize[2] = {tile_size_m, tile_size_n / reg_size_n };
+    size_t localWorkSize[2] = {tile_size_m, tile_size_n / reg_size_n};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel->tile_reg_n_vector_linear,
                                  2, nullptr,
                                  globalWorkSize, localWorkSize,
@@ -358,6 +360,105 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  globalWorkSize, localWorkSize,
                                  num_events_in_list, event_wait_list, event);
     CHECK_ERROR(err);
+#elif LINEAR_KERNEL_VERSION == 6
+    /**
+     * 2150ms
+     * batch matmul 달리 ik kj 방식이 효율적 않았음.
+     */
+    int reg_size_m = 4;
+    // add padding to M
+    size_t paddingM = M;
+    if (paddingM % reg_size_m != 0) {
+        paddingM = (paddingM / reg_size_m + 1) * reg_size_m;
+    }
+
+    // permute bufferWeight
+    cl_event eventPermute;
+    cl_mem bufferWeightPermuted = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                                 sizeof(float) * K * N,
+                                                 nullptr, &err);
+    CHECK_ERROR(err);
+
+    int permuteWeight[3] = {0, 2, 1};
+    err = clSetKernelArg(utilKernel->permute3D, 0, sizeof(cl_mem), &bufferWeight);
+    err |= clSetKernelArg(utilKernel->permute3D, 1, sizeof(cl_mem), &bufferWeightPermuted);
+    err |= clSetKernelArg(utilKernel->permute3D, 2, sizeof(int), &permuteWeight[0]);
+    err |= clSetKernelArg(utilKernel->permute3D, 3, sizeof(int), &permuteWeight[1]);
+    err |= clSetKernelArg(utilKernel->permute3D, 4, sizeof(int), &permuteWeight[2]);
+    CHECK_ERROR(err);
+
+    size_t globalWorkSizePermute[3] = {1, N, K};
+    err = clEnqueueNDRangeKernel(
+            cmdQueue, utilKernel->permute3D,
+            3, nullptr, globalWorkSizePermute, nullptr,
+            num_events_in_list, event_wait_list, &eventPermute
+    );
+    CHECK_ERROR(err);
+
+    std::vector<size_t> tile_size_ms = {40};
+    std::vector<size_t> tile_size_ns = {128};
+    int m_index;
+    for (m_index = 0; m_index < tile_size_ms.size(); m_index++) {
+        if (paddingM % (tile_size_ms[m_index]) == 0) {
+            break;
+        } else if (m_index == tile_size_ms.size() - 1) {
+            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                                "[%s:%d] M(%ld) %% tile_size_m != 0\n", __FILE__,
+                                __LINE__, M);
+            return CL_INVALID_VALUE;
+        }
+    }
+
+    int n_index;
+    for (n_index = 0; n_index < tile_size_ns.size(); n_index++) {
+        if (N % (tile_size_ns[n_index]) == 0) {
+            break;
+        } else if (n_index == tile_size_ns.size() - 1) {
+            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                                "[%s:%d] N(%ld) %% tile_size_n != 0\n", __FILE__,
+                                __LINE__, N);
+            return CL_INVALID_VALUE;
+        }
+    }
+
+    size_t tile_size_m = tile_size_ms[m_index];
+    size_t tile_size_n = tile_size_ns[n_index];
+
+    auto globalWorkSizeM = paddingM / reg_size_m;
+    auto localWorkSizeM = tile_size_m / reg_size_m;
+    if (tile_size_m % reg_size_m != 0) {
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG,
+                            "[%s:%d] globalWorkSizeM(%ld) M(%ld) tile_size_m(%ld) %% reg_size_m(%d) != 0\n",
+                            __FILE__,
+                            __LINE__, globalWorkSizeM, M, tile_size_ms[m_index], reg_size_m);
+        return CL_INVALID_VALUE;
+    }
+    if (tile_size_n % WIDTH != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] N(%ld) tile_size_n(%ld) %% WIDTH(%d) != 0\n", __FILE__,
+                            __LINE__, N, tile_size_ns[n_index], WIDTH);
+        return CL_INVALID_VALUE;
+    }
+
+    err = clSetKernelArg(kernel->tile_reg_m_vector_n_linear, 0, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel->tile_reg_m_vector_n_linear, 1, sizeof(cl_mem), &bufferWeightPermuted);
+    err |= clSetKernelArg(kernel->tile_reg_m_vector_n_linear, 2, sizeof(cl_mem), &bufferBias);
+    err |= clSetKernelArg(kernel->tile_reg_m_vector_n_linear, 3, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel->tile_reg_m_vector_n_linear, 4, sizeof(int), &M);
+    err |= clSetKernelArg(kernel->tile_reg_m_vector_n_linear, 5, sizeof(int), &N);
+    err |= clSetKernelArg(kernel->tile_reg_m_vector_n_linear, 6, sizeof(int), &K);
+    CHECK_ERROR(err);
+
+    size_t globalWorkSize[3] = {1, globalWorkSizeM, N / WIDTH};
+    size_t localWorkSize[3] = {1, localWorkSizeM, tile_size_n / WIDTH};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->tile_reg_m_vector_n_linear,
+                                 3, nullptr,
+                                 globalWorkSize, localWorkSize,
+                                 1, &eventPermute, event);
+    CHECK_ERROR(err);
+
+    clReleaseMemObject(bufferWeightPermuted);
+    clReleaseEvent(eventPermute);
 #elif LINEAR_KERNEL_VERSION == 1
     /* register : light throttle 15818 ms -> 8319 ms */
     size_t reg_size_n = 8;
@@ -441,16 +542,21 @@ cl_int Linear::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
 #if DEBUG
     clWaitForEvents(1, event);
     if (count == 0)
-        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "try, component, index, input size, out feature, in feature, tile size m, tile size n, reg size n, kernel, time(ms)\n");
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG,
+                            "try, component, index, input size, out feature, in feature, tile size m, tile size n, reg size n, kernel, time(ms)\n");
     auto message =
             "0, Linear, " +
             std::to_string(count++) + ", " +
             std::to_string(inputSize) + ", " +
             std::to_string(weightShape[0]) + ", " +
-            std::to_string(weightShape[1]) +  ", " +
+            std::to_string(weightShape[1]) + ", " +
             std::to_string(tile_size_m) + ", " +
             std::to_string(tile_size_n) + ", " +
+#if LINEAR_KERNEL_VERSION == 6
+            std::to_string(WIDTH);
+#else
             std::to_string(reg_size_n);
+#endif
     util::printEventTime(message + ", register_linear", *event);
 #endif
 

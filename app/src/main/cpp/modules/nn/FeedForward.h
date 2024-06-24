@@ -13,6 +13,7 @@
 #include "GEGLU.h"
 #include "../kernel/unit/LinearKernel.h"
 #include "../kernel/unit/GEGLUKernel.h"
+#include "../kernel/unit/UtilKernel.h"
 
 class FeedForward {
 public:
@@ -22,7 +23,8 @@ public:
             const std::string &geglu_linear_weight_name, const std::string &geglu_linear_bias_name,
             const std::string &net_linear_weight_name, const std::string &net_linear_bias_name,
             std::shared_ptr<LinearKernel> linearKernel,
-            std::shared_ptr<GEGLUKernel> gegluKernel
+            std::shared_ptr<GEGLUKernel> gegluKernel,
+            std::shared_ptr<UtilKernel> utilKernel
     );
 
     ~FeedForward();

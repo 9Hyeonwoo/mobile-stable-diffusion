@@ -51,7 +51,7 @@ ResBlock::ResBlock(
         embed_linear = new Linear(context, cmdQueue,
                                   emb_channels, out_channels,
                                   embed_linear_weight_name, embed_linear_bias_name,
-                                  linearKernel);
+                                  linearKernel, utilKernel);
     }
     out_group_norm = new GroupNorm(context, cmdQueue, 32, out_channels,
                                    1e-5,

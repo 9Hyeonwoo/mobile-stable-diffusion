@@ -25,12 +25,13 @@ GEGLU::GEGLU(
         size_t in_features, size_t out_features,
         const std::string &linear_weight_name, const std::string &linear_bias_name,
         std::shared_ptr<LinearKernel> linearKernel,
-        std::shared_ptr<GEGLUKernel> gegluKernel
+        std::shared_ptr<GEGLUKernel> gegluKernel,
+        std::shared_ptr<UtilKernel> utilKernel
 ) : context(context), cmdQueue(cmdQueue), kernel(gegluKernel) {
 
     linear = new Linear(context, cmdQueue,
                         in_features, out_features * 2,
-                        linear_weight_name, linear_bias_name, linearKernel);
+                        linear_weight_name, linear_bias_name, linearKernel, utilKernel);
 
     weightShape = linear->weightShape;
 }
