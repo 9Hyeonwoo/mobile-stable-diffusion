@@ -5,6 +5,7 @@
 #include "Conv2D.h"
 #include <android/log.h>
 #include "../util.h"
+#include "../setting.h"
 
 #define DEBUG 0
 #define LOG_TAG "CONV2D"
@@ -213,6 +214,7 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     size_t out_channel = weightShape[0];
 
     /* im2win matmul - naive */
+#if CONV_2D_KERNEL_VERSION == 0
     err = clSetKernelArg(kernel->im2win_matmul, 0, sizeof(cl_mem), &bufferWeight);
     err |= clSetKernelArg(kernel->im2win_matmul, 1, sizeof(cl_mem), &bufferBias);
     err |= clSetKernelArg(kernel->im2win_matmul, 2, sizeof(cl_mem), &bufferWin);
@@ -232,6 +234,37 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  1, &_event[0], event);
     CHECK_ERROR(err);
     /* im2win matmul - naive */
+#elif CONV_2D_KERNEL_VERSION == 1
+    size_t tile_size_n = 256;
+    size_t reg_size_n = 16;
+    size_t MN = outputSize * outputSize;
+
+    if (MN % tile_size_n != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] MN(%ld) %% tile_size_n(%ld) != 0\n", __FILE__,
+                            __LINE__, MN, tile_size_n);
+        return CL_INVALID_VALUE;
+    }
+
+    err = clSetKernelArg(kernel->im2win_reg_n_matmul, 0, sizeof(cl_mem), &bufferWeight);
+    err |= clSetKernelArg(kernel->im2win_reg_n_matmul, 1, sizeof(cl_mem), &bufferBias);
+    err |= clSetKernelArg(kernel->im2win_reg_n_matmul, 2, sizeof(cl_mem), &bufferWin);
+    err |= clSetKernelArg(kernel->im2win_reg_n_matmul, 3, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel->im2win_reg_n_matmul, 4, sizeof(int), &outputSize);
+    err |= clSetKernelArg(kernel->im2win_reg_n_matmul, 5, sizeof(int), &outputSize);
+    err |= clSetKernelArg(kernel->im2win_reg_n_matmul, 6, sizeof(int), &width_win);
+    err |= clSetKernelArg(kernel->im2win_reg_n_matmul, 7, sizeof(int), &in_channel);
+    err |= clSetKernelArg(kernel->im2win_reg_n_matmul, 8, sizeof(int), &kernel_size);
+    err |= clSetKernelArg(kernel->im2win_reg_n_matmul, 9, sizeof(int), &stride);
+    CHECK_ERROR(err);
+
+    size_t globalSize_im2win_matmul[2] = {out_channel,  MN / reg_size_n};
+    size_t localSize_im2win_matmul[2] = {1, tile_size_n / reg_size_n};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->im2win_reg_n_matmul, 2, nullptr,
+                                 globalSize_im2win_matmul, localSize_im2win_matmul,
+                                 1, &_event[0], event);
+    CHECK_ERROR(err);
+#endif
 
     /* im2win matmul - register
     size_t tile_size_m = 1, reg_size_n = 4;

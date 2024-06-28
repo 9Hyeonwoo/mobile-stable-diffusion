@@ -9,4 +9,11 @@
 
 #define CROSS_ATTENTION_KERNEL_VERSION 2
 
+/**
+ * Conv2D
+ * Version 0: Initial version
+ * Version 1: Apply register n kernel
+ */
+#define CONV_2D_KERNEL_VERSION 1
+
 #endif //MY_OPENCL_SETTING_H

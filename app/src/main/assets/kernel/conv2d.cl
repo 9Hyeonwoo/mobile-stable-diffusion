@@ -358,3 +358,282 @@ __kernel void im2win_batch_matmul(
         output[global_m*N + global_n + offset_batch_output] = acc[rn] + bias[batch];
     }
 }
+
+#define WIDTH 4
+#if WIDTH == 1
+    typedef float floatX;
+#elif WIDTH == 2
+    typedef float2 floatX;
+#elif WIDTH == 4
+    typedef float4 floatX;
+#elif WIDTH == 8
+    typedef float8 floatX;
+#elif WIDTH == 16
+    typedef float16 floatX;
+#endif
+
+__kernel void im2win_reg_n_matmul(
+    __global const floatX *weight,
+    __global const float *bias,
+    __global const floatX *input_win,
+    __global float *output,
+    const int M,
+    const int N,
+    const int width_win,
+    const int in_channel,
+    const int kernel_size,
+    const int stride
+) {
+    const int reg_size_n = 16;
+    // global = { C, M * N } / local = { 1, 32 }
+    const int local_size_mn = get_local_size(1);
+    const int c = get_global_id(0);
+    const int mn = get_group_id(1) * local_size_mn * reg_size_n + get_local_id(1);
+    const int m = mn / N;
+    const int n = mn % N;
+
+    float sum[reg_size_n];
+    for (int i = 0; i < reg_size_n; i++) {
+        sum[i] = 0.0f;
+    }
+
+    for (int c_in = 0; c_in < in_channel; c_in++) {
+        float weight_reg[9];
+        int weight_index = (c * in_channel + c_in) * kernel_size * kernel_size;
+        floatX tmp = weight[weight_index / WIDTH];
+        for (int ij = 0; ij < kernel_size * kernel_size; ij++, weight_index++) {
+            if (ij != 0 && weight_index % WIDTH == 0) {
+                tmp = weight[weight_index / WIDTH];
+            }
+            int f_i = ij / kernel_size;
+            int f_j = ij % kernel_size;
+#if WIDTH == 1
+            weight_reg[f_j * kernel_size + f_i] = tmp;
+#elif WIDTH == 2
+            switch (weight_index % WIDTH) {
+                case 0:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.x;
+                    break;
+                case 1:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.y;
+                    break;
+            }
+#elif WIDTH == 4
+            switch (weight_index % WIDTH) {
+                case 0:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.x;
+                    break;
+                case 1:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.y;
+                    break;
+                case 2:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.z;
+                    break;
+                case 3:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.w;
+                    break;
+            }
+#elif WIDTH == 8
+            switch (weight_index % WIDTH) {
+                case 0:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s0;
+                    break;
+                case 1:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s1;
+                    break;
+                case 2:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s2;
+                    break;
+                case 3:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s3;
+                    break;
+                case 4:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s4;
+                    break;
+                case 5:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s5;
+                    break;
+                case 6:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s6;
+                    break;
+                case 7:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s7;
+                    break;
+            }
+#elif WIDTH == 16
+            switch (weight_index % WIDTH) {
+                case 0:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s0;
+                    break;
+                case 1:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s1;
+                    break;
+                case 2:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s2;
+                    break;
+                case 3:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s3;
+                    break;
+                case 4:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s4;
+                    break;
+                case 5:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s5;
+                    break;
+                case 6:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s6;
+                    break;
+                case 7:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s7;
+                    break;
+                case 8:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s8;
+                    break;
+                case 9:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.s9;
+                    break;
+                case 10:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.sA;
+                    break;
+                case 11:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.sB;
+                    break;
+                case 12:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.sC;
+                    break;
+                case 13:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.sD;
+                    break;
+                case 14:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.sE;
+                    break;
+                case 15:
+                    weight_reg[f_j * kernel_size + f_i] = tmp.sF;
+                    break;
+            }
+#endif
+        }
+
+        for (int reg_n = 0; reg_n < reg_size_n; reg_n++) {
+            const int i_mn = mn + reg_n * local_size_mn;
+            const int i_m = i_mn / N;
+            const int i_n = i_mn % N;
+            int input_index = ((c_in * M + i_m) * width_win) + ((i_n) * stride * kernel_size);
+            tmp = input_win[input_index / WIDTH];
+            for (int ij = 0; ij < kernel_size * kernel_size; ij++, input_index++) {
+                if (ij != 0 && input_index % WIDTH == 0) {
+                    tmp = input_win[input_index / WIDTH];
+                }
+#if WIDTH == 1
+                sum[reg_n] += weight_reg[ij] * tmp;
+#elif WIDTH == 2
+                switch (input_index % WIDTH) {
+                    case 0:
+                        sum[reg_n] += weight_reg[ij] * tmp.x;
+                        break;
+                    case 1:
+                        sum[reg_n] += weight_reg[ij] * tmp.y;
+                        break;
+                }
+#elif WIDTH == 4
+                switch (input_index % WIDTH) {
+                    case 0:
+                        sum[reg_n] += weight_reg[ij] * tmp.x;
+                        break;
+                    case 1:
+                        sum[reg_n] += weight_reg[ij] * tmp.y;
+                        break;
+                    case 2:
+                        sum[reg_n] += weight_reg[ij] * tmp.z;
+                        break;
+                    case 3:
+                        sum[reg_n] += weight_reg[ij] * tmp.w;
+                        break;
+                }
+#elif WIDTH == 8
+                switch (input_index % WIDTH) {
+                    case 0:
+                        sum[reg_n] += weight_reg[ij] * tmp.s0;
+                        break;
+                    case 1:
+                        sum[reg_n] += weight_reg[ij] * tmp.s1;
+                        break;
+                    case 2:
+                        sum[reg_n] += weight_reg[ij] * tmp.s2;
+                        break;
+                    case 3:
+                        sum[reg_n] += weight_reg[ij] * tmp.s3;
+                        break;
+                    case 4:
+                        sum[reg_n] += weight_reg[ij] * tmp.s4;
+                        break;
+                    case 5:
+                        sum[reg_n] += weight_reg[ij] * tmp.s5;
+                        break;
+                    case 6:
+                        sum[reg_n] += weight_reg[ij] * tmp.s6;
+                        break;
+                    case 7:
+                        sum[reg_n] += weight_reg[ij] * tmp.s7;
+                        break;
+                }
+#elif WIDTH == 16
+                switch (input_index % WIDTH) {
+                    case 0:
+                        sum[reg_n] += weight_reg[ij] * tmp.s0;
+                        break;
+                    case 1:
+                        sum[reg_n] += weight_reg[ij] * tmp.s1;
+                        break;
+                    case 2:
+                        sum[reg_n] += weight_reg[ij] * tmp.s2;
+                        break;
+                    case 3:
+                        sum[reg_n] += weight_reg[ij] * tmp.s3;
+                        break;
+                    case 4:
+                        sum[reg_n] += weight_reg[ij] * tmp.s4;
+                        break;
+                    case 5:
+                        sum[reg_n] += weight_reg[ij] * tmp.s5;
+                        break;
+                    case 6:
+                        sum[reg_n] += weight_reg[ij] * tmp.s6;
+                        break;
+                    case 7:
+                        sum[reg_n] += weight_reg[ij] * tmp.s7;
+                        break;
+                    case 8:
+                        sum[reg_n] += weight_reg[ij] * tmp.s8;
+                        break;
+                    case 9:
+                        sum[reg_n] += weight_reg[ij] * tmp.s9;
+                        break;
+                    case 10:
+                        sum[reg_n] += weight_reg[ij] * tmp.sA;
+                        break;
+                    case 11:
+                        sum[reg_n] += weight_reg[ij] * tmp.sB;
+                        break;
+                    case 12:
+                        sum[reg_n] += weight_reg[ij] * tmp.sC;
+                        break;
+                    case 13:
+                        sum[reg_n] += weight_reg[ij] * tmp.sD;
+                        break;
+                    case 14:
+                        sum[reg_n] += weight_reg[ij] * tmp.sE;
+                        break;
+                    case 15:
+                        sum[reg_n] += weight_reg[ij] * tmp.sF;
+                        break;
+                }
+#endif
+            }
+        }
+    }
+
+    for (int reg_n = 0; reg_n < reg_size_n; reg_n++) {
+        output[(c * M + m) * N + n + reg_n * local_size_mn] = sum[reg_n] + bias[c];
+    }
+}

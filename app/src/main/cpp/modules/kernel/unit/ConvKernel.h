@@ -20,6 +20,7 @@ public:
     cl_kernel im2win;
     cl_kernel im2win_matmul;
     cl_kernel im2win_batch_matmul;
+    cl_kernel im2win_reg_n_matmul;
 };
 
 
