@@ -11,13 +11,13 @@ import com.example.myopencl.databinding.ActivityMainBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
+import org.jetbrains.bio.npy.NpyFile
 import org.pytorch.IValue
 import org.pytorch.Module
 import org.pytorch.Tensor
 import java.util.Random
 import kotlin.concurrent.thread
+import kotlin.io.path.Path
 
 class MainActivity : AppCompatActivity() {
 
@@ -81,9 +81,8 @@ class MainActivity : AppCompatActivity() {
         binding.encodePytorchButton.setOnClickListener {
             initOpenCL(assets)
             val token = token
-            val condition: FloatArray
             val start = System.currentTimeMillis()
-            run {
+            takeIf { false }?.run {
                 // about 8s
                 Log.d("__TEST__", "start torchEncoder")
                 val torchEncoder = checkTime("encode_init") {
@@ -94,27 +93,33 @@ class MainActivity : AppCompatActivity() {
                 Log.d("__TEST__", "start encode")
                 // output shape = (batch_size=1, context_length=77, 1024)
 
-                condition = checkTime("encode_inference") {
+                val condition = checkTime("encode_inference") {
                     torchEncoder.forward(IValue.from(tensor)).toTensor().dataAsFloatArray
                 }
                 torchEncoder.destroy()
                 Log.d("__TEST__", "end torchEncoder")
             }
-            return@setOnClickListener
-            val latent: FloatArray
-            run {
+            takeIf { true }?.run {
                 val random = Random(45)
-                // val condition = FloatArray(77 * 1024) { random.nextGaussian().toFloat() }
+                val condition =
+                    NpyFile.read(Path(mediaFilePath("encoder/test/ln_final_test_fp32.npy")))
+                        .asFloatArray()
                 // about 21s
                 Log.d("__TEST__", "start torch UNet")
-                val torchUNetInput = Module.load(mediaFilePath("unet/unet_input.ptl"))
+                val torchUNetInput = checkTime("unet input init") {
+                    Module.load(mediaFilePath("unet/unet_input.ptl"))
+                }
 
                 Log.d("__TEST__", "start unet_input")
-                val x = FloatArray(4 * 64 * 64) { random.nextGaussian().toFloat() }
-                val hsInput = unet(torchUNetInput, x, longArrayOf(1, 4, 64, 64), 981, condition)
+                val x = NpyFile.read(Path(mediaFilePath("sampler/test/test_seed_45_img.npy")))
+                    .asFloatArray()
+                val hsInput = checkTime("unet input run") {
+                    unet(torchUNetInput, x, longArrayOf(1, 4, 64, 64), 981, condition)
+                }
+                Log.d("__TEST__", hsInput.toString())
                 Log.d("__TEST__", "end unet_input")
                 torchUNetInput.destroy()
-
+                return@setOnClickListener
                 val torchUNetMid = Module.load(mediaFilePath("unet/unet_mid.ptl"))
                 Log.d("__TEST__", "start unet_mid")
                 val hsMid =
@@ -136,7 +141,7 @@ class MainActivity : AppCompatActivity() {
 
                 //  val hs_out_0_3 = FloatArray(6389760) { random.nextGaussian().toFloat() }
                 val torchUNetOutput4_11 = Module.load(mediaFilePath("unet/unet_out4_11.ptl"))
-                latent = unet(
+                val latent = unet(
                     torchUNetOutput4_11,
                     hs_out_0_3,
                     longArrayOf(hs_out_0_3.size.toLong()),
@@ -147,10 +152,11 @@ class MainActivity : AppCompatActivity() {
                 torchUNetOutput4_11.destroy()
                 Log.d("__TEST__", "end torch UNet")
             }
-            val img: FloatArray
-            run {
-                // val latent =
-                //    NpyFile.read(Path(mediaFilePath("decoder/test/test_seed_45_step_50_sample.npy")))
+            takeIf { false }?.run {
+                val img: FloatArray
+                val latent =
+                    NpyFile.read(Path(mediaFilePath("decoder/test/test_seed_45_step_50_sample.npy")))
+                        .asFloatArray()
                 Log.d("__TEST__", "start torchDecoder")
                 val torchDecoder = Module.load(mediaFilePath("decoder/decoder.ptl"))
                 Log.d("__TEST__", "end torchDecoder")
@@ -167,10 +173,10 @@ class MainActivity : AppCompatActivity() {
                 img = torchDecoder.forward(tensor).toTensor().dataAsFloatArray
                 Log.d("__TEST__", "end decode")
                 torchDecoder.destroy()
+                val stop = System.currentTimeMillis()
+                Log.d("__TEST__", "torch unet time: ${stop - start} ms")
+                drawImage(img)
             }
-            val stop = System.currentTimeMillis()
-            Log.d("__TEST__", "torch unet time: ${stop - start} ms")
-            drawImage(img)
         }
     }
 
@@ -222,7 +228,7 @@ class MainActivity : AppCompatActivity() {
         ).toTensor().dataAsFloatArray
     }
 
-    private inline fun<T> checkTime(tag: String, block: () -> T): T {
+    private inline fun <T> checkTime(tag: String, block: () -> T): T {
         val start = System.currentTimeMillis()
         val result = block()
         val stop = System.currentTimeMillis()
