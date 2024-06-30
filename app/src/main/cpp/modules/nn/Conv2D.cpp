@@ -192,7 +192,7 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     int col_offset = 0;
     size_t num_windows = in_channel * outputSize * width_pad;
     size_t width_win = width_pad * kernel_size;
-#if CONV_2D_KERNEL_VERSION == 5
+#if CONV_2D_KERNEL_VERSION == 5 || CONV_2D_KERNEL_VERSION == 6
     err = clSetKernelArg(kernel->im2win_transpose, 0, sizeof(size_t), &num_windows);
     err |= clSetKernelArg(kernel->im2win_transpose, 1, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel->im2win_transpose, 2, sizeof(int), &im_offset);
@@ -440,6 +440,56 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     size_t globalSize_im2win_matmul[3] = {out_channel / reg_size_c, N, M / reg_size_m};
     size_t localSize_im2win_matmul[3] = {1, tile_size_n, tile_size_m / reg_size_m};
     err = clEnqueueNDRangeKernel(cmdQueue, kernel->im2win_channel_reg_transpose_v5_matmul, 3, nullptr,
+                                 globalSize_im2win_matmul, localSize_im2win_matmul,
+                                 1, &_event[0], event);
+    CHECK_ERROR(err);
+#elif CONV_2D_KERNEL_VERSION == 6
+    size_t reg_size_c = 4;
+    size_t reg_size_m = 4;
+    std::vector<size_t> tile_size_ms = {64, 32, 16, 8};
+    std::vector<size_t> tile_size_ns = {8, 8, 16, 8};
+    size_t M = outputSize;
+    size_t N = outputSize;
+
+    int m_index;
+    for (m_index = 0; m_index < tile_size_ms.size(); m_index++) {
+        if (M % (tile_size_ms[m_index]) == 0) {
+            break;
+        }
+    }
+
+    if (m_index >= tile_size_ms.size()) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] M(%ld) %% tile_size_m != 0\n", __FILE__,
+                            __LINE__, M);
+        return CL_INVALID_VALUE;
+    }
+
+    if (out_channel % reg_size_c != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "[%s:%d] out_channel(%ld) %% reg_size_c(%ld) != 0\n", __FILE__,
+                            __LINE__, out_channel, reg_size_c);
+        return CL_INVALID_VALUE;
+    }
+
+    size_t tile_size_m = tile_size_ms[m_index];
+    size_t tile_size_n = tile_size_ns[m_index];
+
+    err = clSetKernelArg(kernel->im2win_channel_reg_transpose_vector_v6_matmul, 0, sizeof(cl_mem), &bufferWeight);
+    err |= clSetKernelArg(kernel->im2win_channel_reg_transpose_vector_v6_matmul, 1, sizeof(cl_mem), &bufferBias);
+    err |= clSetKernelArg(kernel->im2win_channel_reg_transpose_vector_v6_matmul, 2, sizeof(cl_mem), &bufferWin);
+    err |= clSetKernelArg(kernel->im2win_channel_reg_transpose_vector_v6_matmul, 3, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel->im2win_channel_reg_transpose_vector_v6_matmul, 4, sizeof(int), &outputSize);
+    err |= clSetKernelArg(kernel->im2win_channel_reg_transpose_vector_v6_matmul, 5, sizeof(int), &outputSize);
+    err |= clSetKernelArg(kernel->im2win_channel_reg_transpose_vector_v6_matmul, 6, sizeof(int), &width_win);
+    err |= clSetKernelArg(kernel->im2win_channel_reg_transpose_vector_v6_matmul, 7, sizeof(int), &in_channel);
+    err |= clSetKernelArg(kernel->im2win_channel_reg_transpose_vector_v6_matmul, 8, sizeof(int), &kernel_size);
+    err |= clSetKernelArg(kernel->im2win_channel_reg_transpose_vector_v6_matmul, 9, sizeof(int), &stride);
+    CHECK_ERROR(err);
+
+    size_t globalSize_im2win_matmul[3] = {out_channel / reg_size_c, N, M / reg_size_m};
+    size_t localSize_im2win_matmul[3] = {1, tile_size_n, tile_size_m / reg_size_m};
+    err = clEnqueueNDRangeKernel(cmdQueue, kernel->im2win_channel_reg_transpose_vector_v6_matmul, 3, nullptr,
                                  globalSize_im2win_matmul, localSize_im2win_matmul,
                                  1, &_event[0], event);
     CHECK_ERROR(err);

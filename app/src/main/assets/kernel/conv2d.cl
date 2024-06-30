@@ -829,7 +829,7 @@ __kernel void im2win_channel_reg_transpose_v5_matmul(
                     float weight_tmp = weight[weight_index];
                     for (int reg_m = 0; reg_m < reg_size_m; reg_m++) {
                         int input_index = ((c_in * width_win + (n * stride * kernel_size) + i * kernel_size + j) * M) + (m + reg_m * local_size_m);
-                        sum[reg_c][reg_m] += weight[weight_index] * input_win[input_index];
+                        sum[reg_c][reg_m] += weight_tmp * input_win[input_index];
                     }
                 }
             }
@@ -884,5 +884,91 @@ __kernel void im2win_transpose(
             (h_im >= 0 && w_im >= 0 && h_im < height && w_im < width) ?
                 data_im_ptr[i * width] : 0.0f;
         data_win_ptr += height_win;
+    }
+}
+
+__kernel void im2win_channel_reg_transpose_vector_v6_matmul(
+    __global const float *weight,
+    __global const float *bias,
+    __global const floatX *input_win,
+    __global float *output,
+    const int M,
+    const int N,
+    const int width_win,
+    const int in_channel,
+    const int kernel_size,
+    const int stride
+) {
+    const int reg_size_c = 4;
+    const int reg_size_m = 4;
+    const int local_size_c = get_local_size(0);
+    const int local_size_m = get_local_size(2);
+    const int c = get_group_id(0) * local_size_c * reg_size_c + get_local_id(0);
+    const int n = get_group_id(1) * get_local_size(1) + get_local_id(1);
+    const int m = get_group_id(2) * local_size_m * reg_size_m + get_local_id(2) * reg_size_m;
+
+    float sum[reg_size_c][reg_size_m];
+    for (int i = 0; i < reg_size_c; i++) {
+        for (int j = 0; j < reg_size_m; j++) {
+            sum[i][j] = 0.0f;
+        }
+    }
+
+    for (int c_in = 0; c_in < in_channel; c_in++) {
+        for (int i = 0; i < kernel_size; i++) {
+            for (int j = 0; j < kernel_size; j++) {
+                for (int reg_c = 0; reg_c < reg_size_c; reg_c++) {
+                    int weight_index = ((((c + reg_c * local_size_c) * in_channel + c_in) * kernel_size) + j) * kernel_size + i;
+                    float weight_tmp = weight[weight_index];
+                    for (int reg_m = 0; reg_m < reg_size_m / WIDTH; reg_m++) {
+                        int input_index = ((c_in * width_win + (n * stride * kernel_size) + i * kernel_size + j) * M) + (m + reg_m * WIDTH);
+                        floatX input_tmp = input_win[input_index / WIDTH];
+#if WIDTH == 1
+                        sum[reg_c][reg_m * WIDTH] += weight_tmp * input_tmp;
+#elif WIDTH == 2
+                        sum[reg_c][reg_m * WIDTH] += weight_tmp * input_tmp.x;
+                        sum[reg_c][reg_m * WIDTH + 1] += weight_tmp * input_tmp.y;
+#elif WIDTH == 4
+                        sum[reg_c][reg_m * WIDTH] += weight_tmp * input_tmp.x;
+                        sum[reg_c][reg_m * WIDTH + 1] += weight_tmp * input_tmp.y;
+                        sum[reg_c][reg_m * WIDTH + 2] += weight_tmp * input_tmp.z;
+                        sum[reg_c][reg_m * WIDTH + 3] += weight_tmp * input_tmp.w;
+#elif WIDTH == 8
+                        sum[reg_c][reg_m * WIDTH] += weight_tmp * input_tmp.s0;
+                        sum[reg_c][reg_m * WIDTH + 1] += weight_tmp * input_tmp.s1;
+                        sum[reg_c][reg_m * WIDTH + 2] += weight_tmp * input_tmp.s2;
+                        sum[reg_c][reg_m * WIDTH + 3] += weight_tmp * input_tmp.s3;
+                        sum[reg_c][reg_m * WIDTH + 4] += weight_tmp * input_tmp.s4;
+                        sum[reg_c][reg_m * WIDTH + 5] += weight_tmp * input_tmp.s5;
+                        sum[reg_c][reg_m * WIDTH + 6] += weight_tmp * input_tmp.s6;
+                        sum[reg_c][reg_m * WIDTH + 7] += weight_tmp * input_tmp.s7;
+#elif WIDTH == 16
+                        sum[reg_c][reg_m * WIDTH] += weight_tmp * input_tmp.s0;
+                        sum[reg_c][reg_m * WIDTH + 1] += weight_tmp * input_tmp.s1;
+                        sum[reg_c][reg_m * WIDTH + 2] += weight_tmp * input_tmp.s2;
+                        sum[reg_c][reg_m * WIDTH + 3] += weight_tmp * input_tmp.s3;
+                        sum[reg_c][reg_m * WIDTH + 4] += weight_tmp * input_tmp.s4;
+                        sum[reg_c][reg_m * WIDTH + 5] += weight_tmp * input_tmp.s5;
+                        sum[reg_c][reg_m * WIDTH + 6] += weight_tmp * input_tmp.s6;
+                        sum[reg_c][reg_m * WIDTH + 7] += weight_tmp * input_tmp.s7;
+                        sum[reg_c][reg_m * WIDTH + 8] += weight_tmp * input_tmp.s8;
+                        sum[reg_c][reg_m * WIDTH + 9] += weight_tmp * input_tmp.s9;
+                        sum[reg_c][reg_m * WIDTH + 10] += weight_tmp * input_tmp.sA;
+                        sum[reg_c][reg_m * WIDTH + 11] += weight_tmp * input_tmp.sB;
+                        sum[reg_c][reg_m * WIDTH + 12] += weight_tmp * input_tmp.sC;
+                        sum[reg_c][reg_m * WIDTH + 13] += weight_tmp * input_tmp.sD;
+                        sum[reg_c][reg_m * WIDTH + 14] += weight_tmp * input_tmp.sE;
+                        sum[reg_c][reg_m * WIDTH + 15] += weight_tmp * input_tmp.sF;
+#endif
+                    }
+                }
+            }
+        }
+    }
+
+    for (int reg_c = 0; reg_c < reg_size_c; reg_c++) {
+        for (int reg_m = 0; reg_m < reg_size_m; reg_m++) {
+            output[(c + reg_c * local_size_c) * M * N + ((m + reg_m) * N + n)] = sum[reg_c][reg_m] + bias[c + reg_c * local_size_c];
+        }
     }
 }
