@@ -24,6 +24,8 @@ public:
     cl_kernel im2win_v2_matmul;
     cl_kernel im2win_channel_reg_matmul;
     cl_kernel im2win_channel_reg_v4_matmul;
+    cl_kernel im2win_channel_reg_transpose_v5_matmul;
+    cl_kernel im2win_transpose;
 };
 
 

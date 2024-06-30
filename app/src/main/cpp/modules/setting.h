@@ -15,9 +15,10 @@
  * Version 1: Apply register n + vector
  * Version 2: only add register n
  * Version 3: Version 2 + register c
- * Version 4: Version 3 - weight register (201ms)
+ * Version 4: Version 3 - weight register (201ms). reg_n 은 1이 빠름.
+ * Version 5: Version 4 - register n + transpose input_win + register m (102ms)
  */
-#define CONV_2D_KERNEL_VERSION 4
+#define CONV_2D_KERNEL_VERSION 5
 
 /**
  * UNet Load Mode
