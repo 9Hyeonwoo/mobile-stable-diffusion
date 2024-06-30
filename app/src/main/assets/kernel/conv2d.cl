@@ -637,3 +637,49 @@ __kernel void im2win_reg_n_matmul(
         output[(c * M + m) * N + n + reg_n * local_size_mn] = sum[reg_n] + bias[c];
     }
 }
+
+__kernel void im2win_v2_matmul(
+    __global const float *weight,
+    __global const float *bias,
+    __global const float *input_win,
+    __global float *output,
+    const int M,
+    const int N,
+    const int width_win,
+    const int in_channel,
+    const int kernel_size,
+    const int stride
+) {
+    const int reg_size_n = 32;
+    const int c = get_global_id(0);
+    const int mn = get_group_id(1) * get_local_size(1) * reg_size_n + get_local_id(1);
+    const int m = mn / N;
+    const int n = mn % N;
+
+    float sum[reg_size_n];
+    for (int i = 0; i < reg_size_n; i++) {
+        sum[i] = 0.0f;
+    }
+
+    for (int c_in = 0; c_in < in_channel; c_in++) {
+        float weight_reg[9];
+        for (int ij = 0; ij < kernel_size * kernel_size; ij++) {
+            int f_i = ij / kernel_size;
+            int f_j = ij % kernel_size;
+            weight_reg[f_j * kernel_size + f_i] = weight[((c * in_channel + c_in) * kernel_size * kernel_size) + ij];
+        }
+        for (int reg_n = 0; reg_n < reg_size_n; reg_n++) {
+            const int i_mn = mn + reg_n * get_local_size(1);
+            const int i_m = i_mn / N;
+            const int i_n = i_mn % N;
+            int input_index = ((c_in * M + i_m) * width_win) + ((i_n) * stride * kernel_size);
+            for (int ij = 0; ij < kernel_size * kernel_size; ij++) {
+                sum[reg_n] += weight_reg[ij] * input_win[input_index + ij];
+            }
+        }
+    }
+
+    for (int reg_n = 0; reg_n < reg_size_n; reg_n++) {
+        output[(c * M + m) * N + n + reg_n * get_local_size(1)] = sum[reg_n] + bias[c];
+    }
+}
