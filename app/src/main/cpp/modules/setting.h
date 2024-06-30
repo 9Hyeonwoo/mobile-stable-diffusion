@@ -15,8 +15,9 @@
  * Version 1: Apply register n + vector
  * Version 2: only add register n
  * Version 3: Version 2 + register c
+ * Version 4: Version 3 - weight register (201ms)
  */
-#define CONV_2D_KERNEL_VERSION 0
+#define CONV_2D_KERNEL_VERSION 4
 
 /**
  * UNet Load Mode

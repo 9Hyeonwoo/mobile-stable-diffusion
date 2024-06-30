@@ -56,6 +56,9 @@ ConvKernel::ConvKernel(
     im2win_channel_reg_matmul = clCreateKernel(program, "im2win_channel_reg_matmul", &err);
     CHECK_ERROR_THROW(err);
 
+    im2win_channel_reg_v4_matmul = clCreateKernel(program, "im2win_channel_reg_v4_matmul", &err);
+    CHECK_ERROR_THROW(err);
+
     clReleaseProgram(program);
 }
 
@@ -69,4 +72,5 @@ ConvKernel::~ConvKernel() {
     clReleaseKernel(im2win_reg_n_matmul);
     clReleaseKernel(im2win_v2_matmul);
     clReleaseKernel(im2win_channel_reg_matmul);
+    clReleaseKernel(im2win_channel_reg_v4_matmul);
 }

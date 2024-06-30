@@ -23,6 +23,7 @@ public:
     cl_kernel im2win_reg_n_matmul;
     cl_kernel im2win_v2_matmul;
     cl_kernel im2win_channel_reg_matmul;
+    cl_kernel im2win_channel_reg_v4_matmul;
 };
 
 
