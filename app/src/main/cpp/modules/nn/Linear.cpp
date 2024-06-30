@@ -46,7 +46,7 @@ Linear::~Linear() {
 }
 
 void Linear::init() {
-    if (bufferWeight != nullptr && bufferBias != nullptr) {
+    if (bufferWeight != nullptr && (bias_name.empty() || bufferBias != nullptr)) {
         return;
     }
     size_t weight_num_vals;
