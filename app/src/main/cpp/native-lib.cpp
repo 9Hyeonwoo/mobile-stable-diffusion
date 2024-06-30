@@ -228,7 +228,12 @@ Java_com_example_myopencl_MainActivity_sample(JNIEnv *env, jobject thiz, jfloatA
 //    int shape[3] = {4, 64, 64};
 //    auto result = sampler->sample(&x_vec, 50, shape, condition);
 
+    auto start_init = std::chrono::high_resolution_clock::now();
     auto unet = UNetModel(assetManager, context, cmdQueue, deviceId);
+    auto stop_init = std::chrono::high_resolution_clock::now();
+    auto duration_init = std::chrono::duration_cast<std::chrono::milliseconds>(stop_init - start_init);
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "u-net init time: %lld ms", duration_init.count());
+
     auto x = util::load_npy_file("sampler/test/test_seed_45_img.npy").as_vec<float>();
     auto c = util::load_npy_file("encoder/test/ln_final_test_fp32.npy").as_vec<float>();
     auto start = std::chrono::high_resolution_clock::now();

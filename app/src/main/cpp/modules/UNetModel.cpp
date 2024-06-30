@@ -6,6 +6,7 @@
 
 #include "util.h"
 #include <android/log.h>
+#include "setting.h"
 
 #define LOG_TAG "UNET_MODEL"
 #define MODEL_CHANNELS 320
@@ -46,6 +47,40 @@ UNetModel::UNetModel(
                               "unet/time_embed/time_embed_2_bias.npy",
                               linearKernel, utilKernel);
     time_embed_2->init();
+
+#if UNET_LOAD_MODE == 1
+    initInputBlock0();
+    initInputBlock1();
+    initInputBlock2();
+    initInputBlock3();
+    initInputBlock4();
+    initInputBlock5();
+    initInputBlock6();
+    initInputBlock7();
+    initInputBlock8();
+    initInputBlock9();
+    initInputBlock10();
+    initInputBlock11();
+
+    input_block_0_conv2d->init();
+    input_block_1_res_block->init();
+    input_block_1_spatial->init();
+    input_block_2_res_block->init();
+    input_block_2_spatial->init();
+    input_block_3_conv2d->init();
+    input_block_4_res_block->init();
+    input_block_4_spatial->init();
+    input_block_5_res_block->init();
+    input_block_5_spatial->init();
+    input_block_6_conv2d->init();
+    input_block_7_res_block->init();
+    input_block_7_spatial->init();
+    input_block_8_res_block->init();
+    input_block_8_spatial->init();
+    input_block_9_conv2d->init();
+    input_block_10_res_block->init();
+    input_block_11_res_block->init();
+#endif
 }
 
 void UNetModel::initInputBlock0() {
@@ -1090,7 +1125,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
 
     /* input_block layer */
     /* input_block layer[0] */
+#if UNET_LOAD_MODE == 0
     initInputBlock0();
+#endif
     bufferInput_0 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * MODEL_CHANNELS * 64 * 64,
                                    nullptr, &err);
@@ -1110,7 +1147,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[0] */
 
     /* input_block layer[1] */
+#if UNET_LOAD_MODE == 0
     initInputBlock1();
+#endif
     bufferInput_1 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * MODEL_CHANNELS * 64 * 64,
                                    nullptr, &err);
@@ -1135,8 +1174,13 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     input_block_1_spatial = nullptr;
     /* input_block layer[1] */
 
+    // clWaitForEvents(1, &event1_3);
+    // return std::vector<float>();
+
     /* input_block layer[2] */
+#if UNET_LOAD_MODE == 0
     initInputBlock2();
+#endif
     bufferInput_2 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * MODEL_CHANNELS * 64 * 64,
                                    nullptr, &err);
@@ -1165,7 +1209,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[2] */
 
     /* input_block layer[3] */
+#if UNET_LOAD_MODE == 0
     initInputBlock3();
+#endif
     bufferInput_3 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * MODEL_CHANNELS * 32 * 32,
                                    nullptr, &err);
@@ -1183,7 +1229,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[3] */
 
     /* input_block layer[4] */
+#if UNET_LOAD_MODE == 0
     initInputBlock4();
+#endif
     bufferInput_4 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * 2 * MODEL_CHANNELS * 32 * 32,
                                    nullptr, &err);
@@ -1212,7 +1260,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[4] */
 
     /* input_block layer[5] */
+#if UNET_LOAD_MODE == 0
     initInputBlock5();
+#endif
     bufferInput_5 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * 2 * MODEL_CHANNELS * 32 * 32,
                                    nullptr, &err);
@@ -1239,7 +1289,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[5] */
 
     /* input_block layer[6] */
+#if UNET_LOAD_MODE == 0
     initInputBlock6();
+#endif
     bufferInput_6 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * 2 * MODEL_CHANNELS * 16 * 16,
                                    nullptr, &err);
@@ -1257,7 +1309,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[6] */
 
     /* input_block layer[7] */
+#if UNET_LOAD_MODE == 0
     initInputBlock7();
+#endif
     bufferInput_7 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * 4 * MODEL_CHANNELS * 16 * 16,
                                    nullptr, &err);
@@ -1283,7 +1337,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[7] */
 
     /* input_block layer[8] */
+#if UNET_LOAD_MODE == 0
     initInputBlock8();
+#endif
     bufferInput_8 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * 4 * MODEL_CHANNELS * 16 * 16,
                                    nullptr, &err);
@@ -1309,7 +1365,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[8] */
 
     /* input_block layer[9] */
+#if UNET_LOAD_MODE == 0
     initInputBlock9();
+#endif
     bufferInput_9 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
                                    nullptr, &err);
@@ -1324,7 +1382,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[9] */
 
     /* input_block layer[10] */
+#if UNET_LOAD_MODE == 0
     initInputBlock10();
+#endif
     bufferInput_10 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                     sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
                                     nullptr, &err);
@@ -1340,7 +1400,9 @@ std::vector<float> UNetModel::forward(const std::vector<float> &x, long timestep
     /* input_block layer[10] */
 
     /* input_block layer[11] */
+#if UNET_LOAD_MODE == 0
     initInputBlock11();
+#endif
     bufferInput_11 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                     sizeof(float) * 4 * MODEL_CHANNELS * 8 * 8,
                                     nullptr, &err);

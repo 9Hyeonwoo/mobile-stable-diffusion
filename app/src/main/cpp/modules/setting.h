@@ -16,4 +16,11 @@
  */
 #define CONV_2D_KERNEL_VERSION 1
 
+/**
+ * UNet Load Mode
+ * Version 0: Initial version
+ * Version 1: Load before Execute
+ */
+#define UNET_LOAD_MODE 1
+
 #endif //MY_OPENCL_SETTING_H
