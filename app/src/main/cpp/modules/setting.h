@@ -14,6 +14,7 @@
  * Version 0: Initial version
  * Version 1: Apply register n + vector
  * Version 2: only add register n
+ * Version 3: Version 2 + register c
  */
 #define CONV_2D_KERNEL_VERSION 0
 

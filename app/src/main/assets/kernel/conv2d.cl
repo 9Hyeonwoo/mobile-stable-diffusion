@@ -683,3 +683,61 @@ __kernel void im2win_v2_matmul(
         output[(c * M + m) * N + n + reg_n * get_local_size(1)] = sum[reg_n] + bias[c];
     }
 }
+
+__kernel void im2win_channel_reg_matmul(
+    __global const float *weight,
+    __global const float *bias,
+    __global const float *input_win,
+    __global float *output,
+    const int M,
+    const int N,
+    const int width_win,
+    const int in_channel,
+    const int kernel_size,
+    const int stride
+) {
+    const int reg_size_c = 2;
+    const int reg_size_n = 1;
+    const int local_size_c = get_local_size(0);
+    const int local_size_mn = get_local_size(1);
+    const int c = get_group_id(0) * local_size_c * reg_size_c + get_local_id(0);
+    const int mn = get_group_id(1) * local_size_mn * reg_size_n + get_local_id(1);
+    const int m = mn / N;
+    const int n = mn % N;
+
+    float sum[reg_size_c][reg_size_n];
+    for (int i = 0; i < reg_size_c; i++) {
+        for (int j = 0; j < reg_size_n; j++) {
+            sum[i][j] = 0.0f;
+        }
+    }
+
+    for (int c_in = 0; c_in < in_channel; c_in++) {
+        float weight_reg[reg_size_c][9];
+        for (int w_c = 0; w_c < reg_size_c; w_c++) {
+            for (int ij = 0; ij < kernel_size * kernel_size; ij++) {
+                int f_i = ij / kernel_size;
+                int f_j = ij % kernel_size;
+                weight_reg[w_c][f_j * kernel_size + f_i] = weight[(((c + w_c * local_size_c) * in_channel + c_in) * kernel_size * kernel_size) + ij];
+            }
+        }
+
+        for (int reg_n = 0; reg_n < reg_size_n; reg_n++) {
+            const int i_mn = mn + reg_n * local_size_mn;
+            const int i_m = i_mn / N;
+            const int i_n = i_mn % N;
+            int input_index = ((c_in * M + i_m) * width_win) + ((i_n) * stride * kernel_size);
+            for (int ij = 0; ij < kernel_size * kernel_size; ij++) {
+                for (int reg_c = 0; reg_c < reg_size_c; reg_c++) {
+                    sum[reg_c][reg_n] += weight_reg[reg_c][ij] * input_win[input_index + ij];
+                }
+            }
+        }
+    }
+
+    for (int reg_c = 0; reg_c < reg_size_c; reg_c++) {
+        for (int reg_n = 0; reg_n < reg_size_n; reg_n++) {
+            output[(c + reg_c * local_size_c) * M * N + (m * N + n + reg_n * local_size_mn)] = sum[reg_c][reg_n] + bias[c + reg_c * local_size_c];
+        }
+    }
+}
