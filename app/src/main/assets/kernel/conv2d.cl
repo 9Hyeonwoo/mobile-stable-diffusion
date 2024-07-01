@@ -972,3 +972,159 @@ __kernel void im2win_channel_reg_transpose_vector_v6_matmul(
         }
     }
 }
+
+__kernel void im2win_channel_reg_transpose_weight_vector_v7_matmul(
+    __global const floatX *weight,
+    __global const float *bias,
+    __global const float *input_win,
+    __global float *output,
+    const int M,
+    const int N,
+    const int width_win,
+    const int in_channel,
+    const int kernel_size,
+    const int stride
+) {
+    const int reg_size_c = 1;
+    const int reg_size_m = 8;
+    const int local_size_c = get_local_size(0);
+    const int local_size_m = get_local_size(2);
+    const int c = get_group_id(0) * local_size_c * reg_size_c + get_local_id(0);
+    const int n = get_group_id(1) * get_local_size(1) + get_local_id(1);
+    const int m = get_group_id(2) * local_size_m * reg_size_m + get_local_id(2);
+
+    float sum[reg_size_c][reg_size_m];
+    for (int i = 0; i < reg_size_c; i++) {
+        for (int j = 0; j < reg_size_m; j++) {
+            sum[i][j] = 0.0f;
+        }
+    }
+
+    floatX weight_tmp[reg_size_c];
+    for (int c_in = 0; c_in < in_channel; c_in++) {
+        for (int j = 0; j < kernel_size; j++) {
+            for (int i = 0; i < kernel_size; i++) {
+                for (int reg_c = 0; reg_c < reg_size_c; reg_c++) {
+                    int weight_index = ((((c + reg_c * local_size_c) * in_channel + c_in) * kernel_size) + j) * kernel_size + i;
+                    if ((i == 0 && j == 0) || weight_index % WIDTH == 0) {
+                        weight_tmp[reg_c] = weight[weight_index/ WIDTH];
+                    }
+                    for (int reg_m = 0; reg_m < reg_size_m; reg_m++) {
+                        int input_index = ((c_in * width_win + (n * stride * kernel_size) + i * kernel_size + j) * M) + (m + reg_m * local_size_m);
+                        #if WIDTH == 1
+                        sum[reg_c][reg_m] += weight_tmp[reg_c] * input_win[input_index];
+                        #elif WIDTH == 2
+                        switch (weight_index % WIDTH) {
+                            case 0:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].x * input_win[input_index];
+                                break;
+                            case 1:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].y * input_win[input_index];
+                                break;
+                        }
+                        #elif WIDTH == 4
+                        switch (weight_index % WIDTH) {
+                            case 0:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].x * input_win[input_index];
+                                break;
+                            case 1:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].y * input_win[input_index];
+                                break;
+                            case 2:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].z * input_win[input_index];
+                                break;
+                            case 3:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].w * input_win[input_index];
+                                break;
+                        }
+                        #elif WIDTH == 8
+                        switch (weight_index % WIDTH) {
+                            case 0:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s0 * input_win[input_index];
+                                break;
+                            case 1:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s1 * input_win[input_index];
+                                break;
+                            case 2:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s2 * input_win[input_index];
+                                break;
+                            case 3:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s3 * input_win[input_index];
+                                break;
+                            case 4:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s4 * input_win[input_index];
+                                break;
+                            case 5:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s5 * input_win[input_index];
+                                break;
+                            case 6:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s6 * input_win[input_index];
+                                break;
+                            case 7:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s7 * input_win[input_index];
+                                break;
+                        }
+                        #elif WIDTH == 16
+                        switch (weight_index % WIDTH) {
+                            case 0:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s0 * input_win[input_index];
+                                break;
+                            case 1:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s1 * input_win[input_index];
+                                break;
+                            case 2:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s2 * input_win[input_index];
+                                break;
+                            case 3:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s3 * input_win[input_index];
+                                break;
+                            case 4:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s4 * input_win[input_index];
+                                break;
+                            case 5:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s5 * input_win[input_index];
+                                break;
+                            case 6:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s6 * input_win[input_index];
+                                break;
+                            case 7:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s7 * input_win[input_index];
+                                break;
+                            case 8:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s8 * input_win[input_index];
+                                break;
+                            case 9:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].s9 * input_win[input_index];
+                                break;
+                            case 10:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].sA * input_win[input_index];
+                                break;
+                            case 11:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].sB * input_win[input_index];
+                                break;
+                            case 12:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].sC * input_win[input_index];
+                                break;
+                            case 13:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].sD * input_win[input_index];
+                                break;
+                            case 14:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].sE * input_win[input_index];
+                                break;
+                            case 15:
+                                sum[reg_c][reg_m] += weight_tmp[reg_c].sF * input_win[input_index];
+                                break;
+                        }
+                        #endif
+                    }
+                }
+            }
+        }
+    }
+
+    for (int reg_c = 0; reg_c < reg_size_c; reg_c++) {
+        for (int reg_m = 0; reg_m < reg_size_m; reg_m++) {
+            output[(c + reg_c * local_size_c) * M * N + ((m + reg_m * local_size_m) * N + n)] = sum[reg_c][reg_m] + bias[c + reg_c * local_size_c];
+        }
+    }
+}

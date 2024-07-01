@@ -27,6 +27,7 @@ public:
     cl_kernel im2win_channel_reg_transpose_v5_matmul;
     cl_kernel im2win_transpose;
     cl_kernel im2win_channel_reg_transpose_vector_v6_matmul;
+    cl_kernel im2win_channel_reg_transpose_weight_vector_v7_matmul;
 };
 
 
