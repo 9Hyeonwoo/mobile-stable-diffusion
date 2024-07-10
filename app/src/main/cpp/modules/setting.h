@@ -19,8 +19,9 @@
  * Version 5: Version 4 - register n + transpose input_win + register m (102ms)
  * Version 6: Version 5 + input vectorize
  * Version 7: Version 5 + weight vectorize (1669ms)
+ * Version 8: Version 6 + input reorder
  */
-#define CONV_2D_KERNEL_VERSION 6
+#define CONV_2D_KERNEL_VERSION 8
 
 /**
  * UNet Load Mode
