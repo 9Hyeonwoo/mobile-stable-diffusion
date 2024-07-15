@@ -109,9 +109,9 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     err |= clSetKernelArg(kernel->conv2d, 1, sizeof(cl_mem), &bufferWeight);
     err |= clSetKernelArg(kernel->conv2d, 2, sizeof(cl_mem), &bufferBias);
     err |= clSetKernelArg(kernel->conv2d, 3, sizeof(cl_mem), &output);
-    err |= clSetKernelArg(kernel->conv2d, 4, sizeof(size_t), &inputSize);
-    err |= clSetKernelArg(kernel->conv2d, 5, sizeof(size_t), &weightShape[1]);
-    err |= clSetKernelArg(kernel->conv2d, 6, sizeof(size_t), &weightShape[2]);
+    err |= clSetKernelArg(kernel->conv2d, 4, sizeof(int), &inputSize);
+    err |= clSetKernelArg(kernel->conv2d, 5, sizeof(int), &weightShape[1]);
+    err |= clSetKernelArg(kernel->conv2d, 6, sizeof(int), &weightShape[2]);
     err |= clSetKernelArg(kernel->conv2d, 7, sizeof(int), &stride);
     err |= clSetKernelArg(kernel->conv2d, 8, sizeof(int), &padding);
     CHECK_ERROR(err);
@@ -136,16 +136,16 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     size_t num_kernels = in_channel * outputSize * outputSize;
     int im_offset = 0;
     int col_offset = 0;
-    err = clSetKernelArg(kernel->im2col, 0, sizeof(size_t), &num_kernels);
+    err = clSetKernelArg(kernel->im2col, 0, sizeof(int), &num_kernels);
     err |= clSetKernelArg(kernel->im2col, 1, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel->im2col, 2, sizeof(int), &im_offset);
-    err |= clSetKernelArg(kernel->im2col, 3, sizeof(size_t), &inputSize);
-    err |= clSetKernelArg(kernel->im2col, 4, sizeof(size_t), &inputSize);
-    err |= clSetKernelArg(kernel->im2col, 5, sizeof(size_t), &kernel_size);
+    err |= clSetKernelArg(kernel->im2col, 3, sizeof(int), &inputSize);
+    err |= clSetKernelArg(kernel->im2col, 4, sizeof(int), &inputSize);
+    err |= clSetKernelArg(kernel->im2col, 5, sizeof(int), &kernel_size);
     err |= clSetKernelArg(kernel->im2col, 6, sizeof(int), &padding);
     err |= clSetKernelArg(kernel->im2col, 7, sizeof(int), &stride);
-    err |= clSetKernelArg(kernel->im2col, 8, sizeof(size_t), &outputSize);
-    err |= clSetKernelArg(kernel->im2col, 9, sizeof(size_t), &outputSize);
+    err |= clSetKernelArg(kernel->im2col, 8, sizeof(int), &outputSize);
+    err |= clSetKernelArg(kernel->im2col, 9, sizeof(int), &outputSize);
     err |= clSetKernelArg(kernel->im2col, 10, sizeof(cl_mem), &bufferCol);
     err |= clSetKernelArg(kernel->im2col, 11, sizeof(int), &col_offset);
     CHECK_ERROR(err);
@@ -163,9 +163,9 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     err |= clSetKernelArg(kernel->conv2d_matmul, 1, sizeof(cl_mem), &bufferBias);
     err |= clSetKernelArg(kernel->conv2d_matmul, 2, sizeof(cl_mem), &bufferCol);
     err |= clSetKernelArg(kernel->conv2d_matmul, 3, sizeof(cl_mem), &output);
-    err |= clSetKernelArg(kernel->conv2d_matmul, 4, sizeof(size_t), &out_channel);
-    err |= clSetKernelArg(kernel->conv2d_matmul, 5, sizeof(size_t), &N);
-    err |= clSetKernelArg(kernel->conv2d_matmul, 6, sizeof(size_t), &K);
+    err |= clSetKernelArg(kernel->conv2d_matmul, 4, sizeof(int), &out_channel);
+    err |= clSetKernelArg(kernel->conv2d_matmul, 5, sizeof(int), &N);
+    err |= clSetKernelArg(kernel->conv2d_matmul, 6, sizeof(int), &K);
     CHECK_ERROR(err);
 
     size_t globalSize_conv2d_matmul[1] = {out_channel * N};
@@ -193,16 +193,16 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     size_t num_windows = in_channel * outputSize * width_pad;
     size_t width_win = width_pad * kernel_size;
 #if CONV_2D_KERNEL_VERSION == 5 || CONV_2D_KERNEL_VERSION == 6 || CONV_2D_KERNEL_VERSION == 7
-    err = clSetKernelArg(kernel->im2win_transpose, 0, sizeof(size_t), &num_windows);
+    err = clSetKernelArg(kernel->im2win_transpose, 0, sizeof(int), &num_windows);
     err |= clSetKernelArg(kernel->im2win_transpose, 1, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel->im2win_transpose, 2, sizeof(int), &im_offset);
-    err |= clSetKernelArg(kernel->im2win_transpose, 3, sizeof(size_t), &inputSize);
-    err |= clSetKernelArg(kernel->im2win_transpose, 4, sizeof(size_t), &inputSize);
-    err |= clSetKernelArg(kernel->im2win_transpose, 5, sizeof(size_t), &kernel_size);
+    err |= clSetKernelArg(kernel->im2win_transpose, 3, sizeof(int), &inputSize);
+    err |= clSetKernelArg(kernel->im2win_transpose, 4, sizeof(int), &inputSize);
+    err |= clSetKernelArg(kernel->im2win_transpose, 5, sizeof(int), &kernel_size);
     err |= clSetKernelArg(kernel->im2win_transpose, 6, sizeof(int), &padding);
     err |= clSetKernelArg(kernel->im2win_transpose, 7, sizeof(int), &stride);
-    err |= clSetKernelArg(kernel->im2win_transpose, 8, sizeof(size_t), &outputSize);
-    err |= clSetKernelArg(kernel->im2win_transpose, 9, sizeof(size_t), &width_win);
+    err |= clSetKernelArg(kernel->im2win_transpose, 8, sizeof(int), &outputSize);
+    err |= clSetKernelArg(kernel->im2win_transpose, 9, sizeof(int), &width_win);
     err |= clSetKernelArg(kernel->im2win_transpose, 10, sizeof(cl_mem), &bufferWin);
     err |= clSetKernelArg(kernel->im2win_transpose, 11, sizeof(int), &col_offset);
     CHECK_ERROR(err);
@@ -212,16 +212,16 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  num_events_in_list, event_wait_list, &_event[0]);
     CHECK_ERROR(err);
 #elif CONV_2D_KERNEL_VERSION == 8
-    err = clSetKernelArg(kernel->im2win_transpose_reorder, 0, sizeof(size_t), &num_windows);
+    err = clSetKernelArg(kernel->im2win_transpose_reorder, 0, sizeof(int), &num_windows);
     err |= clSetKernelArg(kernel->im2win_transpose_reorder, 1, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel->im2win_transpose_reorder, 2, sizeof(int), &im_offset);
-    err |= clSetKernelArg(kernel->im2win_transpose_reorder, 3, sizeof(size_t), &inputSize);
-    err |= clSetKernelArg(kernel->im2win_transpose_reorder, 4, sizeof(size_t), &inputSize);
-    err |= clSetKernelArg(kernel->im2win_transpose_reorder, 5, sizeof(size_t), &kernel_size);
+    err |= clSetKernelArg(kernel->im2win_transpose_reorder, 3, sizeof(int), &inputSize);
+    err |= clSetKernelArg(kernel->im2win_transpose_reorder, 4, sizeof(int), &inputSize);
+    err |= clSetKernelArg(kernel->im2win_transpose_reorder, 5, sizeof(int), &kernel_size);
     err |= clSetKernelArg(kernel->im2win_transpose_reorder, 6, sizeof(int), &padding);
     err |= clSetKernelArg(kernel->im2win_transpose_reorder, 7, sizeof(int), &stride);
-    err |= clSetKernelArg(kernel->im2win_transpose_reorder, 8, sizeof(size_t), &outputSize);
-    err |= clSetKernelArg(kernel->im2win_transpose_reorder, 9, sizeof(size_t), &width_win);
+    err |= clSetKernelArg(kernel->im2win_transpose_reorder, 8, sizeof(int), &outputSize);
+    err |= clSetKernelArg(kernel->im2win_transpose_reorder, 9, sizeof(int), &width_win);
     err |= clSetKernelArg(kernel->im2win_transpose_reorder, 10, sizeof(cl_mem), &bufferWin);
     err |= clSetKernelArg(kernel->im2win_transpose_reorder, 11, sizeof(int), &col_offset);
     CHECK_ERROR(err);
@@ -231,16 +231,16 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                                  num_events_in_list, event_wait_list, &_event[0]);
     CHECK_ERROR(err);
 #else
-    err = clSetKernelArg(kernel->im2win, 0, sizeof(size_t), &num_windows);
+    err = clSetKernelArg(kernel->im2win, 0, sizeof(int), &num_windows);
     err |= clSetKernelArg(kernel->im2win, 1, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel->im2win, 2, sizeof(int), &im_offset);
-    err |= clSetKernelArg(kernel->im2win, 3, sizeof(size_t), &inputSize);
-    err |= clSetKernelArg(kernel->im2win, 4, sizeof(size_t), &inputSize);
-    err |= clSetKernelArg(kernel->im2win, 5, sizeof(size_t), &kernel_size);
+    err |= clSetKernelArg(kernel->im2win, 3, sizeof(int), &inputSize);
+    err |= clSetKernelArg(kernel->im2win, 4, sizeof(int), &inputSize);
+    err |= clSetKernelArg(kernel->im2win, 5, sizeof(int), &kernel_size);
     err |= clSetKernelArg(kernel->im2win, 6, sizeof(int), &padding);
     err |= clSetKernelArg(kernel->im2win, 7, sizeof(int), &stride);
-    err |= clSetKernelArg(kernel->im2win, 8, sizeof(size_t), &outputSize);
-    err |= clSetKernelArg(kernel->im2win, 9, sizeof(size_t), &width_win);
+    err |= clSetKernelArg(kernel->im2win, 8, sizeof(int), &outputSize);
+    err |= clSetKernelArg(kernel->im2win, 9, sizeof(int), &width_win);
     err |= clSetKernelArg(kernel->im2win, 10, sizeof(cl_mem), &bufferWin);
     err |= clSetKernelArg(kernel->im2win, 11, sizeof(int), &col_offset);
     CHECK_ERROR(err);
@@ -259,12 +259,12 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     err |= clSetKernelArg(kernel->im2win_matmul, 1, sizeof(cl_mem), &bufferBias);
     err |= clSetKernelArg(kernel->im2win_matmul, 2, sizeof(cl_mem), &bufferWin);
     err |= clSetKernelArg(kernel->im2win_matmul, 3, sizeof(cl_mem), &output);
-    err |= clSetKernelArg(kernel->im2win_matmul, 4, sizeof(size_t), &out_channel);
-    err |= clSetKernelArg(kernel->im2win_matmul, 5, sizeof(size_t), &outputSize);
-    err |= clSetKernelArg(kernel->im2win_matmul, 6, sizeof(size_t), &outputSize);
-    err |= clSetKernelArg(kernel->im2win_matmul, 7, sizeof(size_t), &width_win);
-    err |= clSetKernelArg(kernel->im2win_matmul, 8, sizeof(size_t), &in_channel);
-    err |= clSetKernelArg(kernel->im2win_matmul, 9, sizeof(size_t), &kernel_size);
+    err |= clSetKernelArg(kernel->im2win_matmul, 4, sizeof(int), &out_channel);
+    err |= clSetKernelArg(kernel->im2win_matmul, 5, sizeof(int), &outputSize);
+    err |= clSetKernelArg(kernel->im2win_matmul, 6, sizeof(int), &outputSize);
+    err |= clSetKernelArg(kernel->im2win_matmul, 7, sizeof(int), &width_win);
+    err |= clSetKernelArg(kernel->im2win_matmul, 8, sizeof(int), &in_channel);
+    err |= clSetKernelArg(kernel->im2win_matmul, 9, sizeof(int), &kernel_size);
     err |= clSetKernelArg(kernel->im2win_matmul, 10, sizeof(int), &stride);
     CHECK_ERROR(err);
 
@@ -651,11 +651,11 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
     err |= clSetKernelArg(kernel->im2win_batch_matmul, 1, sizeof(cl_mem), &bufferWeight);
     err |= clSetKernelArg(kernel->im2win_batch_matmul, 2, sizeof(cl_mem), &bufferBias);
     err |= clSetKernelArg(kernel->im2win_batch_matmul, 3, sizeof(cl_mem), &output);
-    err |= clSetKernelArg(kernel->im2win_batch_matmul, 4, sizeof(size_t), &outputSize);
-    err |= clSetKernelArg(kernel->im2win_batch_matmul, 5, sizeof(size_t), &outputSize);
-    err |= clSetKernelArg(kernel->im2win_batch_matmul, 6, sizeof(size_t), &in_channel);
-    err |= clSetKernelArg(kernel->im2win_batch_matmul, 7, sizeof(size_t), &width_win);
-    err |= clSetKernelArg(kernel->im2win_batch_matmul, 8, sizeof(size_t), &kernel_size);
+    err |= clSetKernelArg(kernel->im2win_batch_matmul, 4, sizeof(int), &outputSize);
+    err |= clSetKernelArg(kernel->im2win_batch_matmul, 5, sizeof(int), &outputSize);
+    err |= clSetKernelArg(kernel->im2win_batch_matmul, 6, sizeof(int), &in_channel);
+    err |= clSetKernelArg(kernel->im2win_batch_matmul, 7, sizeof(int), &width_win);
+    err |= clSetKernelArg(kernel->im2win_batch_matmul, 8, sizeof(int), &kernel_size);
     err |= clSetKernelArg(kernel->im2win_batch_matmul, 9, sizeof(int), &stride);
     err |= clSetKernelArg(kernel->im2win_batch_matmul, 10,
                           sizeof(float) * tile_size_k * tile_size_m *
@@ -663,8 +663,8 @@ cl_int Conv2D::forward(cl_mem input, cl_mem output, cl_uint num_events_in_list,
                           nullptr);
     err |= clSetKernelArg(kernel->im2win_batch_matmul, 11,
                           sizeof(float) * tile_size_k * kernel_size * kernel_size, nullptr);
-    err |= clSetKernelArg(kernel->im2win_batch_matmul, 12, sizeof(size_t), &tile_size_n);
-    err |= clSetKernelArg(kernel->im2win_batch_matmul, 13, sizeof(size_t), &tile_size_k);
+    err |= clSetKernelArg(kernel->im2win_batch_matmul, 12, sizeof(int), &tile_size_n);
+    err |= clSetKernelArg(kernel->im2win_batch_matmul, 13, sizeof(int), &tile_size_k);
     CHECK_ERROR(err);
 
     size_t globalSize_im2win_batch_matmul[3] = {out_channel, outputSize, outputSize / reg_size_n};

@@ -2,9 +2,9 @@ __kernel void conv2d(__global float *input,
                      __global float *weight,
                      __global float *bias,
                      __global float *output,
-                     const size_t input_size,
-                     const size_t kernel_channel_size,
-                     const size_t kernel_size,
+                     const int input_size,
+                     const int kernel_channel_size,
+                     const int kernel_size,
                      const int stride,
                      const int padding)
 {
@@ -37,16 +37,16 @@ __kernel void conv2d(__global float *input,
 }
 
 __kernel void im2col(
-    const size_t n,
+    const int n,
     __global const float* data_im,
     const int data_im_off,
-    const size_t height,
-    const size_t width,
-    const size_t kernel_size,
+    const int height,
+    const int width,
+    const int kernel_size,
     const int padding,
     const int stride,
-    const size_t height_col,
-    const size_t width_col,
+    const int height_col,
+    const int width_col,
     __global float* data_col,
     const int data_col_off
 ) {
@@ -86,9 +86,9 @@ __kernel void conv2d_matmul(
     __global const float *bias,
     __global const float *input_col,
     __global float *output,
-    const size_t M,
-    const size_t N,
-    const size_t K
+    const int M,
+    const int N,
+    const int K
 ) {
     // weight = (320, 4, 3, 3) bias = (320), input_col = (4*3*3, 64*64) => output = (320, 64*64)
     int output_size = M * N;
@@ -107,16 +107,16 @@ __kernel void conv2d_matmul(
 }
 
 __kernel void im2win(
-    const size_t n,
+    const int n,
     __global const float* data_im,
     const int data_im_off,
-    const size_t height,
-    const size_t width,
-    const size_t kernel_size,
+    const int height,
+    const int width,
+    const int kernel_size,
     const int padding,
     const int stride,
-    const size_t height_win,
-    const size_t width_win,
+    const int height_win,
+    const int width_win,
     __global float* data_win,
     const int data_win_off
 ) {
@@ -156,12 +156,12 @@ __kernel void im2win_matmul(
     __global const float *bias,
     __global const float *input_win,
     __global float *output,
-    const size_t C,
-    const size_t M,
-    const size_t N,
-    const size_t width_win,
-    const size_t in_channel,
-    const size_t kernel_size,
+    const int C,
+    const int M,
+    const int N,
+    const int width_win,
+    const int in_channel,
+    const int kernel_size,
     const int stride
 ) {
     int output_size = C * M * N;
@@ -190,16 +190,16 @@ __kernel void im2win_batch_matmul(
     __global const float *weight, // weight = (C, in_channel, kernel_size, kernel_size)
     __global const float *bias, // bias = (C)
     __global float* output,
-    const size_t M,
-    const size_t N,
-    const size_t in_channel,
-    const size_t width_win,
-    const size_t kernel_size, // kernel_size = {1, 3}
+    const int M,
+    const int N,
+    const int in_channel,
+    const int width_win,
+    const int kernel_size, // kernel_size = {1, 3}
     const int stride, // stride = {1, 2}
     __local float* input_sub,
     __local float* weight_sub,
-    const size_t tile_size_n,
-    const size_t tile_size_k
+    const int tile_size_n,
+    const int tile_size_k
 ) {
 
     // tile_size(batch, m, n) = (1, 1, 128)
@@ -844,16 +844,16 @@ __kernel void im2win_channel_reg_transpose_v5_matmul(
 }
 
 __kernel void im2win_transpose(
-    const size_t n,
+    const int n,
     __global const float* data_im,
     const int data_im_off,
-    const size_t height,
-    const size_t width,
-    const size_t kernel_size,
+    const int height,
+    const int width,
+    const int kernel_size,
     const int padding,
     const int stride,
-    const size_t height_win,
-    const size_t width_win,
+    const int height_win,
+    const int width_win,
     __global float* data_win,
     const int data_win_off
 ) {
@@ -888,16 +888,16 @@ __kernel void im2win_transpose(
 }
 
 __kernel void im2win_transpose_reorder(
-    const size_t n,
+    const int n,
     __global const float* data_im,
     const int data_im_off,
-    const size_t height,
-    const size_t width,
-    const size_t kernel_size,
+    const int height,
+    const int width,
+    const int kernel_size,
     const int padding,
     const int stride,
-    const size_t height_win,
-    const size_t width_win,
+    const int height_win,
+    const int width_win,
     __global float* data_win,
     const int data_win_off
 ) {
